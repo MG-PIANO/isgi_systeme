@@ -1,0 +1,34 @@
+# .htaccess pour la bibliothèque
+
+# Redirection pour les fichiers PDF
+RewriteRule ^bibliotheque/livre/(\d+)/?$ bibliotheque_public.php?action=view&id=$1 [L,QSA]
+RewriteRule ^bibliotheque/download/(\d+)/?$ bibliotheque_public.php?action=view&id=$1&download=1 [L,QSA]
+RewriteRule ^bibliotheque/search/?$ bibliotheque_public.php?action=search [L,QSA]
+RewriteRule ^bibliotheque/favoris/?$ bibliotheque_public.php?action=favoris [L,QSA]
+
+# API
+RewriteRule ^api/bibliotheque/convert/?$ api/pdf_converter.php [L]
+RewriteRule ^api/bibliotheque/favoris/?$ api/favoris.php [L]
+
+# Sécurité des fichiers uploadés
+<FilesMatch "\.(php|php5|php7|phtml|pl|py|jsp|asp|sh|cgi)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Autoriser uniquement les PDF et images dans le dossier uploads
+<Location "/assets/uploads/">
+    <FilesMatch "\.(pdf|jpg|jpeg|png|gif)$">
+        Order Allow,Deny
+        Allow from all
+    </FilesMatch>
+    <FilesMatch "\.(php|php5|php7|phtml)$">
+        Order Deny,Allow
+        Deny from all
+    </FilesMatch>
+</Location>
+
+# Headers de sécurité
+Header set X-Content-Type-Options "nosniff"
+Header set X-Frame-Options "SAMEORIGIN"
+Header set X-XSS-Protection "1; mode=block"

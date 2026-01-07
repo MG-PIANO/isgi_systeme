@@ -1,0 +1,6 @@
+[2025-12-25 12:22:57] Erreur récupération stats: SQLSTATE[42S22]: Column not found: 1054 Champ 'e.nom' inconnu dans field list
+=================================
+[2025-12-25 12:23:55] Erreur récupération stats: SQLSTATE[42S22]: Column not found: 1054 Champ 'e.nom' inconnu dans field list
+=================================
+[2025-12-25 12:27:06] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================

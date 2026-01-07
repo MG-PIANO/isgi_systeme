@@ -1,0 +1,235 @@
+/* css/pdf-style.css */
+
+/* Style Times New Roman pour tous les documents */
+.times-new-roman {
+    font-family: "Times New Roman", Times, serif !important;
+}
+
+/* Style académique par défaut */
+.academic-document {
+    font-family: "Times New Roman", Times, serif !important;
+    font-size: 12pt !important;
+    line-height: 1.5 !important;
+    text-align: left !important;
+    direction: ltr !important;
+    margin: 2cm !important;
+    background-color: white !important;
+    color: black !important;
+}
+
+/* Titres */
+.academic-document h1 {
+    font-size: 16pt !important;
+    font-weight: bold !important;
+    margin-top: 24pt !important;
+    margin-bottom: 12pt !important;
+    text-align: center !important;
+    page-break-after: avoid !important;
+}
+
+.academic-document h2 {
+    font-size: 14pt !important;
+    font-weight: bold !important;
+    margin-top: 18pt !important;
+    margin-bottom: 9pt !important;
+    page-break-after: avoid !important;
+}
+
+.academic-document h3 {
+    font-size: 13pt !important;
+    font-weight: bold !important;
+    margin-top: 12pt !important;
+    margin-bottom: 6pt !important;
+    page-break-after: avoid !important;
+}
+
+.academic-document h4,
+.academic-document h5,
+.academic-document h6 {
+    font-size: 12pt !important;
+    font-weight: bold !important;
+    margin-top: 9pt !important;
+    margin-bottom: 4.5pt !important;
+    page-break-after: avoid !important;
+}
+
+/* Paragraphes */
+.academic-document p {
+    margin-bottom: 12pt !important;
+    text-align: justify !important;
+    text-indent: 1.5cm !important;
+    orphans: 3 !important;
+    widows: 3 !important;
+}
+
+.academic-document p.no-indent {
+    text-indent: 0 !important;
+}
+
+.academic-document p.first-paragraph {
+    text-indent: 0 !important;
+}
+
+/* Listes */
+.academic-document ul,
+.academic-document ol {
+    margin-left: 1.5cm !important;
+    margin-bottom: 12pt !important;
+}
+
+.academic-document li {
+    margin-bottom: 6pt !important;
+    page-break-inside: avoid !important;
+}
+
+/* Tableaux */
+.academic-document table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+    margin: 12pt 0 !important;
+    page-break-inside: avoid !important;
+}
+
+.academic-document th {
+    background-color: #f2f2f2 !important;
+    font-weight: bold !important;
+    text-align: center !important;
+}
+
+.academic-document th,
+.academic-document td {
+    border: 1px solid #000 !important;
+    padding: 8pt !important;
+    font-size: 11pt !important;
+    vertical-align: top !important;
+}
+
+/* Citations */
+.academic-document blockquote {
+    margin: 12pt 2cm !important;
+    font-style: italic !important;
+    padding-left: 12pt !important;
+    border-left: 3px solid #ccc !important;
+    background-color: #f9f9f9 !important;
+}
+
+/* Notes de bas de page */
+.academic-document .footnote {
+    font-size: 10pt !important;
+    line-height: 1.2 !important;
+    margin-top: 6pt !important;
+}
+
+/* En-têtes et pieds de page */
+@page {
+    margin-top: 2cm !important;
+    margin-bottom: 2cm !important;
+    margin-left: 2cm !important;
+    margin-right: 2cm !important;
+    
+    @top-left {
+        content: element(header-left) !important;
+    }
+    
+    @top-right {
+        content: element(header-right) !important;
+    }
+    
+    @bottom-center {
+        content: element(footer-center) !important;
+    }
+}
+
+.academic-document .page-header,
+.academic-document .page-footer {
+    position: running(header) !important;
+    font-size: 10pt !important;
+    color: #666 !important;
+}
+
+/* Sauts de page */
+.academic-document .page-break {
+    page-break-before: always !important;
+    break-before: page !important;
+}
+
+.academic-document .no-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+}
+
+/* Numérotation des pages */
+.academic-document .page-number:after {
+    content: counter(page) !important;
+}
+
+.academic-document .total-pages:after {
+    content: counter(pages) !important;
+}
+
+/* Pour l'affichage en ligne */
+.pdf-viewer .times-new-roman {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 1.5;
+}
+
+/* Impression */
+@media print {
+    .academic-document {
+        margin: 0 !important;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    .page-break {
+        page-break-before: always !important;
+    }
+}
+
+/* Classes utilitaires */
+.text-justify {
+    text-align: justify !important;
+}
+
+.text-left {
+    text-align: left !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+.text-right {
+    text-align: right !important;
+}
+
+.line-height-1-5 {
+    line-height: 1.5 !important;
+}
+
+.line-height-2 {
+    line-height: 2 !important;
+}
+
+.margin-2cm {
+    margin: 2cm !important;
+}
+
+.margin-top-2cm {
+    margin-top: 2cm !important;
+}
+
+.margin-bottom-2cm {
+    margin-bottom: 2cm !important;
+}
+
+.margin-left-2cm {
+    margin-left: 2cm !important;
+}
+
+.margin-right-2cm {
+    margin-right: 2cm !important;
+}

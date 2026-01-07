@@ -1,0 +1,232 @@
+[2025-12-23 17:06:46] Erreur insertion étudiant: SQLSTATE[HY000]: General error: 1267 Illegal mix of collations (utf8mb4_0900_ai_ci,IMPLICIT) and (utf8mb4_unicode_ci,IMPLICIT) for operation 'like'
+Context: {
+    "cycle_formation": "BTS",
+    "type_rentree": "Octobre",
+    "domaine": "Technologies",
+    "niveau": "BTS 1",
+    "filiere": "D\u00e9veloppement Web et Mobile",
+    "type_formation": "Normale",
+    "ecole": "",
+    "site_formation": "Brazzaville",
+    "numero_cni": "765456",
+    "sexe": "M",
+    "nom": "MOUNDOU",
+    "prenom": "roger",
+    "date_naissance": "2004-10-13",
+    "lieu_naissance": "bbbbbbbb",
+    "nationalite": "Congolaise",
+    "adresse": "13 MPOUYA",
+    "pays": "Congo",
+    "ville": "Brazzaville",
+    "indicatif": "+242",
+    "telephone": "067349369",
+    "email": "rogermoundou@icloud.com",
+    "profession": "\u00c9tudiant",
+    "situation_matrimoniale": "C\u00e9libataire",
+    "nom_pere": "Franck OBOA",
+    "profession_pere": "bbbbbbbb",
+    "nom_mere": "Franck OBOA",
+    "profession_mere": "bbbbbbbbbbb",
+    "indicatif_parent": "+242",
+    "telephone_parent": "064838383",
+    "nom_tuteur": "roger MOUNDOU",
+    "profession_tuteur": "bbbbbbbbbbb",
+    "indicatif_tuteur": "+242",
+    "telephone_tuteur": "067349369",
+    "lieu_service_tuteur": "bbbbbbbbbb",
+    "mode_paiement": "MTN Mobile Money",
+    "periodicite_paiement": "Annuel",
+    "comment_connaissance": "Ancien \u00e9tudiant",
+    "commentaires": ""
+}
+=================================
+[2025-12-23 22:00:47] Erreur insertion étudiant: SQLSTATE[HY000]: General error: 2014 Cannot execute queries while there are pending result sets. Consider unsetting the previous PDOStatement or calling PDOStatement::closeCursor()
+Context: {
+    "cycle_formation": "Licence",
+    "type_rentree": "Janvier",
+    "domaine": "Gestion",
+    "niveau": "Licence 3",
+    "filiere": "Marketing Digital",
+    "type_formation": "Normale",
+    "ecole": "",
+    "site_formation": "Pointe-Noire",
+    "numero_cni": "456765",
+    "sexe": "M",
+    "nom": "MOUNDOU",
+    "prenom": "roger",
+    "date_naissance": "2004-10-13",
+    "lieu_naissance": "bbbbbbbb",
+    "nationalite": "Congolaise",
+    "adresse": "13 MPOUYA",
+    "pays": "Congo",
+    "ville": "Brazzaville",
+    "indicatif": "+242",
+    "telephone": "066601796",
+    "email": "rogermoundou@icloud.com",
+    "profession": "\u00c9tudiant",
+    "situation_matrimoniale": "C\u00e9libataire",
+    "nom_pere": "Franck OBOA",
+    "profession_pere": "bbbbbbbb",
+    "nom_mere": "Franck OBOA",
+    "profession_mere": "bbbbbbbbbbb",
+    "indicatif_parent": "+242",
+    "telephone_parent": "066601796",
+    "nom_tuteur": "roger MOUNDOU",
+    "profession_tuteur": "bbbbbbbbbbb",
+    "indicatif_tuteur": "+242",
+    "telephone_tuteur": "066601796",
+    "lieu_service_tuteur": "",
+    "mode_paiement": "MTN Mobile Money",
+    "periodicite_paiement": "Trimestriel",
+    "comment_connaissance": "Ancien \u00e9tudiant",
+    "commentaires": ""
+}
+=================================
+[2025-12-23 23:21:00] Erreur recherche étudiant: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.inscriptions' n'existe pas
+=================================
+[2025-12-23 23:22:49] Erreur recherche étudiant: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.inscriptions' n'existe pas
+=================================
+[2025-12-24 05:25:41] Erreur inscription: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.paiements' n'existe pas
+Context: {
+    "data": {
+        "cycle_formation": "Master",
+        "type_rentree": "Octobre",
+        "domaine": "Gestion",
+        "niveau": "Master 1",
+        "filiere": "Audit et Contr\u00f4le de Gestion",
+        "type_formation": "Normale",
+        "site_formation": "Ouesso",
+        "numero_cni": "5555555",
+        "sexe": "M",
+        "nom": "MG",
+        "prenom": "rogTTT",
+        "date_naissance": "2004-10-13",
+        "lieu_naissance": "bbbbbbbb",
+        "adresse": "13 MPOUYA",
+        "ville": "Brazzaville",
+        "telephone": "067349354",
+        "email": "rogerundou@icloud.com",
+        "profession": "Fonctionnaire",
+        "situation_matrimoniale": "C\u00e9libataire",
+        "nom_pere": "Franck OBOA",
+        "nom_mere": "Franck OBOA",
+        "telephone_parent": "67777777",
+        "mode_paiement": "MTN Mobile Money",
+        "periodicite_paiement": "Annuel",
+        "comment_connaissance": "Par un ami",
+        "commentaires": ""
+    }
+}
+=================================
+[2025-12-24 05:45:04] Erreur insertion étudiant: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.notifications' n'existe pas
+Context: {
+    "data": {
+        "cycle_formation": "Licence",
+        "type_rentree": "Janvier",
+        "domaine": "Gestion",
+        "niveau": "Licence 2",
+        "filiere": "Marketing Digital",
+        "type_formation": "Normale",
+        "ecole": "ISGI Congo",
+        "site_formation": "Ouesso",
+        "numero_cni": "5555500",
+        "sexe": "F",
+        "nom": "MG",
+        "prenom": "rogTTT",
+        "date_naissance": "2004-10-13",
+        "lieu_naissance": "bbbbbbbb",
+        "nationalite": "Congolaise",
+        "adresse": "13 MPOUYA",
+        "pays": "Congo",
+        "ville": "Brazzaville",
+        "indicatif": "+242",
+        "telephone": "067349369",
+        "email": "rogerundou@icloud.com",
+        "profession": "\u00c9tudiant",
+        "situation_matrimoniale": "Mari\u00e9(e)",
+        "nom_pere": "Franck OBOA",
+        "profession_pere": "bbbbbbbb",
+        "nom_mere": "Franck OBOA",
+        "profession_mere": "bbbbbbbbbbb",
+        "indicatif_parent": "+242",
+        "telephone_parent": "67777777",
+        "nom_tuteur": "TOI MOI",
+        "profession_tuteur": "sdfgfd",
+        "indicatif_tuteur": "+242",
+        "telephone_tuteur": "444444",
+        "lieu_service_tuteur": "HG",
+        "mode_paiement": "MTN Mobile Money",
+        "periodicite_paiement": "Trimestriel",
+        "comment_connaissance": "Internet",
+        "commentaires": ""
+    },
+    "trace": "#0 C:\\wamp64\\www\\isgi_system\\traitement-inscription.php(291): PDO->prepare('INSERT INTO not...')\n#1 {main}"
+}
+=================================
+[2025-12-24 05:56:11] Erreur insertion étudiant: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.notifications' n'existe pas
+Context: {
+    "data": {
+        "cycle_formation": "BTS",
+        "type_rentree": "Octobre",
+        "domaine": "Gestion",
+        "niveau": "BTS 1",
+        "filiere": "Comptabilit\u00e9 et Gestion d&#039;Entreprise",
+        "type_formation": "Sp\u00e9ciale",
+        "ecole": "HORIZON France",
+        "site_formation": "Brazzaville",
+        "numero_cni": "333333333",
+        "sexe": "M",
+        "nom": "OBOA",
+        "prenom": "Franck",
+        "date_naissance": "2006-06-15",
+        "lieu_naissance": "bbbbbbbb",
+        "nationalite": "Congolaise",
+        "adresse": "13 MPOUYA",
+        "pays": "Congo",
+        "ville": "Brazzaville",
+        "indicatif": "+242",
+        "telephone": "111111111",
+        "email": "oboa@gmail.com",
+        "profession": "\u00c9tudiant",
+        "situation_matrimoniale": "C\u00e9libataire",
+        "nom_pere": "Franck OBOA",
+        "profession_pere": "bbbbbbbb",
+        "nom_mere": "Franck OBOA",
+        "profession_mere": "bbbbbbbbbbb",
+        "indicatif_parent": "+242",
+        "telephone_parent": "333333",
+        "nom_tuteur": "TOI MOI",
+        "profession_tuteur": "sdfgfd",
+        "indicatif_tuteur": "+242",
+        "telephone_tuteur": "77777777",
+        "lieu_service_tuteur": "HG",
+        "mode_paiement": "Airtel Money",
+        "periodicite_paiement": "Trimestriel",
+        "comment_connaissance": "Ancien \u00e9tudiant",
+        "commentaires": ""
+    },
+    "trace": "#0 C:\\wamp64\\www\\isgi_system\\traitement-inscription.php(291): PDO->prepare('INSERT INTO not...')\n#1 {main}"
+}
+=================================
+[2025-12-26 05:49:47] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2025-12-26 10:50:51] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2025-12-28 20:01:30] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2025-12-31 06:02:31] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2026-01-02 12:19:40] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2026-01-02 12:20:52] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2026-01-02 12:22:35] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2026-01-02 12:22:51] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2026-01-02 13:41:01] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2026-01-05 22:38:27] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================
+[2026-01-07 06:37:09] Erreur récupération stats: SQLSTATE[42S02]: Base table or view not found: 1146 La table 'isgi_systeme.configurations' n'existe pas
+=================================

@@ -1,0 +1,156 @@
+<?php
+// dashboard/dac/export_students.php
+define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['role_id'] != 5) {
+    header('Location: ' . ROOT_PATH . '/auth/login.php');
+    exit();
+}
+
+@include_once ROOT_PATH . '/config/database.php';
+
+try {
+    $db = Database::getInstance()->getConnection();
+    $site_id = $_SESSION['site_id'] ?? null;
+    
+    // Récupérer les paramètres de filtrage
+    $search = $_GET['search'] ?? '';
+    $classe_id = $_GET['classe_id'] ?? null;
+    $statut = $_GET['statut'] ?? '';
+    $format = $_GET['format'] ?? 'csv';
+    
+    // Construire la requête
+    $query = "SELECT e.matricule, e.nom, e.prenom, e.numero_cni, e.date_naissance, e.lieu_naissance, 
+                     e.sexe, e.nationalite, e.adresse, e.ville, e.pays, e.profession, 
+                     e.situation_matrimoniale, e.statut, e.date_inscription,
+                     c.nom as classe_nom, f.nom as filiere_nom, n.libelle as niveau_libelle,
+                     u.email, u.telephone
+              FROM etudiants e
+              LEFT JOIN classes c ON e.classe_id = c.id
+              LEFT JOIN inscriptions i ON e.id = i.etudiant_id
+              LEFT JOIN filieres f ON i.filiere_id = f.id
+              LEFT JOIN niveaux n ON i.niveau = n.code
+              LEFT JOIN utilisateurs u ON e.utilisateur_id = u.id
+              WHERE e.site_id = ?";
+    
+    $params = [$site_id];
+    
+    if (!empty($search)) {
+        $query .= " AND (e.matricule LIKE ? OR e.nom LIKE ? OR e.prenom LIKE ? OR e.numero_cni LIKE ?)";
+        $search_term = "%$search%";
+        $params[] = $search_term;
+        $params[] = $search_term;
+        $params[] = $search_term;
+        $params[] = $search_term;
+    }
+    
+    if (!empty($classe_id)) {
+        $query .= " AND e.classe_id = ?";
+        $params[] = $classe_id;
+    }
+    
+    if (!empty($statut)) {
+        $query .= " AND e.statut = ?";
+        $params[] = $statut;
+    }
+    
+    $query .= " ORDER BY e.date_inscription DESC";
+    
+    $stmt = $db->prepare($query);
+    $stmt->execute($params);
+    $etudiants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if ($format === 'csv') {
+        // Exporter en CSV
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename=etudiants_' . date('Ymd_His') . '.csv');
+        
+        $output = fopen('php://output', 'w');
+        
+        // En-têtes
+        fputcsv($output, [
+            'Matricule', 'Nom', 'Prénom', 'CNI', 'Date naissance', 'Lieu naissance',
+            'Sexe', 'Nationalité', 'Adresse', 'Ville', 'Pays', 'Profession',
+            'Situation matrimoniale', 'Statut', 'Date inscription', 'Classe',
+            'Filière', 'Niveau', 'Email', 'Téléphone'
+        ]);
+        
+        // Données
+        foreach ($etudiants as $etudiant) {
+            fputcsv($output, [
+                $etudiant['matricule'],
+                $etudiant['nom'],
+                $etudiant['prenom'],
+                $etudiant['numero_cni'],
+                $etudiant['date_naissance'],
+                $etudiant['lieu_naissance'],
+                $etudiant['sexe'] == 'M' ? 'Masculin' : 'Féminin',
+                $etudiant['nationalite'],
+                $etudiant['adresse'],
+                $etudiant['ville'],
+                $etudiant['pays'],
+                $etudiant['profession'],
+                $etudiant['situation_matrimoniale'],
+                $etudiant['statut'],
+                $etudiant['date_inscription'],
+                $etudiant['classe_nom'] ?? '',
+                $etudiant['filiere_nom'] ?? '',
+                $etudiant['niveau_libelle'] ?? '',
+                $etudiant['email'] ?? '',
+                $etudiant['telephone'] ?? ''
+            ]);
+        }
+        
+        fclose($output);
+        exit();
+        
+    } elseif ($format === 'pdf') {
+        // Exporter en PDF (nécessite FPDF)
+        require_once ROOT_PATH . '/includes/fpdf/fpdf.php';
+        
+        $pdf = new FPDF('L', 'mm', 'A4');
+        $pdf->AddPage();
+        $pdf->SetFont('Arial', 'B', 16);
+        $pdf->Cell(0, 10, 'Liste des etudiants - ISGI', 0, 1, 'C');
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->Ln(5);
+        
+        // En-têtes
+        $pdf->SetFont('Arial', 'B', 8);
+        $headers = ['Matricule', 'Nom', 'Prenom', 'CNI', 'Date Naiss.', 'Classe', 'Statut'];
+        $widths = [30, 40, 40, 30, 25, 50, 25];
+        
+        for ($i = 0; $i < count($headers); $i++) {
+            $pdf->Cell($widths[$i], 7, $headers[$i], 1, 0, 'C');
+        }
+        $pdf->Ln();
+        
+        // Données
+        $pdf->SetFont('Arial', '', 8);
+        foreach ($etudiants as $etudiant) {
+            $pdf->Cell($widths[0], 6, $etudiant['matricule'], 'LR');
+            $pdf->Cell($widths[1], 6, $etudiant['nom'], 'LR');
+            $pdf->Cell($widths[2], 6, $etudiant['prenom'], 'LR');
+            $pdf->Cell($widths[3], 6, $etudiant['numero_cni'], 'LR');
+            $pdf->Cell($widths[4], 6, date('d/m/Y', strtotime($etudiant['date_naissance'])), 'LR');
+            $pdf->Cell($widths[5], 6, $etudiant['classe_nom'] ?? 'Non assigne', 'LR');
+            $pdf->Cell($widths[6], 6, $etudiant['statut'], 'LR');
+            $pdf->Ln();
+        }
+        
+        // Fermer le tableau
+        $pdf->Cell(array_sum($widths), 0, '', 'T');
+        
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename=etudiants_' . date('Ymd_His') . '.pdf');
+        $pdf->Output('D');
+        exit();
+    }
+    
+} catch (Exception $e) {
+    header('Location: etudiants.php?error=' . urlencode($e->getMessage()));
+    exit();
+}

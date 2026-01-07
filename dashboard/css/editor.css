@@ -1,0 +1,55 @@
+/* dashboard/css/editor.css */
+.editor-toolbar {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+
+.editor-toolbar .btn-group {
+    margin-right: 10px;
+}
+
+.editor-content {
+    font-family: 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.5;
+    text-align: left;
+    direction: ltr;
+    min-height: 500px;
+    padding: 20px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    background: white;
+}
+
+.editor-content:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+.page-break {
+    page-break-after: always;
+    border-top: 1px dashed #dee2e6;
+    margin: 20px 0;
+}
+
+.format-selector {
+    width: 150px;
+}
+
+.color-picker {
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.word-count {
+    font-size: 0.8em;
+    color: #6c757d;
+}
