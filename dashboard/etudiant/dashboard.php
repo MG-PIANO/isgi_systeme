@@ -1052,7 +1052,7 @@ try {
                         <i class="fas fa-user-circle"></i>
                         <span>Informations Personnelles</span>
                     </a>
-                    <a href="carte_etudiante.php" class="nav-link">
+                    <a href="carte.php" class="nav-link">
                         <i class="fas fa-id-card"></i>
                         <span>Carte Étudiante</span>
                     </a>
