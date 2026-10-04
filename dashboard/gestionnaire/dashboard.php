@@ -782,7 +782,7 @@ try {
                     <div class="nav-section-title">Tableau de Bord</div>
                     <a href="dashboard.php" class="nav-link active">
                         <i class="fas fa-tachometer-alt"></i>
-                        <span>Dashboard Financier</span>
+                        <span>Tableau de Bord Financier</span>
                     </a>
                 </div>
                 

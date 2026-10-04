@@ -91,11 +91,9 @@ try {
                     $role_id = intval($_POST['role_id']);
                     $site_id = !empty($_POST['site_id']) ? intval($_POST['site_id']) : null;
                     
-                    // Vérification spécifique pour certains rôles
-                    $roles_requerant_site = [2, 6, 7, 8]; // Administrateur Site, Surveillant, Professeur, Étudiant
-                    
-                    if (in_array($role_id, $roles_requerant_site) && empty($site_id)) {
-                        $error = "Ce rôle nécessite l'attribution d'un site.";
+                    // MODIFICATION : TOUS les rôles sauf Administrateur Principal doivent avoir un site
+                    if ($role_id != 1 && empty($site_id)) {
+                        $error = "Tous les utilisateurs (sauf Administrateur Principal) doivent être liés à un site.";
                         break;
                     }
                     
@@ -145,11 +143,9 @@ try {
                     $site_id = !empty($_POST['site_id']) ? intval($_POST['site_id']) : null;
                     $statut = $_POST['statut'];
                     
-                    // Vérification spécifique pour certains rôles
-                    $roles_requerant_site = [2, 6, 7, 8];
-                    
-                    if (in_array($role_id, $roles_requerant_site) && empty($site_id)) {
-                        $error = "Ce rôle nécessite l'attribution d'un site.";
+                    // MODIFICATION : TOUS les rôles sauf Administrateur Principal doivent avoir un site
+                    if ($role_id != 1 && empty($site_id)) {
+                        $error = "Tous les utilisateurs (sauf Administrateur Principal) doivent être liés à un site.";
                         break;
                     }
                     
@@ -216,7 +212,9 @@ try {
         }
     }
     
-    // Récupérer la liste des utilisateurs avec informations complètes
+    // MODIFICATION : Récupérer la liste des utilisateurs avec informations complètes
+    // Seuls les Administrateurs Principaux (role_id = 1) peuvent ne pas avoir de site
+    // Pour les autres, afficher dynamiquement la liste des sites disponibles
     $query = "SELECT u.*, r.nom as role_nom, s.nom as site_nom, s.ville as site_ville,
               CASE 
                 WHEN EXISTS(SELECT 1 FROM etudiants e WHERE e.utilisateur_id = u.id) THEN 'Étudiant'
@@ -430,6 +428,23 @@ try {
         font-size: 18px;
     }
     
+    /* MODIFICATION : Style pour les indicateurs de site */
+    .site-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        background: var(--bg-color);
+        border: 1px solid var(--border-color);
+    }
+    
+    .site-required {
+        color: #dc3545;
+        font-weight: bold;
+    }
+    
     @media (max-width: 768px) {
         .sidebar {
             width: 70px;
@@ -544,10 +559,12 @@ try {
                 $total_actifs = 0;
                 $total_admins = 0;
                 $total_profs = 0;
+                $total_avec_site = 0;
                 foreach($utilisateurs as $user) {
                     if($user['statut'] == 'actif') $total_actifs++;
                     if(in_array($user['role_id'], [1,2,3,4,5,6])) $total_admins++;
                     if($user['role_id'] == 7) $total_profs++;
+                    if($user['site_id']) $total_avec_site++;
                 }
                 ?>
                 <div class="col-md-3">
@@ -587,11 +604,23 @@ try {
                     <div class="card text-center">
                         <div class="card-body">
                             <div class="text-info stats-icon">
-                                <i class="fas fa-chalkboard-teacher"></i>
+                                <i class="fas fa-building"></i>
                             </div>
-                            <h3><?php echo $total_profs; ?></h3>
-                            <p class="text-muted mb-0">Professeurs</p>
+                            <h3><?php echo $total_avec_site; ?></h3>
+                            <p class="text-muted mb-0">Assignés à un site</p>
                         </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- MODIFICATION : Avertissement sur les sites -->
+            <div class="alert alert-info mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-info-circle fa-2x me-3"></i>
+                    <div>
+                        <h6 class="mb-1"><strong>Nouvelle Règle : Attribution de Site</strong></h6>
+                        <p class="mb-0">Tous les utilisateurs (sauf les <strong>Administrateurs Principaux</strong>) doivent obligatoirement être liés à un site.<br>
+                        La liste des sites s'affiche dynamiquement selon le rôle sélectionné.</p>
                     </div>
                 </div>
             </div>
@@ -612,6 +641,9 @@ try {
                         </button>
                         <button type="button" class="btn btn-outline-warning btn-sm" onclick="filterUsers('en_attente')">
                             En attente
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="filterUsers('with_site')">
+                            Avec site
                         </button>
                     </div>
                 </div>
@@ -636,7 +668,7 @@ try {
                             </thead>
                             <tbody>
                                 <?php foreach($utilisateurs as $user): ?>
-                                <tr data-status="<?php echo $user['statut']; ?>">
+                                <tr data-status="<?php echo $user['statut']; ?>" data-has-site="<?php echo $user['site_id'] ? 'yes' : 'no'; ?>">
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="user-avatar me-3">
@@ -657,13 +689,23 @@ try {
                                     </td>
                                     <td>
                                         <?php echo getRoleBadge($user['role_id'], $user['role_nom']); ?>
+                                        <?php if($user['role_id'] != 1): ?>
+                                        <div class="site-indicator mt-1">
+                                            <i class="fas fa-building text-primary"></i>
+                                            <span class="<?php echo empty($user['site_id']) ? 'site-required' : 'text-success'; ?>">
+                                                <?php echo empty($user['site_id']) ? 'Site requis' : 'Site attribué'; ?>
+                                            </span>
+                                        </div>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if($user['site_nom']): ?>
                                         <div><strong><?php echo htmlspecialchars($user['site_nom']); ?></strong></div>
                                         <div class="text-muted small"><?php echo htmlspecialchars($user['site_ville']); ?></div>
+                                        <?php elseif($user['role_id'] == 1): ?>
+                                        <span class="text-muted"><i>Non requis</i></span>
                                         <?php else: ?>
-                                        <span class="text-muted">Non assigné</span>
+                                        <span class="text-danger"><i class="fas fa-exclamation-triangle"></i> Non assigné</span>
                                         <?php endif; ?>
                                     </td>
                                     <td><?php echo getStatutBadge($user['statut']); ?></td>
@@ -753,6 +795,7 @@ try {
                                 <option value="<?php echo $role['id']; ?>"><?php echo htmlspecialchars($role['nom']); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <div class="form-text" id="roleHelp"></div>
                         </div>
                         
                         <div class="mb-3" id="siteField">
@@ -763,6 +806,7 @@ try {
                                 <option value="<?php echo $site['id']; ?>"><?php echo htmlspecialchars($site['nom'] . ' - ' . $site['ville']); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <div class="form-text" id="siteHelp"></div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -815,6 +859,7 @@ try {
                                 <option value="<?php echo $role['id']; ?>"><?php echo htmlspecialchars($role['nom']); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <div class="form-text" id="editRoleHelp"></div>
                         </div>
                         
                         <div class="mb-3" id="editSiteField">
@@ -825,6 +870,7 @@ try {
                                 <option value="<?php echo $site['id']; ?>"><?php echo htmlspecialchars($site['nom'] . ' - ' . $site['ville']); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <div class="form-text" id="editSiteHelp"></div>
                         </div>
                         
                         <div class="mb-3">
@@ -935,46 +981,65 @@ try {
         
         if (status === 'all') {
             table.search('').columns().search('').draw();
+        } else if (status === 'with_site') {
+            // MODIFICATION : Filtrer les utilisateurs avec site
+            $.fn.dataTable.ext.search.push(
+                function(settings, data, dataIndex) {
+                    var hasSite = $(table.row(dataIndex).node()).attr('data-has-site');
+                    return hasSite === 'yes';
+                }
+            );
+            table.draw();
+            $.fn.dataTable.ext.search.pop();
         } else {
             table.column(4).search(status).draw();
         }
     }
     
-    // Gérer l'affichage du champ site selon le rôle pour l'ajout
+    // MODIFICATION : Gérer l'affichage du champ site selon le rôle pour l'ajout
     function toggleSiteField() {
-        const roleId = document.getElementById('role_id').value;
+        const roleId = parseInt(document.getElementById('role_id').value);
         const siteField = document.getElementById('siteField');
         const siteSelect = document.getElementById('site_id');
+        const roleHelp = document.getElementById('roleHelp');
+        const siteHelp = document.getElementById('siteHelp');
         
-        // Rôles qui nécessitent un site (2=Admin Site, 6=Surveillant, 7=Professeur, 8=Étudiant)
-        const rolesAvecSite = [2, 6, 7, 8];
-        
-        if (rolesAvecSite.includes(parseInt(roleId))) {
-            siteField.style.display = 'block';
-            siteSelect.required = true;
-        } else {
+        if (roleId === 1) {
+            // Administrateur Principal - site non requis
             siteField.style.display = 'none';
             siteSelect.required = false;
             siteSelect.value = '';
+            roleHelp.innerHTML = '<i class="fas fa-info-circle text-info"></i> En tant qu\'Administrateur Principal, un site n\'est pas requis.';
+            siteHelp.innerHTML = '';
+        } else {
+            // Tous les autres rôles - site requis
+            siteField.style.display = 'block';
+            siteSelect.required = true;
+            roleHelp.innerHTML = '<i class="fas fa-exclamation-circle text-warning"></i> Ce rôle nécessite l\'attribution d\'un site.';
+            siteHelp.innerHTML = '<i class="fas fa-building text-primary"></i> Sélectionnez le site auquel l\'utilisateur sera affecté.';
         }
     }
     
-    // Gérer l'affichage du champ site selon le rôle pour la modification
+    // MODIFICATION : Gérer l'affichage du champ site selon le rôle pour la modification
     function toggleEditSiteField() {
-        const roleId = document.getElementById('edit_role_id').value;
+        const roleId = parseInt(document.getElementById('edit_role_id').value);
         const siteField = document.getElementById('editSiteField');
         const siteSelect = document.getElementById('edit_site_id');
+        const roleHelp = document.getElementById('editRoleHelp');
+        const siteHelp = document.getElementById('editSiteHelp');
         
-        // Rôles qui nécessitent un site
-        const rolesAvecSite = [2, 6, 7, 8];
-        
-        if (rolesAvecSite.includes(parseInt(roleId))) {
-            siteField.style.display = 'block';
-            siteSelect.required = true;
-        } else {
+        if (roleId === 1) {
+            // Administrateur Principal - site non requis
             siteField.style.display = 'none';
             siteSelect.required = false;
-            siteSelect.value = '';
+            roleHelp.innerHTML = '<i class="fas fa-info-circle text-info"></i> En tant qu\'Administrateur Principal, un site n\'est pas requis.';
+            siteHelp.innerHTML = '';
+        } else {
+            // Tous les autres rôles - site requis
+            siteField.style.display = 'block';
+            siteSelect.required = true;
+            roleHelp.innerHTML = '<i class="fas fa-exclamation-circle text-warning"></i> Ce rôle nécessite l\'attribution d\'un site.';
+            siteHelp.innerHTML = '<i class="fas fa-building text-primary"></i> Sélectionnez le site auquel l\'utilisateur sera affecté.';
         }
     }
     </script>

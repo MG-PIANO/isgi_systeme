@@ -47,6 +47,9 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ISGI - Inscription</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -60,148 +63,117 @@ try {
             --info-color: #17a2b8;
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        
         body {
-            background-color: #f5f7fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             color: #333;
-            line-height: 1.6;
+            background-color: #f8f9fa;
         }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        /* Header et navigation */
-        header {
-            background-color: white;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-        
-        .header-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px 0;
-        }
-        
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .logo {
-            height: 60px;
-            width: auto;
-        }
-        
-        .logo-text {
-            font-size: 24px;
+        /* Header Bootstrap */
+        .navbar-brand {
+            font-size: 28px;
             font-weight: 700;
-            color: var(--primary-color);
+            color: var(--primary-color) !important;
         }
         
-        .logo-text span {
+        .navbar-brand span {
             color: var(--secondary-color);
         }
         
-        .nav-links {
-            display: flex;
-            gap: 25px;
-            align-items: center;
-        }
-        
-        .nav-links a {
-            text-decoration: none;
-            color: var(--dark-color);
+        .nav-link {
             font-weight: 500;
-            transition: color 0.3s;
+            color: var(--dark-color) !important;
+            position: relative;
+            padding: 8px 0 !important;
+            margin: 0 10px;
         }
         
-        .nav-links a:hover {
-            color: var(--secondary-color);
+        .nav-link:hover {
+            color: var(--secondary-color) !important;
         }
         
-        .nav-links a.active {
-            color: var(--secondary-color);
+        .nav-link.active {
+            color: var(--secondary-color) !important;
             font-weight: 600;
         }
         
-        .auth-buttons {
-            display: flex;
-            gap: 10px;
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--secondary-color);
+            transition: width 0.3s;
         }
         
-        .btn {
-            padding: 10px 20px;
+        .nav-link:hover::after,
+        .nav-link.active::after {
+            width: 100%;
+        }
+        
+        .btn-isgi-primary {
+            background-color: var(--secondary-color);
+            color: white;
             border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            padding: 10px 20px;
             font-weight: 600;
             transition: all 0.3s;
         }
         
-        .btn-primary {
-            background-color: var(--secondary-color);
+        .btn-isgi-primary:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             color: white;
         }
         
-        .btn-primary:hover {
-            background-color: #2980b9;
-        }
-        
-        .btn-secondary {
+        .btn-isgi-secondary {
             background-color: var(--light-color);
             color: var(--dark-color);
+            border: 1px solid #ddd;
+            padding: 10px 20px;
+            font-weight: 600;
+            transition: all 0.3s;
         }
         
-        .btn-secondary:hover {
+        .btn-isgi-secondary:hover {
             background-color: #d5dbdb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
         
-        .btn-success {
+        .btn-isgi-success {
             background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-isgi-success:hover {
+            background-color: #219653;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             color: white;
         }
         
-        .btn-success:hover {
-            background-color: #219653;
-        }
-        
-        /* Page d'inscription */
-        .inscription-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: calc(100vh - 200px);
-            padding: 40px 20px;
-            background-color: #f8f9fa;
-        }
-        
+        /* Inscription Card */
         .inscription-card {
             background-color: white;
             border-radius: 10px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 1000px;
             overflow: hidden;
+            margin: 30px auto;
+            max-width: 1200px;
         }
         
         .inscription-header {
             background-color: var(--primary-color);
             color: white;
-            padding: 25px;
+            padding: 30px;
             text-align: center;
         }
         
@@ -226,15 +198,7 @@ try {
             margin-bottom: 20px;
         }
         
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--dark-color);
-        }
-        
         .form-control {
-            width: 100%;
             padding: 12px 15px;
             border: 1px solid #ddd;
             border-radius: 5px;
@@ -245,18 +209,7 @@ try {
         .form-control:focus {
             border-color: var(--secondary-color);
             outline: none;
-        }
-        
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-        
-        @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
+            box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
         }
         
         .form-section {
@@ -283,7 +236,7 @@ try {
             display: flex;
             justify-content: space-between;
             position: relative;
-            margin-bottom: 40px;
+            margin: 0 20px 40px;
         }
         
         .progress-container::before {
@@ -383,10 +336,12 @@ try {
             text-align: center;
             cursor: pointer;
             transition: border-color 0.3s;
+            background-color: #f8f9fa;
         }
         
         .file-upload:hover {
             border-color: var(--secondary-color);
+            background-color: #f0f8ff;
         }
         
         .file-upload i {
@@ -421,6 +376,7 @@ try {
             text-align: center;
             cursor: pointer;
             transition: all 0.3s;
+            background-color: white;
         }
         
         .paiement-option:hover {
@@ -536,13 +492,6 @@ try {
             margin-top: 50px;
         }
         
-        .footer-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 40px;
-            margin-bottom: 30px;
-        }
-        
         .footer-section h3 {
             margin-bottom: 20px;
             font-size: 1.3rem;
@@ -550,6 +499,7 @@ try {
         
         .footer-links {
             list-style: none;
+            padding-left: 0;
         }
         
         .footer-links li {
@@ -576,20 +526,6 @@ try {
         
         /* Responsive */
         @media (max-width: 768px) {
-            .header-container {
-                flex-direction: column;
-                gap: 15px;
-            }
-            
-            .nav-links {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            
-            .paiement-options {
-                grid-template-columns: 1fr;
-            }
-            
             .progress-step .step-label {
                 font-size: 0.8rem;
             }
@@ -597,6 +533,10 @@ try {
             .radio-group {
                 flex-direction: column;
                 gap: 10px;
+            }
+            
+            .paiement-options {
+                grid-template-columns: 1fr;
             }
         }
         
@@ -610,6 +550,10 @@ try {
                 flex-wrap: wrap;
                 gap: 15px;
             }
+            
+            .form-section h4 {
+                font-size: 1.1rem;
+            }
         }
     </style>
 </head>
@@ -619,707 +563,841 @@ try {
         <div class="spinner"></div>
     </div>
     
-    <!-- Header avec logo ISGI -->
+    <!-- Header avec Bootstrap Navbar -->
     <header>
-        <div class="container header-container">
-            <div class="logo-container">
-                <div style="padding-left: 22px;">
-                    <div class="logo-text">IS<span>GI</span></div>
-                    <div style="font-size: 0.9rem;color: #666;">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm fixed-top">
+            <div class="container">
+                <!-- Logo -->
+                <a class="navbar-brand" href="index.php">
+                    
+                    IS<span>GI</span>
+                    <div style="font-size: 0.9rem; color: #666; font-weight: normal;">
                         <?php echo htmlspecialchars($configs['site_nom'] ?? 'Institut Supérieur de Gestion et d\'Ingénierie'); ?>
+                    </div>
+                </a>
+                
+                <!-- Mobile Toggle Button -->
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                        aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                
+                <!-- Navigation Links -->
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav mx-auto">
+                        <li class="nav-item">
+                            <a class="nav-link" href="index.php">Accueil</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="inscription.php">Inscription</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="reinscription.php">Réinscription</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="contact.php">Nous Contacter</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="apropos.php">A propos de nous</a>
+                        </li>
+                    </ul>
+                    
+                    <!-- Auth Buttons -->
+                    <div class="d-flex flex-column flex-lg-row gap-2">
+                        <button class="btn btn-isgi-secondary" onclick="window.location.href='auth/login.php'">
+                            <i class="fas fa-sign-in-alt"></i> Se connecter
+                        </button>
+                        <button class="btn btn-isgi-primary" onclick="window.location.href='register_student_tutor.php'">
+                            <i class="fas fa-user-plus"></i> Créer un compte
+                        </button>
                     </div>
                 </div>
             </div>
-            
-            <nav class="nav-links">
-                <a href="index.php">Accueil</a>
-                <a href="inscription.php" class="active">Inscription</a>
-                <a href="reinscription.php">Réinscription</a>
-                <a href="contacter.php">Nous Contacter</a>
-                <a href="apropos.php">A propos de nous</a>
-            </nav>
-            
-            <div class="auth-buttons">
-                <button class="btn btn-secondary" onclick="window.location.href='admin/login.php'">Se connecter</button>
-                <button class="btn btn-primary" onclick="window.location.href='inscription.php'">S'inscrire</button>
-            </div>
-        </div>
+        </nav>
     </header>
 
     <!-- Messages d'erreur/success -->
-    <?php if (!empty($errors)): ?>
-        <div class="container" style="margin-top: 20px;">
-            <div class="message-box error">
-                <h4><i class="fas fa-exclamation-triangle"></i> Erreurs de validation</h4>
-                <ul>
+    <div class="container mt-5 pt-5">
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger mt-4">
+                <h4 class="alert-heading"><i class="fas fa-exclamation-triangle"></i> Erreurs de validation</h4>
+                <ul class="mb-0">
                     <?php foreach ($errors as $error): ?>
                         <li><?php echo htmlspecialchars($error); ?></li>
                     <?php endforeach; ?>
                 </ul>
             </div>
-        </div>
-    <?php endif; ?>
-    
-    <?php if (isset($_SESSION['inscription_success'])): ?>
-        <div class="container" style="margin-top: 20px;">
-            <div class="message-box success">
-                <h4><i class="fas fa-check-circle"></i> Demande d'inscription soumise avec succès !</h4>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['inscription_success'])): ?>
+            <div class="alert alert-success mt-4">
+                <h4 class="alert-heading"><i class="fas fa-check-circle"></i> Demande d'inscription soumise avec succès !</h4>
                 <p>Votre demande a été enregistrée. Votre numéro de dossier est : 
                    <strong><?php echo htmlspecialchars($_SESSION['numero_demande'] ?? ''); ?></strong></p>
                 <p>Vous recevrez une confirmation par email après validation par l'administration.</p>
                 
-                <div style="margin-top: 20px;">
-                    <button class="btn btn-primary" onclick="window.location.href='inscription.php'">
+                <div class="mt-3">
+                    <button class="btn btn-isgi-primary me-2" onclick="window.location.href='inscription.php'">
                         <i class="fas fa-redo"></i> Faire une autre demande
                     </button>
-                    <button class="btn btn-secondary" onclick="window.location.href='suivi-demande.php'">
+                    <button class="btn btn-isgi-secondary" onclick="window.location.href='suivi-demande.php'">
                         <i class="fas fa-search"></i> Suivre ma demande
                     </button>
                 </div>
             </div>
-        </div>
-        <?php unset($_SESSION['inscription_success']); ?>
-    <?php endif; ?>
+            <?php unset($_SESSION['inscription_success']); ?>
+        <?php endif; ?>
+    </div>
 
     <!-- Page d'Inscription -->
-    <section id="inscription-page" class="inscription-container">
-        <div class="inscription-card">
-            <div class="inscription-header">
-                <h2><i class="fas fa-user-graduate"></i> Demande d'Inscription - Étudiant</h2>
-                <p>Procédure complète d'inscription en 4 étapes</p>
-                <p style="margin-top: 10px; font-size: 0.9rem;">
-                    <i class="fas fa-info-circle"></i> Frais d'inscription : 
-                    <strong><?php echo number_format($configs['frais_inscription'] ?? 50000, 0, ',', ' '); ?> FCFA</strong>
-                </p>
-            </div>
-            
-            <!-- Indicateur de progression -->
-            <div class="progress-container">
-                <div class="progress-step active" id="step1">
-                    <div class="step-circle">1</div>
-                    <div class="step-label">Informations<br>Étudiant</div>
+    <section id="inscription-page" class="py-5" style="margin-top: 30px;">
+        <div class="container">
+            <div class="inscription-card">
+                <div class="inscription-header">
+                    <h2><i class="fas fa-user-graduate"></i> Demande d'Inscription - Étudiant</h2>
+                    <p>Procédure complète d'inscription en 4 étapes</p>
+                    <p class="mt-2 mb-0">
+                        <i class="fas fa-info-circle"></i> Frais d'inscription : 
+                        <strong><?php echo number_format($configs['frais_inscription'] ?? 25000, 0, ',', ' '); ?> FCFA</strong>
+                    </p>
                 </div>
-                <div class="progress-step" id="step2">
-                    <div class="step-circle">2</div>
-                    <div class="step-label">Documents<br>requis</div>
-                </div>
-                <div class="progress-step" id="step3">
-                    <div class="step-circle">3</div>
-                    <div class="step-label">Paiement et<br>message</div>
-                </div>
-                <div class="progress-step" id="step4">
-                    <div class="step-circle">4</div>
-                    <div class="step-label">Confirmation</div>
-                </div>
-            </div>
-            
-            <form action="traitement-inscription.php" method="POST" id="inscription-form" class="inscription-body" enctype="multipart/form-data">
-                <!-- Étape 1 : Informations de l'étudiant -->
-                <div class="inscription-step active" id="inscription-step1">
-                    <div class="message-box">
-                        <h4><i class="fas fa-info-circle"></i> Étape 1 : Informations de l'étudiant</h4>
-                        <p>Veuillez remplir soigneusement tous les champs ci-dessous. Les champs marqués d'un <span class="required"></span> sont obligatoires.</p>
+                
+                <!-- Indicateur de progression -->
+                <div class="progress-container">
+                    <div class="progress-step active" id="step1">
+                        <div class="step-circle">1</div>
+                        <div class="step-label">Informations<br>Étudiant</div>
                     </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-graduation-cap"></i> Informations académiques</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="cycle_formation" class="required">Cycle de formation</label>
-                                <select id="cycle_formation" name="cycle_formation" class="form-control" required>
-                                    <option value="">Sélectionnez</option>
-                                    <option value="BTS" <?php echo isset($form_data['cycle_formation']) && $form_data['cycle_formation'] == 'BTS' ? 'selected' : ''; ?>>BTS (2 ans)</option>
-                                    <option value="Licence" <?php echo isset($form_data['cycle_formation']) && $form_data['cycle_formation'] == 'Licence' ? 'selected' : ''; ?>>Licence (3 ans)</option>
-                                    <option value="Master" <?php echo isset($form_data['cycle_formation']) && $form_data['cycle_formation'] == 'Master' ? 'selected' : ''; ?>>Master (2 ans)</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="type_rentree" class="required">Type de rentrée</label>
-                                <select id="type_rentree" name="type_rentree" class="form-control" required>
-                                    <option value="">Sélectionnez</option>
-                                    <option value="Octobre" <?php echo isset($form_data['type_rentree']) && $form_data['type_rentree'] == 'Octobre' ? 'selected' : ''; ?>>Rentrée d'octobre</option>
-                                    <option value="Janvier" <?php echo isset($form_data['type_rentree']) && $form_data['type_rentree'] == 'Janvier' ? 'selected' : ''; ?>>Rentrée de janvier</option>
-                                    <option value="Avril" <?php echo isset($form_data['type_rentree']) && $form_data['type_rentree'] == 'Avril' ? 'selected' : ''; ?>>Rentrée d'avril</option>
-                                </select>
-                            </div>
+                    <div class="progress-step" id="step2">
+                        <div class="step-circle">2</div>
+                        <div class="step-label">Documents<br>requis</div>
+                    </div>
+                    <div class="progress-step" id="step3">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">Paiement et<br>message</div>
+                    </div>
+                    <div class="progress-step" id="step4">
+                        <div class="step-circle">4</div>
+                        <div class="step-label">Confirmation</div>
+                    </div>
+                </div>
+                
+                <form action="traitement-inscription.php" method="POST" id="inscription-form" class="inscription-body" enctype="multipart/form-data">
+                    <!-- Étape 1 : Informations de l'étudiant -->
+                    <div class="inscription-step active" id="inscription-step1">
+                        <div class="message-box">
+                            <h4><i class="fas fa-info-circle"></i> Étape 1 : Informations de l'étudiant</h4>
+                            <p>Veuillez remplir soigneusement tous les champs ci-dessous. Les champs marqués d'un <span class="required"></span> sont obligatoires.</p>
                         </div>
                         
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="domaine" class="required">Domaine</label>
-                                <select id="domaine" name="domaine" class="form-control" required>
-                                    <option value="">Sélectionnez</option>
-                                    <option value="Technologies" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Technologies' ? 'selected' : ''; ?>>Technologies</option>
-                                    <option value="Gestion" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Gestion' ? 'selected' : ''; ?>>Gestion et administration</option>
-                                    <option value="Droit" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Droit' ? 'selected' : ''; ?>>Droit privé et International</option>
-                                    <option value="Industrie" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Industrie' ? 'selected' : ''; ?>>Industrie</option>
-                                </select>
+                        <div class="form-section">
+                            <h4><i class="fas fa-graduation-cap"></i> Informations académiques</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="cycle_formation" class="required">Cycle de formation</label>
+                                        <select id="cycle_formation" name="cycle_formation" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="BTS" <?php echo isset($form_data['cycle_formation']) && $form_data['cycle_formation'] == 'BTS' ? 'selected' : ''; ?>>BTS (2 ans)</option>
+                                            <option value="Licence" <?php echo isset($form_data['cycle_formation']) && $form_data['cycle_formation'] == 'Licence' ? 'selected' : ''; ?>>Licence (3 ans)</option>
+                                            <option value="Master" <?php echo isset($form_data['cycle_formation']) && $form_data['cycle_formation'] == 'Master' ? 'selected' : ''; ?>>Master (2 ans)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="type_rentree" class="required">Type de rentrée</label>
+                                        <select id="type_rentree" name="type_rentree" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="Octobre" <?php echo isset($form_data['type_rentree']) && $form_data['type_rentree'] == 'Octobre' ? 'selected' : ''; ?>>Rentrée d'octobre</option>
+                                            <option value="Janvier" <?php echo isset($form_data['type_rentree']) && $form_data['type_rentree'] == 'Janvier' ? 'selected' : ''; ?>>Rentrée de janvier</option>
+                                            <option value="Avril" <?php echo isset($form_data['type_rentree']) && $form_data['type_rentree'] == 'Avril' ? 'selected' : ''; ?>>Rentrée d'avril</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="niveau" class="required">Niveau d'étude</label>
-                                <select id="niveau" name="niveau" class="form-control" required>
-                                    <option value="">Sélectionnez</option>
-                                    <?php if (isset($form_data['cycle_formation'])): ?>
-                                        <?php if ($form_data['cycle_formation'] == 'BTS'): ?>
-                                            <option value="BTS 1" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'BTS 1' ? 'selected' : ''; ?>>BTS 1</option>
-                                            <option value="BTS 2" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'BTS 2' ? 'selected' : ''; ?>>BTS 2</option>
-                                        <?php elseif ($form_data['cycle_formation'] == 'Licence'): ?>
-                                            <option value="Licence 1" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Licence 1' ? 'selected' : ''; ?>>Licence 1</option>
-                                            <option value="Licence 2" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Licence 2' ? 'selected' : ''; ?>>Licence 2</option>
-                                            <option value="Licence 3" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Licence 3' ? 'selected' : ''; ?>>Licence 3</option>
-                                        <?php elseif ($form_data['cycle_formation'] == 'Master'): ?>
-                                            <option value="Master 1" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Master 1' ? 'selected' : ''; ?>>Master 1</option>
-                                            <option value="Master 2" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Master 2' ? 'selected' : ''; ?>>Master 2</option>
-                                        <?php endif; ?>
-                                    <?php endif; ?>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="filiere" class="required">Filière</label>
-                                <select id="filiere" name="filiere" class="form-control" required>
-                                    <option value="">Sélectionnez d'abord un domaine</option>
-                                    <?php if (isset($form_data['domaine']) && isset($form_data['cycle_formation'])): ?>
-                                        <?php foreach ($filieres as $filiere): ?>
-                                            <?php if ($filiere['domaine'] == $form_data['domaine'] && $filiere['cycle'] == $form_data['cycle_formation']): ?>
-                                                <option value="<?php echo htmlspecialchars($filiere['nom']); ?>"
-                                                    <?php echo isset($form_data['filiere']) && $form_data['filiere'] == $filiere['nom'] ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($filiere['nom']); ?>
-                                                </option>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="domaine" class="required">Domaine</label>
+                                        <select id="domaine" name="domaine" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="Technologies" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Technologies' ? 'selected' : ''; ?>>Technologies</option>
+                                            <option value="Gestion" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Gestion' ? 'selected' : ''; ?>>Gestion et administration</option>
+                                            <option value="Droit" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Droit' ? 'selected' : ''; ?>>Droit privé et International</option>
+                                            <option value="Industrie" <?php echo isset($form_data['domaine']) && $form_data['domaine'] == 'Industrie' ? 'selected' : ''; ?>>Industrie</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="niveau" class="required">Niveau d'étude</label>
+                                        <select id="niveau" name="niveau" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <?php if (isset($form_data['cycle_formation'])): ?>
+                                                <?php if ($form_data['cycle_formation'] == 'BTS'): ?>
+                                                    <option value="BTS 1" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'BTS 1' ? 'selected' : ''; ?>>BTS 1</option>
+                                                    <option value="BTS 2" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'BTS 2' ? 'selected' : ''; ?>>BTS 2</option>
+                                                <?php elseif ($form_data['cycle_formation'] == 'Licence'): ?>
+                                                    <option value="Licence 1" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Licence 1' ? 'selected' : ''; ?>>Licence 1</option>
+                                                    <option value="Licence 2" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Licence 2' ? 'selected' : ''; ?>>Licence 2</option>
+                                                    <option value="Licence 3" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Licence 3' ? 'selected' : ''; ?>>Licence 3</option>
+                                                <?php elseif ($form_data['cycle_formation'] == 'Master'): ?>
+                                                    <option value="Master 1" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Master 1' ? 'selected' : ''; ?>>Master 1</option>
+                                                    <option value="Master 2" <?php echo isset($form_data['niveau']) && $form_data['niveau'] == 'Master 2' ? 'selected' : ''; ?>>Master 2</option>
+                                                <?php endif; ?>
                                             <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label class="required">Type de formation</label>
-                                <div class="radio-group">
-                                    <div class="radio-option">
-                                        <input type="radio" id="normale" name="type_formation" value="Normale" 
-                                               <?php echo (!isset($form_data['type_formation']) || $form_data['type_formation'] == 'Normale') ? 'checked' : ''; ?> required>
-                                        <label for="normale">Normale (sans création d'entreprise)</label>
-                                    </div>
-                                    <div class="radio-option">
-                                        <input type="radio" id="speciale" name="type_formation" value="Spéciale"
-                                               <?php echo isset($form_data['type_formation']) && $form_data['type_formation'] == 'Spéciale' ? 'checked' : ''; ?>>
-                                        <label for="speciale">Spéciale (avec création d'entreprise)</label>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="ecole">École partenaire</label>
-                            <select id="ecole" name="ecole" class="form-control">
-                                <option value="">Sélectionnez</option>
-                                <option value="ISGI Congo" <?php echo isset($form_data['ecole']) && $form_data['ecole'] == 'ISGI Congo' ? 'selected' : ''; ?>>ISGI Congo</option>
-                                <option value="OTHM Londres" <?php echo isset($form_data['ecole']) && $form_data['ecole'] == 'OTHM Londres' ? 'selected' : ''; ?>>OTHM Londres</option>
-                                <option value="HORIZON France" <?php echo isset($form_data['ecole']) && $form_data['ecole'] == 'HORIZON France' ? 'selected' : ''; ?>>HORIZON France</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-id-card"></i> Informations personnelles</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="numero_cni" class="required">Numéro de la carte CNI/NUI ou passeport</label>
-                                <input type="text" id="numero_cni" name="numero_cni" class="form-control" 
-                                       placeholder="Ex: SN123456789" 
-                                       value="<?php echo htmlspecialchars($form_data['numero_cni'] ?? ''); ?>" 
-                                       required>
-                            </div>
                             
-                            <div class="form-group">
-                                <label for="sexe" class="required">Sexe</label>
-                                <select id="sexe" name="sexe" class="form-control" required>
-                                    <option value="">Sélectionnez</option>
-                                    <option value="M" <?php echo isset($form_data['sexe']) && $form_data['sexe'] == 'M' ? 'selected' : ''; ?>>Masculin</option>
-                                    <option value="F" <?php echo isset($form_data['sexe']) && $form_data['sexe'] == 'F' ? 'selected' : ''; ?>>Féminin</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="nom" class="required">Nom</label>
-                                <input type="text" id="nom" name="nom" class="form-control" 
-                                       placeholder="Votre nom" 
-                                       value="<?php echo htmlspecialchars($form_data['nom'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="prenom" class="required">Prénom</label>
-                                <input type="text" id="prenom" name="prenom" class="form-control" 
-                                       placeholder="Votre prénom" 
-                                       value="<?php echo htmlspecialchars($form_data['prenom'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="date_naissance" class="required">Date de naissance</label>
-                                <input type="date" id="date_naissance" name="date_naissance" class="form-control"
-                                       value="<?php echo htmlspecialchars($form_data['date_naissance'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="lieu_naissance" class="required">Lieu de naissance</label>
-                                <input type="text" id="lieu_naissance" name="lieu_naissance" class="form-control" 
-                                       placeholder="Ville et pays de naissance" 
-                                       value="<?php echo htmlspecialchars($form_data['lieu_naissance'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="nationalite" class="required">Nationalité</label>
-                            <input type="text" id="nationalite" name="nationalite" class="form-control" 
-                                   placeholder="Votre nationalité" 
-                                   value="<?php echo htmlspecialchars($form_data['nationalite'] ?? 'Congolaise'); ?>" 
-                                   required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="adresse" class="required">Adresse complète</label>
-                            <input type="text" id="adresse" name="adresse" class="form-control" 
-                                   placeholder="Adresse, ville, code postal" 
-                                   value="<?php echo htmlspecialchars($form_data['adresse'] ?? ''); ?>" 
-                                   required>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="pays" class="required">Pays</label>
-                                <select id="pays" name="pays" class="form-control" required>
-                                    <option value="">Sélectionnez votre pays</option>
-                                    <option value="Congo" <?php echo (!isset($form_data['pays']) || $form_data['pays'] == 'Congo') ? 'selected' : ''; ?>>Congo</option>
-                                    <option value="Côte d'Ivoire" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Côte d\'Ivoire' ? 'selected' : ''; ?>>Côte d'Ivoire</option>
-                                    <option value="Mali" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Mali' ? 'selected' : ''; ?>>Mali</option>
-                                    <option value="Burkina Faso" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Burkina Faso' ? 'selected' : ''; ?>>Burkina Faso</option>
-                                    <option value="Guinée" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Guinée' ? 'selected' : ''; ?>>Guinée</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="ville" class="required">Ville</label>
-                                <input type="text" id="ville" name="ville" class="form-control" 
-                                       placeholder="Votre ville de résidence" 
-                                       value="<?php echo htmlspecialchars($form_data['ville'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="telephone" class="required">Téléphone</label>
-                                <div style="display: flex;">
-                                    <select id="indicatif" name="indicatif" class="form-control" style="width: 100px; margin-right: 10px;">
-                                        <option value="+242" <?php echo (!isset($form_data['indicatif']) || $form_data['indicatif'] == '+242') ? 'selected' : ''; ?>>+242 (RC)</option>
-                                        <option value="+225" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+225' ? 'selected' : ''; ?>>+225 (CI)</option>
-                                        <option value="+223" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+223' ? 'selected' : ''; ?>>+223 (ML)</option>
-                                        <option value="+226" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+226' ? 'selected' : ''; ?>>+226 (BF)</option>
-                                        <option value="+224" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+224' ? 'selected' : ''; ?>>+224 (GN)</option>
-                                    </select>
-                                    <input type="tel" id="telephone" name="telephone" class="form-control" 
-                                           placeholder="Numéro de téléphone" 
-                                           value="<?php echo htmlspecialchars($form_data['telephone'] ?? ''); ?>" 
-                                           required>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="filiere" class="required">Filière</label>
+                                        <select id="filiere" name="filiere" class="form-control" required>
+                                            <option value="">Sélectionnez d'abord un domaine</option>
+                                            <?php if (isset($form_data['domaine']) && isset($form_data['cycle_formation'])): ?>
+                                                <?php foreach ($filieres as $filiere): ?>
+                                                    <?php if ($filiere['domaine'] == $form_data['domaine'] && $filiere['cycle'] == $form_data['cycle_formation']): ?>
+                                                        <option value="<?php echo htmlspecialchars($filiere['nom']); ?>"
+                                                            <?php echo isset($form_data['filiere']) && $form_data['filiere'] == $filiere['nom'] ? 'selected' : ''; ?>>
+                                                            <?php echo htmlspecialchars($filiere['nom']); ?>
+                                                        </option>
+                                                    <?php endif; ?>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label class="required">Type de formation</label>
+                                        <div class="radio-group">
+                                            <div class="radio-option">
+                                                <input type="radio" id="normale" name="type_formation" value="Normale" 
+                                                       <?php echo (!isset($form_data['type_formation']) || $form_data['type_formation'] == 'Normale') ? 'checked' : ''; ?> required>
+                                                <label for="normale">Normale (sans création d'entreprise)</label>
+                                            </div>
+                                            <div class="radio-option">
+                                                <input type="radio" id="speciale" name="type_formation" value="Spéciale"
+                                                       <?php echo isset($form_data['type_formation']) && $form_data['type_formation'] == 'Spéciale' ? 'checked' : ''; ?>>
+                                                <label for="speciale">Spéciale (avec création d'entreprise)</label>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="email" class="required">Email</label>
-                                <input type="email" id="email" name="email" class="form-control" 
-                                       placeholder="exemple@email.com" 
-                                       value="<?php echo htmlspecialchars($form_data['email'] ?? ''); ?>" 
-                                       required>
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="ecole">École partenaire</label>
+                                        <select id="ecole" name="ecole" class="form-control">
+                                            <option value="">Sélectionnez</option>
+                                            <option value="ISGI Congo" <?php echo isset($form_data['ecole']) && $form_data['ecole'] == 'ISGI Congo' ? 'selected' : ''; ?>>ISGI Congo</option>
+                                            <option value="OTHM Londres" <?php echo isset($form_data['ecole']) && $form_data['ecole'] == 'OTHM Londres' ? 'selected' : ''; ?>>OTHM Londres</option>
+                                            <option value="HORIZON France" <?php echo isset($form_data['ecole']) && $form_data['ecole'] == 'HORIZON France' ? 'selected' : ''; ?>>HORIZON France</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="profession" class="required">Profession ou rôle</label>
-                                <select id="profession" name="profession" class="form-control" required>
-                                    <option value="">Sélectionnez</option>
-                                    <option value="Étudiant" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Étudiant' ? 'selected' : ''; ?>>Étudiant</option>
-                                    <option value="Salarié" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Salarié' ? 'selected' : ''; ?>>Salarié</option>
-                                    <option value="Fonctionnaire" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Fonctionnaire' ? 'selected' : ''; ?>>Fonctionnaire</option>
-                                    <option value="Indépendant" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Indépendant' ? 'selected' : ''; ?>>Indépendant</option>
-                                    <option value="Sans emploi" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Sans emploi' ? 'selected' : ''; ?>>Sans emploi</option>
-                                </select>
-                            </div>
+                        <div class="form-section">
+                            <h4><i class="fas fa-id-card"></i> Informations personnelles</h4>
                             
-                            <div class="form-group">
-                                <label for="situation_matrimoniale" class="required">Situation matrimoniale</label>
-                                <select id="situation_matrimoniale" name="situation_matrimoniale" class="form-control" required>
-                                    <option value="">Sélectionnez</option>
-                                    <option value="Célibataire" <?php echo (!isset($form_data['situation_matrimoniale']) || $form_data['situation_matrimoniale'] == 'Célibataire') ? 'selected' : ''; ?>>Célibataire</option>
-                                    <option value="Marié(e)" <?php echo isset($form_data['situation_matrimoniale']) && $form_data['situation_matrimoniale'] == 'Marié(e)' ? 'selected' : ''; ?>>Marié(e)</option>
-                                    <option value="Divorcé(e)" <?php echo isset($form_data['situation_matrimoniale']) && $form_data['situation_matrimoniale'] == 'Divorcé(e)' ? 'selected' : ''; ?>>Divorcé(e)</option>
-                                    <option value="Veuf/Veuve" <?php echo isset($form_data['situation_matrimoniale']) && $form_data['situation_matrimoniale'] == 'Veuf/Veuve' ? 'selected' : ''; ?>>Veuf/Veuve</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="site_formation" class="required">Site de formation</label>
-                            <select id="site_formation" name="site_formation" class="form-control" required>
-                                <option value="">Sélectionnez</option>
-                                <option value="Brazzaville" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'Brazzaville' ? 'selected' : ''; ?>>Brazzaville</option>
-                                <option value="Pointe-Noire" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'Pointe-Noire' ? 'selected' : ''; ?>>Pointe-Noire</option>
-                                <option value="Ouesso" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'Ouesso' ? 'selected' : ''; ?>>Ouesso</option>
-                                <option value="En ligne" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'En ligne' ? 'selected' : ''; ?>>En ligne</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-users"></i> Renseignements sur les parents</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="nom_pere" class="required">Nom complet du père</label>
-                                <input type="text" id="nom_pere" name="nom_pere" class="form-control" 
-                                       placeholder="Nom et prénom du père" 
-                                       value="<?php echo htmlspecialchars($form_data['nom_pere'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="profession_pere">Profession du père</label>
-                                <input type="text" id="profession_pere" name="profession_pere" class="form-control" 
-                                       placeholder="Profession du père" 
-                                       value="<?php echo htmlspecialchars($form_data['profession_pere'] ?? ''); ?>">
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="nom_mere" class="required">Nom complet de la mère</label>
-                                <input type="text" id="nom_mere" name="nom_mere" class="form-control" 
-                                       placeholder="Nom et prénom de la mère" 
-                                       value="<?php echo htmlspecialchars($form_data['nom_mere'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="profession_mere">Profession de la mère</label>
-                                <input type="text" id="profession_mere" name="profession_mere" class="form-control" 
-                                       placeholder="Profession de la mère" 
-                                       value="<?php echo htmlspecialchars($form_data['profession_mere'] ?? ''); ?>">
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="telephone_parent" class="required">Téléphone des parents</label>
-                            <div style="display: flex;">
-                                <select id="indicatif_parent" name="indicatif_parent" class="form-control" style="width: 100px; margin-right: 10px;">
-                                    <option value="+242" <?php echo (!isset($form_data['indicatif_parent']) || $form_data['indicatif_parent'] == '+242') ? 'selected' : ''; ?>>+242 (RC)</option>
-                                    <option value="+225" <?php echo isset($form_data['indicatif_parent']) && $form_data['indicatif_parent'] == '+225' ? 'selected' : ''; ?>>+225 (CI)</option>
-                                    <option value="+223" <?php echo isset($form_data['indicatif_parent']) && $form_data['indicatif_parent'] == '+223' ? 'selected' : ''; ?>>+223 (ML)</option>
-                                    <option value="+226" <?php echo isset($form_data['indicatif_parent']) && $form_data['indicatif_parent'] == '+226' ? 'selected' : ''; ?>>+226 (BF)</option>
-                                </select>
-                                <input type="tel" id="telephone_parent" name="telephone_parent" class="form-control" 
-                                       placeholder="Numéro de téléphone des parents" 
-                                       value="<?php echo htmlspecialchars($form_data['telephone_parent'] ?? ''); ?>" 
-                                       required>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-user-tie"></i> Information du tuteur (si différent des parents)</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="nom_tuteur">Nom complet du tuteur</label>
-                                <input type="text" id="nom_tuteur" name="nom_tuteur" class="form-control" 
-                                       placeholder="Nom et prénom du tuteur" 
-                                       value="<?php echo htmlspecialchars($form_data['nom_tuteur'] ?? ''); ?>">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="profession_tuteur">Profession du tuteur</label>
-                                <input type="text" id="profession_tuteur" name="profession_tuteur" class="form-control" 
-                                       placeholder="Profession du tuteur" 
-                                       value="<?php echo htmlspecialchars($form_data['profession_tuteur'] ?? ''); ?>">
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="telephone_tuteur">Téléphone du tuteur</label>
-                                <div style="display: flex;">
-                                    <select id="indicatif_tuteur" name="indicatif_tuteur" class="form-control" style="width: 100px; margin-right: 10px;">
-                                        <option value="+242" <?php echo (!isset($form_data['indicatif_tuteur']) || $form_data['indicatif_tuteur'] == '+242') ? 'selected' : ''; ?>>+242 (RC)</option>
-                                        <option value="+225" <?php echo isset($form_data['indicatif_tuteur']) && $form_data['indicatif_tuteur'] == '+225' ? 'selected' : ''; ?>>+225 (CI)</option>
-                                        <option value="+223" <?php echo isset($form_data['indicatif_tuteur']) && $form_data['indicatif_tuteur'] == '+223' ? 'selected' : ''; ?>>+223 (ML)</option>
-                                    </select>
-                                    <input type="tel" id="telephone_tuteur" name="telephone_tuteur" class="form-control" 
-                                           placeholder="Numéro du tuteur" 
-                                           value="<?php echo htmlspecialchars($form_data['telephone_tuteur'] ?? ''); ?>">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="numero_cni" class="required">Numéro de la carte CNI/NUI ou passeport</label>
+                                        <input type="text" id="numero_cni" name="numero_cni" class="form-control" 
+                                               placeholder="Ex: SN123456789" 
+                                               value="<?php echo htmlspecialchars($form_data['numero_cni'] ?? ''); ?>" 
+                                               required>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="sexe" class="required">Sexe</label>
+                                        <select id="sexe" name="sexe" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="M" <?php echo isset($form_data['sexe']) && $form_data['sexe'] == 'M' ? 'selected' : ''; ?>>Masculin</option>
+                                            <option value="F" <?php echo isset($form_data['sexe']) && $form_data['sexe'] == 'F' ? 'selected' : ''; ?>>Féminin</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="lieu_service_tuteur">Lieu de service du tuteur</label>
-                                <input type="text" id="lieu_service_tuteur" name="lieu_service_tuteur" class="form-control" 
-                                       placeholder="Entreprise ou institution" 
-                                       value="<?php echo htmlspecialchars($form_data['lieu_service_tuteur'] ?? ''); ?>">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="inscription-nav">
-                        <div>
-                            <button type="button" class="btn btn-secondary" onclick="window.location.href='index.php'">
-                                <i class="fas fa-arrow-left"></i> Annuler
-                            </button>
-                        </div>
-                        <div>
-                            <button type="button" class="btn btn-primary" onclick="nextInscriptionStep()">
-                                Suivant <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Étape 2 : Documents requis -->
-                <div class="inscription-step" id="inscription-step2">
-                    <div class="message-box">
-                        <h4><i class="fas fa-file-upload"></i> Étape 2 : Documents requis</h4>
-                        <p>Veuillez télécharger les documents obligatoires pour votre inscription. Tous les documents doivent être au format PDF ou image (JPG, PNG).</p>
-                        <p><small><i class="fas fa-exclamation-circle"></i> Taille maximale par fichier : 2MB. Formats acceptés : PDF, JPG, JPEG, PNG</small></p>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-id-card"></i> Documents d'identité et académiques</h4>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="photo_identite" class="required">Photo d'identité</label>
-                                <div class="file-upload" onclick="document.getElementById('photo_identite').click()">
-                                    <i class="fas fa-camera"></i>
-                                    <p>Cliquez pour télécharger la photo</p>
-                                    <p class="file-requirements">Format : JPG/PNG • Taille max : 2MB • Fond clair</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="nom" class="required">Nom</label>
+                                        <input type="text" id="nom" name="nom" class="form-control" 
+                                               placeholder="Votre nom" 
+                                               value="<?php echo htmlspecialchars($form_data['nom'] ?? ''); ?>" 
+                                               required>
+                                    </div>
                                 </div>
-                                <input type="file" id="photo_identite" name="photo_identite" accept="image/*" style="display: none;" onchange="previewFile(this, 'photo-preview')">
-                                <div id="photo-preview" class="upload-preview"></div>
-                                <span id="photo_error" class="error-text"></span>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="acte_naissance" class="required">Acte de naissance</label>
-                                <div class="file-upload" onclick="document.getElementById('acte_naissance').click()">
-                                    <i class="fas fa-file-certificate"></i>
-                                    <p>Cliquez pour télécharger l'acte</p>
-                                    <p class="file-requirements">Format : PDF/JPG/PNG • Taille max : 2MB</p>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="prenom" class="required">Prénom</label>
+                                        <input type="text" id="prenom" name="prenom" class="form-control" 
+                                               placeholder="Votre prénom" 
+                                               value="<?php echo htmlspecialchars($form_data['prenom'] ?? ''); ?>" 
+                                               required>
+                                    </div>
                                 </div>
-                                <input type="file" id="acte_naissance" name="acte_naissance" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'acte-preview')">
-                                <div id="acte-preview" class="upload-preview"></div>
-                                <span id="acte_error" class="error-text"></span>
                             </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="releve_notes" class="required">Relevé de notes ou dernier diplôme</label>
-                                <div class="file-upload" onclick="document.getElementById('releve_notes').click()">
-                                    <i class="fas fa-file-alt"></i>
-                                    <p>Cliquez pour télécharger le relevé</p>
-                                    <p class="file-requirements">Format : PDF/JPG/PNG • Taille max : 2MB</p>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="date_naissance" class="required">Date de naissance</label>
+                                        <input type="date" id="date_naissance" name="date_naissance" class="form-control"
+                                               value="<?php echo htmlspecialchars($form_data['date_naissance'] ?? ''); ?>" 
+                                               required>
+                                    </div>
                                 </div>
-                                <input type="file" id="releve_notes" name="releve_notes" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'releve-preview')">
-                                <div id="releve-preview" class="upload-preview"></div>
-                                <span id="releve_error" class="error-text"></span>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="attestation_legalisee" class="required">Attestation légalisée</label>
-                                <div class="file-upload" onclick="document.getElementById('attestation_legalisee').click()">
-                                    <i class="fas fa-stamp"></i>
-                                    <p>Cliquez pour télécharger l'attestation</p>
-                                    <p class="file-requirements">Format : PDF/JPG/PNG • Taille max : 2MB</p>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="lieu_naissance" class="required">Lieu de naissance</label>
+                                        <input type="text" id="lieu_naissance" name="lieu_naissance" class="form-control" 
+                                               placeholder="Ville et pays de naissance" 
+                                               value="<?php echo htmlspecialchars($form_data['lieu_naissance'] ?? ''); ?>" 
+                                               required>
+                                    </div>
                                 </div>
-                                <input type="file" id="attestation_legalisee" name="attestation_legalisee" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'attestation-preview')">
-                                <div id="attestation-preview" class="upload-preview"></div>
-                                <span id="attestation_error" class="error-text"></span>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="autres_documents">Autres documents (optionnel)</label>
-                            <div class="file-upload" onclick="document.getElementById('autres_documents').click()">
-                                <i class="fas fa-folder-plus"></i>
-                                <p>Cliquez pour ajouter d'autres documents</p>
-                                <p class="file-requirements">CV, Lettre de motivation, etc.</p>
-                            </div>
-                            <input type="file" id="autres_documents" name="autres_documents[]" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display: none;" onchange="previewMultipleFiles(this, 'autres-preview')" multiple>
-                            <div id="autres-preview" class="upload-preview"></div>
-                        </div>
-                    </div>
-                    
-                    <div class="inscription-nav">
-                        <div>
-                            <button type="button" class="btn btn-secondary" onclick="prevInscriptionStep()">
-                                <i class="fas fa-arrow-left"></i> Précédent
-                            </button>
-                        </div>
-                        <div>
-                            <button type="button" class="btn btn-primary" onclick="nextInscriptionStep()">
-                                Suivant <i class="fas fa-arrow-right"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Étape 3 : Paiement et Message -->
-                <div class="inscription-step" id="inscription-step3">
-                    <div class="message-box">
-                        <h4><i class="fas fa-money-bill-wave"></i> Étape 3 : Modalités de paiement et message</h4>
-                        <p>Sélectionnez votre mode de paiement et laissez un message à l'administration si nécessaire.</p>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-credit-card"></i> Mode de paiement</h4>
-                        <div class="paiement-options">
-                            <div class="paiement-option" onclick="selectPaiementOption(this, 'Espèce')">
-                                <i class="fas fa-money-bill"></i>
-                                <h5>Espèce</h5>
-                                <p>Paiement au secretariat de l'ISGI</p>
                             </div>
                             
-                            <div class="paiement-option" onclick="selectPaiementOption(this, 'MTN Mobile Money')">
-                                <i class="fas fa-mobile-alt"></i>
-                                <h5>MTN Mobile Money</h5>
-                                <p>Paiement via numéro MTN</p>
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="nationalite" class="required">Nationalité</label>
+                                        <input type="text" id="nationalite" name="nationalite" class="form-control" 
+                                               placeholder="Votre nationalité" 
+                                               value="<?php echo htmlspecialchars($form_data['nationalite'] ?? 'Congolaise'); ?>" 
+                                               required>
+                                    </div>
+                                </div>
                             </div>
                             
-                            <div class="paiement-option" onclick="selectPaiementOption(this, 'Airtel Money')">
-                                <i class="fas fa-mobile-alt"></i>
-                                <h5>Airtel Money</h5>
-                                <p>Paiement via Airtel Money</p>
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="adresse" class="required">Adresse complète</label>
+                                        <input type="text" id="adresse" name="adresse" class="form-control" 
+                                               placeholder="Adresse, ville, code postal" 
+                                               value="<?php echo htmlspecialchars($form_data['adresse'] ?? ''); ?>" 
+                                               required>
+                                    </div>
+                                </div>
                             </div>
                             
-                            <div class="paiement-option" onclick="selectPaiementOption(this, 'Virement bancaire')">
-                                <i class="fas fa-university"></i>
-                                <h5>Virement bancaire</h5>
-                                <p>Virement sur compte ISGI</p>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="pays" class="required">Pays</label>
+                                        <select id="pays" name="pays" class="form-control" required>
+                                            <option value="">Sélectionnez votre pays</option>
+                                            <option value="Congo" <?php echo (!isset($form_data['pays']) || $form_data['pays'] == 'Congo') ? 'selected' : ''; ?>>Congo</option>
+                                            <option value="Côte d'Ivoire" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Côte d\'Ivoire' ? 'selected' : ''; ?>>Côte d'Ivoire</option>
+                                            <option value="Mali" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Mali' ? 'selected' : ''; ?>>Mali</option>
+                                            <option value="Burkina Faso" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Burkina Faso' ? 'selected' : ''; ?>>Burkina Faso</option>
+                                            <option value="Guinée" <?php echo isset($form_data['pays']) && $form_data['pays'] == 'Guinée' ? 'selected' : ''; ?>>Guinée</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="ville" class="required">Ville</label>
+                                        <input type="text" id="ville" name="ville" class="form-control" 
+                                               placeholder="Votre ville de résidence" 
+                                               value="<?php echo htmlspecialchars($form_data['ville'] ?? ''); ?>" 
+                                               required>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <input type="hidden" id="mode_paiement" name="mode_paiement" value="<?php echo htmlspecialchars($form_data['mode_paiement'] ?? ''); ?>">
-                        <span id="mode_paiement_error" class="error-text"></span>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-calendar-alt"></i> Périodicité des paiements</h4>
-                        <div class="radio-group" style="flex-direction: column;">
-                            <div class="radio-option">
-                                <input type="radio" id="mensuel" name="periodicite_paiement" value="Mensuel"
-                                       <?php echo (!isset($form_data['periodicite_paiement']) || $form_data['periodicite_paiement'] == 'Mensuel') ? 'checked' : ''; ?>>
-                                <label for="mensuel">Paiement mensuel (le 31 de chaque mois)</label>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="telephone" class="required">Téléphone</label>
+                                        <div class="input-group">
+                                            <select id="indicatif" name="indicatif" class="form-control" style="max-width: 120px;">
+                                                <option value="+242" <?php echo (!isset($form_data['indicatif']) || $form_data['indicatif'] == '+242') ? 'selected' : ''; ?>>+242 (RC)</option>
+                                                <option value="+225" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+225' ? 'selected' : ''; ?>>+225 (CI)</option>
+                                                <option value="+223" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+223' ? 'selected' : ''; ?>>+223 (ML)</option>
+                                                <option value="+226" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+226' ? 'selected' : ''; ?>>+226 (BF)</option>
+                                                <option value="+224" <?php echo isset($form_data['indicatif']) && $form_data['indicatif'] == '+224' ? 'selected' : ''; ?>>+224 (GN)</option>
+                                            </select>
+                                            <input type="tel" id="telephone" name="telephone" class="form-control" 
+                                                   placeholder="Numéro de téléphone" 
+                                                   value="<?php echo htmlspecialchars($form_data['telephone'] ?? ''); ?>" 
+                                                   required>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="email" class="required">Email</label>
+                                        <input type="email" id="email" name="email" class="form-control" 
+                                               placeholder="exemple@email.com" 
+                                               value="<?php echo htmlspecialchars($form_data['email'] ?? ''); ?>" 
+                                               required>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="trimestriel" name="periodicite_paiement" value="Trimestriel"
-                                       <?php echo isset($form_data['periodicite_paiement']) && $form_data['periodicite_paiement'] == 'Trimestriel' ? 'checked' : ''; ?>>
-                                <label for="trimestriel">Paiement trimestriel</label>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="profession" class="required">Profession ou rôle</label>
+                                        <select id="profession" name="profession" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="Étudiant" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Étudiant' ? 'selected' : ''; ?>>Étudiant</option>
+                                            <option value="Salarié" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Salarié' ? 'selected' : ''; ?>>Salarié</option>
+                                            <option value="Fonctionnaire" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Fonctionnaire' ? 'selected' : ''; ?>>Fonctionnaire</option>
+                                            <option value="Indépendant" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Indépendant' ? 'selected' : ''; ?>>Indépendant</option>
+                                            <option value="Sans emploi" <?php echo isset($form_data['profession']) && $form_data['profession'] == 'Sans emploi' ? 'selected' : ''; ?>>Sans emploi</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="situation_matrimoniale" class="required">Situation matrimoniale</label>
+                                        <select id="situation_matrimoniale" name="situation_matrimoniale" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="Célibataire" <?php echo (!isset($form_data['situation_matrimoniale']) || $form_data['situation_matrimoniale'] == 'Célibataire') ? 'selected' : ''; ?>>Célibataire</option>
+                                            <option value="Marié(e)" <?php echo isset($form_data['situation_matrimoniale']) && $form_data['situation_matrimoniale'] == 'Marié(e)' ? 'selected' : ''; ?>>Marié(e)</option>
+                                            <option value="Divorcé(e)" <?php echo isset($form_data['situation_matrimoniale']) && $form_data['situation_matrimoniale'] == 'Divorcé(e)' ? 'selected' : ''; ?>>Divorcé(e)</option>
+                                            <option value="Veuf/Veuve" <?php echo isset($form_data['situation_matrimoniale']) && $form_data['situation_matrimoniale'] == 'Veuf/Veuve' ? 'selected' : ''; ?>>Veuf/Veuve</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="semestriel" name="periodicite_paiement" value="Semestriel"
-                                       <?php echo isset($form_data['periodicite_paiement']) && $form_data['periodicite_paiement'] == 'Semestriel' ? 'checked' : ''; ?>>
-                                <label for="semestriel">Paiement semestriel</label>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="site_formation" class="required">Site de formation</label>
+                                        <select id="site_formation" name="site_formation" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="Brazzaville" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'Brazzaville' ? 'selected' : ''; ?>>Brazzaville</option>
+                                            <option value="Pointe-Noire" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'Pointe-Noire' ? 'selected' : ''; ?>>Pointe-Noire</option>
+                                            <option value="Ouesso" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'Ouesso' ? 'selected' : ''; ?>>Ouesso</option>
+                                            <option value="En ligne" <?php echo isset($form_data['site_formation']) && $form_data['site_formation'] == 'En ligne' ? 'selected' : ''; ?>>En ligne</option>
+                                        </select>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="radio-option">
-                                <input type="radio" id="annuel" name="periodicite_paiement" value="Annuel"
-                                       <?php echo isset($form_data['periodicite_paiement']) && $form_data['periodicite_paiement'] == 'Annuel' ? 'checked' : ''; ?>>
-                                <label for="annuel">Paiement annuel (toute l'année)</label>
-                            </div>
-                        </div>
-                        <span id="periodicite_error" class="error-text"></span>
-                    </div>
-                    
-                    <div class="form-section">
-                        <h4><i class="fas fa-envelope"></i> Message à l'administration</h4>
-                        <div class="form-group">
-                            <label for="comment_connaissance" class="required">Comment avez-vous connu ISGI ?</label>
-                            <select id="comment_connaissance" name="comment_connaissance" class="form-control" required>
-                                <option value="">Sélectionnez</option>
-                                <option value="Internet" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Internet' ? 'selected' : ''; ?>>Internet / Site web</option>
-                                <option value="Réseaux sociaux" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Réseaux sociaux' ? 'selected' : ''; ?>>Réseaux sociaux</option>
-                                <option value="Par un ami" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Par un ami' ? 'selected' : ''; ?>>Par un ami / connaissance</option>
-                                <option value="Ancien étudiant" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Ancien étudiant' ? 'selected' : ''; ?>>Ancien étudiant de l'ISGI</option>
-                                <option value="Salon" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Salon' ? 'selected' : ''; ?>>Salon d'orientation</option>
-                                <option value="Presse" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Presse' ? 'selected' : ''; ?>>Presse / Médias</option>
-                                <option value="Autre" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Autre' ? 'selected' : ''; ?>>Autre</option>
-                            </select>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="commentaires">Autres descriptions ou commentaires</label>
-                            <textarea id="commentaires" name="commentaires" class="form-control" rows="5" 
-                                      placeholder="Vous pouvez ajouter des informations supplémentaires ici..."><?php echo htmlspecialchars($form_data['commentaires'] ?? ''); ?></textarea>
+                        <div class="form-section">
+                            <h4><i class="fas fa-users"></i> Renseignements sur les parents</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="nom_pere" class="required">Nom complet du père</label>
+                                        <input type="text" id="nom_pere" name="nom_pere" class="form-control" 
+                                               placeholder="Nom et prénom du père" 
+                                               value="<?php echo htmlspecialchars($form_data['nom_pere'] ?? ''); ?>" 
+                                               required>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="profession_pere">Profession du père</label>
+                                        <input type="text" id="profession_pere" name="profession_pere" class="form-control" 
+                                               placeholder="Profession du père" 
+                                               value="<?php echo htmlspecialchars($form_data['profession_pere'] ?? ''); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="nom_mere" class="required">Nom complet de la mère</label>
+                                        <input type="text" id="nom_mere" name="nom_mere" class="form-control" 
+                                               placeholder="Nom et prénom de la mère" 
+                                               value="<?php echo htmlspecialchars($form_data['nom_mere'] ?? ''); ?>" 
+                                               required>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="profession_mere">Profession de la mère</label>
+                                        <input type="text" id="profession_mere" name="profession_mere" class="form-control" 
+                                               placeholder="Profession de la mère" 
+                                               value="<?php echo htmlspecialchars($form_data['profession_mere'] ?? ''); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="telephone_parent" class="required">Téléphone des parents</label>
+                                        <div class="input-group">
+                                            <select id="indicatif_parent" name="indicatif_parent" class="form-control" style="max-width: 120px;">
+                                                <option value="+242" <?php echo (!isset($form_data['indicatif_parent']) || $form_data['indicatif_parent'] == '+242') ? 'selected' : ''; ?>>+242 (RC)</option>
+                                                <option value="+225" <?php echo isset($form_data['indicatif_parent']) && $form_data['indicatif_parent'] == '+225' ? 'selected' : ''; ?>>+225 (CI)</option>
+                                                <option value="+223" <?php echo isset($form_data['indicatif_parent']) && $form_data['indicatif_parent'] == '+223' ? 'selected' : ''; ?>>+223 (ML)</option>
+                                                <option value="+226" <?php echo isset($form_data['indicatif_parent']) && $form_data['indicatif_parent'] == '+226' ? 'selected' : ''; ?>>+226 (BF)</option>
+                                            </select>
+                                            <input type="tel" id="telephone_parent" name="telephone_parent" class="form-control" 
+                                                   placeholder="Numéro de téléphone des parents" 
+                                                   value="<?php echo htmlspecialchars($form_data['telephone_parent'] ?? ''); ?>" 
+                                                   required>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h4><i class="fas fa-user-tie"></i> Information du tuteur (si différent des parents)</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="nom_tuteur">Nom complet du tuteur</label>
+                                        <input type="text" id="nom_tuteur" name="nom_tuteur" class="form-control" 
+                                               placeholder="Nom et prénom du tuteur" 
+                                               value="<?php echo htmlspecialchars($form_data['nom_tuteur'] ?? ''); ?>">
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="profession_tuteur">Profession du tuteur</label>
+                                        <input type="text" id="profession_tuteur" name="profession_tuteur" class="form-control" 
+                                               placeholder="Profession du tuteur" 
+                                               value="<?php echo htmlspecialchars($form_data['profession_tuteur'] ?? ''); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="telephone_tuteur">Téléphone du tuteur</label>
+                                        <div class="input-group">
+                                            <select id="indicatif_tuteur" name="indicatif_tuteur" class="form-control" style="max-width: 120px;">
+                                                <option value="+242" <?php echo (!isset($form_data['indicatif_tuteur']) || $form_data['indicatif_tuteur'] == '+242') ? 'selected' : ''; ?>>+242 (RC)</option>
+                                                <option value="+225" <?php echo isset($form_data['indicatif_tuteur']) && $form_data['indicatif_tuteur'] == '+225' ? 'selected' : ''; ?>>+225 (CI)</option>
+                                                <option value="+223" <?php echo isset($form_data['indicatif_tuteur']) && $form_data['indicatif_tuteur'] == '+223' ? 'selected' : ''; ?>>+223 (ML)</option>
+                                            </select>
+                                            <input type="tel" id="telephone_tuteur" name="telephone_tuteur" class="form-control" 
+                                                   placeholder="Numéro du tuteur" 
+                                                   value="<?php echo htmlspecialchars($form_data['telephone_tuteur'] ?? ''); ?>">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="lieu_service_tuteur">Lieu de service du tuteur</label>
+                                        <input type="text" id="lieu_service_tuteur" name="lieu_service_tuteur" class="form-control" 
+                                               placeholder="Entreprise ou institution" 
+                                               value="<?php echo htmlspecialchars($form_data['lieu_service_tuteur'] ?? ''); ?>">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="inscription-nav">
+                            <div>
+                                <button type="button" class="btn btn-isgi-secondary" onclick="window.location.href='index.php'">
+                                    <i class="fas fa-arrow-left"></i> Annuler
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-isgi-primary" onclick="nextInscriptionStep()">
+                                    Suivant <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="inscription-nav">
-                        <div>
-                            <button type="button" class="btn btn-secondary" onclick="prevInscriptionStep()">
-                                <i class="fas fa-arrow-left"></i> Précédent
-                            </button>
+                    <!-- Étape 2 : Documents requis -->
+                    <div class="inscription-step" id="inscription-step2">
+                        <div class="message-box">
+                            <h4><i class="fas fa-file-upload"></i> Étape 2 : Documents requis</h4>
+                            <p>Veuillez télécharger les documents obligatoires pour votre inscription. Tous les documents doivent être au format PDF ou image (JPG, PNG).</p>
+                            <p><small><i class="fas fa-exclamation-circle"></i> Taille maximale par fichier : 2MB. Formats acceptés : PDF, JPG, JPEG, PNG</small></p>
                         </div>
-                        <div>
-                            <button type="submit" class="btn btn-success" id="submit-inscription">
-                                Soumettre la demande <i class="fas fa-paper-plane"></i>
-                            </button>
+                        
+                        <div class="form-section">
+                            <h4><i class="fas fa-id-card"></i> Documents d'identité et académiques</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="photo_identite" class="required">Photo d'identité</label>
+                                        <div class="file-upload" onclick="document.getElementById('photo_identite').click()">
+                                            <i class="fas fa-camera"></i>
+                                            <p>Cliquez pour télécharger la photo</p>
+                                            <p class="file-requirements">Format : JPG/PNG • Taille max : 2MB • Fond clair</p>
+                                        </div>
+                                        <input type="file" id="photo_identite" name="photo_identite" accept="image/*" style="display: none;" onchange="previewFile(this, 'photo-preview')">
+                                        <div id="photo-preview" class="upload-preview"></div>
+                                        <span id="photo_error" class="error-text"></span>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="acte_naissance" class="required">Acte de naissance</label>
+                                        <div class="file-upload" onclick="document.getElementById('acte_naissance').click()">
+                                            <i class="fas fa-file-certificate"></i>
+                                            <p>Cliquez pour télécharger l'acte</p>
+                                            <p class="file-requirements">Format : PDF/JPG/PNG • Taille max : 2MB</p>
+                                        </div>
+                                        <input type="file" id="acte_naissance" name="acte_naissance" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'acte-preview')">
+                                        <div id="acte-preview" class="upload-preview"></div>
+                                        <span id="acte_error" class="error-text"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="releve_notes" class="required">Relevé de notes ou dernier diplôme</label>
+                                        <div class="file-upload" onclick="document.getElementById('releve_notes').click()">
+                                            <i class="fas fa-file-alt"></i>
+                                            <p>Cliquez pour télécharger le relevé</p>
+                                            <p class="file-requirements">Format : PDF/JPG/PNG • Taille max : 2MB</p>
+                                        </div>
+                                        <input type="file" id="releve_notes" name="releve_notes" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'releve-preview')">
+                                        <div id="releve-preview" class="upload-preview"></div>
+                                        <span id="releve_error" class="error-text"></span>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="attestation_legalisee" class="required">Attestation légalisée</label>
+                                        <div class="file-upload" onclick="document.getElementById('attestation_legalisee').click()">
+                                            <i class="fas fa-stamp"></i>
+                                            <p>Cliquez pour télécharger l'attestation</p>
+                                            <p class="file-requirements">Format : PDF/JPG/PNG • Taille max : 2MB</p>
+                                        </div>
+                                        <input type="file" id="attestation_legalisee" name="attestation_legalisee" accept=".pdf,.jpg,.jpeg,.png" style="display: none;" onchange="previewFile(this, 'attestation-preview')">
+                                        <div id="attestation-preview" class="upload-preview"></div>
+                                        <span id="attestation_error" class="error-text"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="autres_documents">Autres documents (optionnel)</label>
+                                        <div class="file-upload" onclick="document.getElementById('autres_documents').click()">
+                                            <i class="fas fa-folder-plus"></i>
+                                            <p>Cliquez pour ajouter d'autres documents</p>
+                                            <p class="file-requirements">CV, Lettre de motivation, etc.</p>
+                                        </div>
+                                        <input type="file" id="autres_documents" name="autres_documents[]" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display: none;" onchange="previewMultipleFiles(this, 'autres-preview')" multiple>
+                                        <div id="autres-preview" class="upload-preview"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="inscription-nav">
+                            <div>
+                                <button type="button" class="btn btn-isgi-secondary" onclick="prevInscriptionStep()">
+                                    <i class="fas fa-arrow-left"></i> Précédent
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-isgi-primary" onclick="nextInscriptionStep()">
+                                    Suivant <i class="fas fa-arrow-right"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </form>
+                    
+                    <!-- Étape 3 : Paiement et Message -->
+                    <div class="inscription-step" id="inscription-step3">
+                        <div class="message-box">
+                            <h4><i class="fas fa-money-bill-wave"></i> Étape 3 : Modalités de paiement et message</h4>
+                            <p>Sélectionnez votre mode de paiement et laissez un message à l'administration si nécessaire.</p>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h4><i class="fas fa-credit-card"></i> Mode de paiement</h4>
+                            <div class="paiement-options">
+                                <div class="paiement-option" onclick="selectPaiementOption(this, 'Espèce')">
+                                    <i class="fas fa-money-bill"></i>
+                                    <h5>Espèce</h5>
+                                    <p>Paiement au secretariat de l'ISGI</p>
+                                </div>
+                                
+                                <div class="paiement-option" onclick="selectPaiementOption(this, 'MTN Mobile Money')">
+                                    <i class="fas fa-mobile-alt"></i>
+                                    <h5>MTN Mobile Money</h5>
+                                    <p>Paiement via numéro MTN</p>
+                                </div>
+                                
+                                <div class="paiement-option" onclick="selectPaiementOption(this, 'Airtel Money')">
+                                    <i class="fas fa-mobile-alt"></i>
+                                    <h5>Airtel Money</h5>
+                                    <p>Paiement via Airtel Money</p>
+                                </div>
+                                
+                                <div class="paiement-option" onclick="selectPaiementOption(this, 'Virement bancaire')">
+                                    <i class="fas fa-university"></i>
+                                    <h5>Virement bancaire</h5>
+                                    <p>Virement sur compte ISGI</p>
+                                </div>
+                            </div>
+                            <input type="hidden" id="mode_paiement" name="mode_paiement" value="<?php echo htmlspecialchars($form_data['mode_paiement'] ?? ''); ?>">
+                            <span id="mode_paiement_error" class="error-text"></span>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h4><i class="fas fa-calendar-alt"></i> Périodicité des paiements</h4>
+                            <div class="radio-group" style="flex-direction: column;">
+                                <div class="radio-option">
+                                    <input type="radio" id="mensuel" name="periodicite_paiement" value="Mensuel"
+                                           <?php echo (!isset($form_data['periodicite_paiement']) || $form_data['periodicite_paiement'] == 'Mensuel') ? 'checked' : ''; ?>>
+                                    <label for="mensuel">Paiement mensuel (le 31 de chaque mois)</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="trimestriel" name="periodicite_paiement" value="Trimestriel"
+                                           <?php echo isset($form_data['periodicite_paiement']) && $form_data['periodicite_paiement'] == 'Trimestriel' ? 'checked' : ''; ?>>
+                                    <label for="trimestriel">Paiement trimestriel</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="semestriel" name="periodicite_paiement" value="Semestriel"
+                                           <?php echo isset($form_data['periodicite_paiement']) && $form_data['periodicite_paiement'] == 'Semestriel' ? 'checked' : ''; ?>>
+                                    <label for="semestriel">Paiement semestriel</label>
+                                </div>
+                                <div class="radio-option">
+                                    <input type="radio" id="annuel" name="periodicite_paiement" value="Annuel"
+                                           <?php echo isset($form_data['periodicite_paiement']) && $form_data['periodicite_paiement'] == 'Annuel' ? 'checked' : ''; ?>>
+                                    <label for="annuel">Paiement annuel (toute l'année)</label>
+                                </div>
+                            </div>
+                            <span id="periodicite_error" class="error-text"></span>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h4><i class="fas fa-envelope"></i> Message à l'administration</h4>
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="comment_connaissance" class="required">Comment avez-vous connu ISGI ?</label>
+                                        <select id="comment_connaissance" name="comment_connaissance" class="form-control" required>
+                                            <option value="">Sélectionnez</option>
+                                            <option value="Internet" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Internet' ? 'selected' : ''; ?>>Internet / Site web</option>
+                                            <option value="Réseaux sociaux" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Réseaux sociaux' ? 'selected' : ''; ?>>Réseaux sociaux</option>
+                                            <option value="Par un ami" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Par un ami' ? 'selected' : ''; ?>>Par un ami / connaissance</option>
+                                            <option value="Ancien étudiant" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Ancien étudiant' ? 'selected' : ''; ?>>Ancien étudiant de l'ISGI</option>
+                                            <option value="Salon" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Salon' ? 'selected' : ''; ?>>Salon d'orientation</option>
+                                            <option value="Presse" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Presse' ? 'selected' : ''; ?>>Presse / Médias</option>
+                                            <option value="Autre" <?php echo isset($form_data['comment_connaissance']) && $form_data['comment_connaissance'] == 'Autre' ? 'selected' : ''; ?>>Autre</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="commentaires">Autres descriptions ou commentaires</label>
+                                        <textarea id="commentaires" name="commentaires" class="form-control" rows="5" 
+                                                  placeholder="Vous pouvez ajouter des informations supplémentaires ici..."><?php echo htmlspecialchars($form_data['commentaires'] ?? ''); ?></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="inscription-nav">
+                            <div>
+                                <button type="button" class="btn btn-isgi-secondary" onclick="prevInscriptionStep()">
+                                    <i class="fas fa-arrow-left"></i> Précédent
+                                </button>
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-isgi-success" id="submit-inscription">
+                                    Soumettre la demande <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
         </div>
     </section>
 
     <!-- Footer -->
     <footer id="main-footer">
         <div class="container">
-            <div class="footer-content">
-                <div class="footer-section">
-                    <h3>ISGI</h3>
-                    <p><?php echo htmlspecialchars($configs['site_nom'] ?? ''); ?>, formant les leaders de demain.</p>
-                    <div style="margin-top: 15px;">
-                        <i class="fas fa-map-marker-alt"></i> Brazzaville, Congo<br>
-                        <i class="fas fa-phone"></i> <?php echo htmlspecialchars($configs['site_telephone'] ?? '+242 06 848 45 67'); ?><br>
-                        <i class="fas fa-envelope"></i> <?php echo htmlspecialchars($configs['site_email'] ?? 'contact@isgi.cg'); ?>
+            <div class="row g-4 mb-5">
+                <!-- About -->
+                <div class="col-lg-4">
+                    <div class="footer-section">
+                        <h3>ISGI</h3>
+                        <p class="mb-3" style="color: rgba(255, 255, 255, 0.8);"><?php echo htmlspecialchars($configs['site_nom'] ?? ''); ?>, formant les leaders de demain.</p>
+                        <div class="mb-2">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            <span style="color: rgba(255, 255, 255, 0.8);">Brazzaville, Congo</span>
+                        </div>
+                        <div class="mb-2">
+                            <i class="fas fa-phone me-2"></i>
+                            <span style="color: rgba(255, 255, 255, 0.8);"><?php echo htmlspecialchars($configs['site_telephone'] ?? '+242 06 848 45 67'); ?></span>
+                        </div>
+                        <div class="mb-2">
+                            <i class="fas fa-envelope me-2"></i>
+                            <span style="color: rgba(255, 255, 255, 0.8);"><?php echo htmlspecialchars($configs['site_email'] ?? 'contact@isgi.cg'); ?></span>
+                        </div>
                     </div>
                 </div>
                 
-                <div class="footer-section">
-                    <h3>Liens rapides</h3>
-                    <ul class="footer-links">
-                        <li><a href="index.php">Accueil</a></li>
-                        <li><a href="inscription.php">Inscription</a></li>
-                        <li><a href="reinscription.php">Réinscription</a></li>
-                        <li><a href="admin/login.php">Connexion</a></li>
-                    </ul>
+                <!-- Quick Links -->
+                <div class="col-lg-4">
+                    <div class="footer-section">
+                        <h3>Liens rapides</h3>
+                        <ul class="footer-links">
+                            <li><a href="index.php">Accueil</a></li>
+                            <li><a href="inscription.php">Inscription</a></li>
+                            <li><a href="reinscription.php">Réinscription</a></li>
+                            <li><a href="admin/login.php">Connexion</a></li>
+                        </ul>
+                    </div>
                 </div>
                 
-                <div class="footer-section">
-                    <h3>Ressources</h3>
-                    <ul class="footer-links">
-                        <li><a href="suivi-demande.php">Suivi de demande</a></li>
-                        <li><a href="#">Emploi du temps</a></li>
-                        <li><a href="#">Résultats d'examens</a></li>
-                    </ul>
+                <!-- Domaines -->
+                <div class="col-lg-4">
+                    <div class="footer-section">
+                        <h3>Ressources</h3>
+                        <ul class="footer-links">
+                            <li><a href="suivi-demande.php">Suivi de demande</a></li>
+                            <li><a href="#">Emploi du temps</a></li>
+                            <li><a href="#">Résultats d'examens</a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             
@@ -1329,6 +1407,9 @@ try {
         </div>
     </footer>
 
+    <!-- Bootstrap 5 JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
     <script>
         // Variables globales
         let currentInscriptionStep = 1;
@@ -1383,7 +1464,7 @@ try {
             }
         }
         
-        // Validation des étapes - VERSION SIMPLIFIÉE POUR LE DEBUG
+        // Validation des étapes
         function validateCurrentStep() {
             let isValid = true;
             
@@ -1736,6 +1817,14 @@ try {
                     }
                 });
             }
+            
+            // Ajouter la classe active au lien de navigation actif
+            const currentPage = window.location.pathname.split('/').pop();
+            document.querySelectorAll('.nav-link').forEach(link => {
+                if (link.getAttribute('href') === currentPage) {
+                    link.classList.add('active');
+                }
+            });
         });
     </script>
 </body>

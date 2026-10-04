@@ -508,7 +508,7 @@ try {
                         </button>
                         <?php endif; ?>
                         
-                        <a href="editeur_document.php?action=list" class="btn btn-sm btn-secondary">
+                        <a href="bibliotheque.php" class="btn btn-sm btn-secondary">
                             <i class="fas fa-times"></i> Fermer
                         </a>
                     </div>

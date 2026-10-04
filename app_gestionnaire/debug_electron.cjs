@@ -1,0 +1,1 @@
+const puppeteer = require('puppeteer-core'); (async () => { try { const browser = await puppeteer.connect({ browserURL: 'http://127.0.0.1:9222' }); const pages = await browser.pages(); pages.forEach((p, i) => console.log('Page ' + i + ' URL:', p.url())); await browser.disconnect(); process.exit(0); } catch(e) { console.error(e); process.exit(1); } })();

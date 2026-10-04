@@ -342,7 +342,7 @@ try {
              LEFT JOIN utilisateurs u ON b.edite_par = u.id
              WHERE b.etudiant_id = ? 
              AND b.annee_academique_id = ?
-             AND b.statut IN ('valide', 'publie')
+             AND b.statut = 'publie'
              ORDER BY b.semestre_id DESC",
             [$etudiant_id, $annee_academique_id]);
         
@@ -1455,16 +1455,13 @@ try {
                         
                         <!-- Tab 4: Bulletins -->
                         <div class="tab-pane fade" id="bulletins">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h5>Bulletins disponibles</h5>
-                                <button class="btn btn-success" onclick="genererBulletin()">
-                                    <i class="fas fa-plus"></i> Demander un bulletin
-                                </button>
-                            </div>
+                           
                             
                             <?php if(empty($bulletins)): ?>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> Aucun bulletin disponible pour le moment
+                            <div class="alert alert-info py-4 text-center">
+                                <i class="fas fa-lock fa-2x mb-2 text-warning"></i>
+                                <h6 class="fw-bold mb-1">Bulletins non publiés ou en cours de délibération</h6>
+                                <p class="mb-0 text-muted small">Les bulletins et moyennes officielles sont en cours de validation par la Direction des Affaires Académiques (DAC) et seront consultables dès leur publication officielle.</p>
                             </div>
                             <?php else: ?>
                             <div class="row">
@@ -1481,7 +1478,7 @@ try {
                                                     <p class="card-text mb-1">
                                                         <small>Année: <?php echo safeHtml($annees_academiques[0]['libelle'] ?? ''); ?></small><br>
                                                         <small>Édité le: <?php echo formatDateFr($bulletin['date_edition']); ?></small><br>
-                                                        <small>Par: <?php echo safeHtml($bulletin['editeur_nom'] ?? 'Système'); ?></small>
+                                                        <small>Par Mr, Mme: <?php echo safeHtml($bulletin['editeur_nom'] ?? 'Système'); ?></small>
                                                     </p>
                                                 </div>
                                                 <div class="text-end">
@@ -1508,20 +1505,7 @@ try {
                                                 </p>
                                             </div>
                                             <div class="mt-3">
-                                                <button class="btn btn-sm btn-outline-primary me-2" 
-                                                        onclick="voirBulletin(<?php echo $bulletin['id']; ?>)">
-                                                    <i class="fas fa-eye"></i> Consulter
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-success me-2" 
-                                                        onclick="telechargerBulletin(<?php echo $bulletin['id']; ?>)">
-                                                    <i class="fas fa-download"></i> Télécharger
-                                                </button>
-                                                <?php if(!empty($bulletin['qr_code'])): ?>
-                                                <button class="btn btn-sm btn-outline-info" 
-                                                        onclick="verifierBulletin(<?php echo $bulletin['id']; ?>)">
-                                                    <i class="fas fa-qrcode"></i> Vérifier
-                                                </button>
-                                                <?php endif; ?>
+                                                <p class="mb-0">Votre bulletin est disponible à la direction. <br> Pour tout demande de retrait veillez vous rende à la direction des affaires académiques </p>
                                             </div>
                                         </div>
                                     </div>

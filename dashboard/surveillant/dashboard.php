@@ -251,8 +251,16 @@ try {
     $stmt = $db->prepare($query);
     $stmt->execute([':site_id' => $site_id]);
     $classes_actives = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // 7. Statistiques des messages non lus
+    $stmt_msgs = $db->prepare("SELECT COUNT(*) as non_lus FROM messages WHERE destinataire_id = ? AND lu = 0");
+    $stmt_msgs->execute([$surveillant_id]);
+    $result_msgs = $stmt_msgs->fetch(PDO::FETCH_ASSOC);
+    $statistiques = ['non_lus' => $result_msgs ? (int)$result_msgs['non_lus'] : 0];
 
 } catch (Exception $e) {
+    if (!isset($statistiques)) {
+        $statistiques = ['non_lus' => 0];
+    }
     $error = "Erreur lors de la récupération des données: " . $e->getMessage();
 }
 ?>
@@ -312,11 +320,41 @@ try {
         margin: 0;
         padding: 0;
         min-height: 100vh;
+        overflow-x: hidden;
     }
     
-    .app-container {
+    /* Header Mobile */
+    .mobile-header {
+        display: none;
+        background-color: var(--sidebar-bg);
+        color: white;
+        padding: 10px 15px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .mobile-header-content {
         display: flex;
-        min-height: 100vh;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .hamburger-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px 10px;
+    }
+    
+    .mobile-brand {
+        font-size: 18px;
+        font-weight: bold;
     }
     
     /* Sidebar */
@@ -327,12 +365,26 @@ try {
         position: fixed;
         height: 100vh;
         overflow-y: auto;
+        z-index: 1040;
+        transition: transform 0.3s ease-in-out;
+    }
+    
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1039;
     }
     
     .sidebar-header {
         padding: 20px 15px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         text-align: center;
+        background-color: rgba(0,0,0,0.1);
     }
     
     .sidebar-logo {
@@ -364,11 +416,11 @@ try {
     
     /* Navigation */
     .sidebar-nav {
-        padding: 15px;
+        padding: 15px 0;
     }
     
     .nav-section {
-        margin-bottom: 25px;
+        margin-bottom: 15px;
     }
     
     .nav-section-title {
@@ -377,29 +429,34 @@ try {
         letter-spacing: 1px;
         color: rgba(255, 255, 255, 0.6);
         margin-bottom: 10px;
-        padding: 0 10px;
+        padding: 0 20px;
     }
     
     .nav-link {
         display: flex;
         align-items: center;
-        padding: 10px 15px;
+        padding: 12px 20px;
         color: var(--sidebar-text);
         text-decoration: none;
-        border-radius: 5px;
-        margin-bottom: 5px;
         transition: all 0.3s;
+        border-left: 3px solid transparent;
     }
     
     .nav-link:hover, .nav-link.active {
-        background-color: var(--secondary-color);
+        background-color: rgba(255, 255, 255, 0.1);
         color: white;
+        border-left-color: var(--secondary-color);
     }
     
     .nav-link i {
         width: 20px;
-        margin-right: 10px;
+        margin-right: 12px;
         text-align: center;
+        font-size: 16px;
+    }
+    
+    .nav-link span {
+        font-size: 14px;
     }
     
     .nav-badge {
@@ -407,16 +464,15 @@ try {
         background: var(--accent-color);
         color: white;
         font-size: 11px;
-        padding: 2px 6px;
+        padding: 2px 8px;
         border-radius: 10px;
     }
     
     /* Contenu principal */
     .main-content {
-        flex: 1;
-        margin-left: 250px;
         padding: 20px;
         min-height: 100vh;
+        transition: margin-left 0.3s ease-in-out;
     }
     
     /* Cartes */
@@ -424,7 +480,7 @@ try {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         margin-bottom: 20px;
         transition: transform 0.2s;
     }
@@ -434,7 +490,7 @@ try {
     }
     
     .card-header {
-        background-color: rgba(0, 0, 0, 0.03);
+        background-color: rgba(0, 0, 0, 0.02);
         border-bottom: 1px solid var(--border-color);
         padding: 15px 20px;
     }
@@ -446,16 +502,18 @@ try {
     /* Stat cards */
     .stat-card {
         text-align: center;
-        padding: 20px;
+        padding: 15px;
+        height: 100%;
     }
     
     .stat-icon {
-        font-size: 2.5rem;
-        margin-bottom: 15px;
+        font-size: 2rem;
+        margin-bottom: 10px;
+        opacity: 0.8;
     }
     
     .stat-value {
-        font-size: 2rem;
+        font-size: 1.5rem;
         font-weight: bold;
         margin-bottom: 5px;
         color: var(--text-color);
@@ -463,670 +521,889 @@ try {
     
     .stat-label {
         color: var(--text-muted);
-        font-size: 0.9rem;
+        font-size: 0.85rem;
     }
     
     /* Tableaux */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
     .table {
         color: var(--text-color);
+        min-width: 600px;
     }
     
     .table thead th {
         background-color: var(--primary-color);
         color: white;
         border: none;
-        padding: 15px;
+        padding: 12px 15px;
+        font-size: 14px;
+        white-space: nowrap;
     }
     
     .table tbody td {
         border-color: var(--border-color);
-        padding: 15px;
+        padding: 12px 15px;
         color: var(--text-color);
+        font-size: 14px;
     }
     
     .table tbody tr:hover {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: rgba(0, 0, 0, 0.03);
     }
     
     [data-theme="dark"] .table tbody tr:hover {
         background-color: rgba(255, 255, 255, 0.05);
     }
     
-    /* Responsive */
-    @media (max-width: 768px) {
-        .sidebar {
-            width: 70px;
-            overflow-x: hidden;
-        }
-        
-        .sidebar-header, .user-info, .nav-section-title, .nav-link span {
-            display: none;
-        }
-        
-        .nav-link {
-            justify-content: center;
-            padding: 15px;
-        }
-        
-        .nav-link i {
-            margin-right: 0;
-            font-size: 18px;
-        }
-        
-        .main-content {
-            margin-left: 70px;
-            padding: 15px;
-        }
-        
-        .stat-value {
-            font-size: 1.5rem;
-        }
-    }
-    
     /* Badges */
     .badge {
         font-size: 0.75em;
         padding: 4px 8px;
+        font-weight: 500;
     }
     
-    /* Alertes */
-    .alert {
+    /* Tabs */
+    .nav-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .nav-tabs .nav-link {
+        white-space: nowrap;
+        border-radius: 0;
+        padding: 10px 20px;
+        color: var(--text-muted);
         border: none;
-        border-radius: 8px;
-        color: var(--text-color);
-        background-color: var(--card-bg);
+        border-bottom: 3px solid transparent;
+        background: none;
     }
     
-    .alert-info {
-        background-color: rgba(23, 162, 184, 0.1);
-        border-left: 4px solid var(--info-color);
+    .nav-tabs .nav-link.active {
+        color: var(--primary-color);
+        background: none;
+        border-bottom-color: var(--primary-color);
     }
     
-    .alert-success {
-        background-color: rgba(39, 174, 96, 0.1);
-        border-left: 4px solid var(--success-color);
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        /* Mobile Header */
+        .mobile-header {
+            display: block;
+            height: 60px;
+        }
+        
+        /* Sidebar Mobile */
+        .sidebar {
+            transform: translateX(-100%);
+            width: 280px;
+            top: 60px;
+            height: calc(100vh - 60px);
+        }
+        
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: 0 !important;
+            padding: 80px 15px 20px 15px;
+        }
+        
+        /* Stats Cards */
+        .stat-card {
+            padding: 12px;
+        }
+        
+        .stat-icon {
+            font-size: 1.5rem;
+        }
+        
+        .stat-value {
+            font-size: 1.2rem;
+        }
+        
+        /* Content Header */
+        .content-header .d-flex {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+        
+        .content-header .btn-group {
+            margin-top: 15px;
+            width: 100%;
+        }
+        
+        .content-header .btn-group .btn {
+            flex: 1;
+        }
+        
+        /* Tabs */
+        .nav-tabs {
+            padding-bottom: 5px;
+        }
+        
+        .nav-tabs .nav-item {
+            flex-shrink: 0;
+        }
+        
+        /* Table Actions */
+        .table tbody td:last-child {
+            position: sticky;
+            right: 0;
+            background: var(--card-bg);
+            border-left: 1px solid var(--border-color);
+        }
+        
+        /* Quick Actions */
+        .d-grid.gap-2 .btn {
+            font-size: 14px;
+            padding: 10px;
+        }
+        
+        /* Student Actions */
+        .btn-sm {
+            padding: 5px 8px;
+            font-size: 12px;
+        }
     }
     
-    .alert-warning {
-        background-color: rgba(243, 156, 18, 0.1);
-        border-left: 4px solid var(--warning-color);
+    @media (max-width: 576px) {
+        /* Stats Grid */
+        .row.g-2 {
+            margin: -5px;
+        }
+        
+        .row.g-2 > [class*="col-"] {
+            padding: 5px;
+        }
+        
+        .stat-value {
+            font-size: 1rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+        }
+        
+        /* Cards */
+        .card-header, .card-body {
+            padding: 15px;
+        }
+        
+        /* Buttons */
+        .btn {
+            font-size: 14px;
+            padding: 8px 15px;
+        }
+        
+        /* Search and Filter */
+        .row.mb-3 > .col-md-6,
+        .row.mb-3 > .col-md-3 {
+            margin-bottom: 10px;
+        }
     }
     
-    .alert-danger {
-        background-color: rgba(231, 76, 60, 0.1);
-        border-left: 4px solid var(--accent-color);
+    /* Small Mobile */
+    @media (max-width: 360px) {
+        .mobile-brand {
+            font-size: 16px;
+        }
+        
+        .stat-card {
+            padding: 8px;
+        }
+        
+        .stat-icon {
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 0.9rem;
+        }
     }
     
-    /* Boutons */
-    .btn-qr {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
+    /* Utility Classes */
+    .sticky-top-mobile {
+        position: sticky;
+        top: 0;
+        z-index: 1020;
+        background: var(--bg-color);
+        padding-top: 10px;
+        padding-bottom: 10px;
     }
     
-    .btn-qr:hover {
-        background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
-        color: white;
+    .scrollable-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
     }
     
-    /* Graphique */
-    .chart-container {
-        position: relative;
-        height: 250px;
-        width: 100%;
+    /* Animation pour le sidebar */
+    @keyframes slideIn {
+        from {
+            transform: translateX(-100%);
+        }
+        to {
+            transform: translateX(0);
+        }
+    }
+    
+    /* Mode Desktop */
+    @media (min-width: 769px) {
+        .main-content {
+            margin-left: 250px;
+        }
+        
+        .sidebar-overlay {
+            display: none !important;
+        }
+    }
+    
+    /* Améliorations pour les écrans moyens */
+    @media (min-width: 769px) and (max-width: 992px) {
+        .sidebar {
+            width: 200px;
+        }
+        
+        .main-content {
+            margin-left: 200px;
+        }
+        
+        .nav-link span {
+            font-size: 13px;
+        }
+        
+        .nav-link i {
+            margin-right: 8px;
+            font-size: 14px;
+        }
     }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <i class="fas fa-user-shield"></i>
-                </div>
-                <h5 class="mt-2 mb-1">SURVEILLANT</h5>
-                <div class="user-role">Surveillant Général</div>
+    <!-- Header Mobile -->
+    <div class="mobile-header">
+        <div class="mobile-header-content">
+            <button class="hamburger-btn" id="hamburgerBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="mobile-brand">
+                <i class="fas fa-user-shield me-2"></i>
+                SURVEILLANT
+            </div>
+            <div>
+                <button class="btn btn-sm btn-light" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Overlay pour fermer le sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <h5 class="mt-2 mb-1">SURVEILLANT</h5>
+            <div class="user-role">Surveillant Général</div>
+        </div>
+        
+        <div class="user-info">
+            <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Surveillant'); ?></p>
+            <small>Gestion des Présences</small>
+        </div>
+        
+        <div class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Tableau de Bord</div>
+                <a href="dashboard.php" class="nav-link active">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Tableau de Bord</span>
+                </a>
             </div>
             
-            <div class="user-info">
-                <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Surveillant'); ?></p>
-                <small>Gestion des Présences</small>
+            <div class="nav-section">
+                <div class="nav-section-title">Gestion Présences</div>
+                <a href="presences.php" class="nav-link">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Toutes les Présences</span>
+                </a>
+                <a href="scanner_qr.php" class="nav-link">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Scanner QR Code</span>
+                </a>
+                <a href="generer_qr.php" class="nav-link">
+                    <i class="fas fa-barcode"></i>
+                    <span>Générer QR Code</span>
+                </a>
+                <a href="absences.php" class="nav-link">
+                    <i class="fas fa-user-times"></i>
+                    <span>Absences</span>
+                </a>
+                <a href="retards.php" class="nav-link">
+                    <i class="fas fa-clock"></i>
+                    <span>Retards</span>
+                </a>
             </div>
             
-            <div class="sidebar-nav">
-                <div class="nav-section">
-                    <div class="nav-section-title">Tableau de Bord</div>
-                    <a href="dashboard.php" class="nav-link active">
-                        <i class="fas fa-tachometer-alt"></i>
-                        <span>Dashboard</span>
-                    </a>
-                </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Gestion Présences</div>
-                    <a href="presences.php" class="nav-link">
-                        <i class="fas fa-calendar-check"></i>
-                        <span>Toutes les Présences</span>
-                    </a>
-                    <a href="scanner_qr.php" class="nav-link">
-                        <i class="fas fa-qrcode"></i>
-                        <span>Scanner QR Code</span>
-                    </a>
-                    <a href="generer_qr.php" class="nav-link">
-                        <i class="fas fa-barcode"></i>
-                        <span>Générer QR Code</span>
-                    </a>
-                    <a href="absences.php" class="nav-link">
-                        <i class="fas fa-user-times"></i>
-                        <span>Absences</span>
-                    </a>
-                    <a href="retards.php" class="nav-link">
-                        <i class="fas fa-clock"></i>
-                        <span>Retards</span>
-                    </a>
-                </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Étudiants</div>
-                    <a href="etudiants.php" class="nav-link">
-                        <i class="fas fa-user-graduate"></i>
-                        <span>Liste Étudiants</span>
-                    </a>
-                    <a href="rechercher_etudiant.php" class="nav-link">
-                        <i class="fas fa-search"></i>
-                        <span>Rechercher</span>
-                    </a>
-                    <a href="classe_presence.php" class="nav-link">
+            <div class="nav-section">
+                <div class="nav-section-title">Étudiants</div>
+                <a href="etudiants.php" class="nav-link">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>Liste Étudiants</span>
+                </a>
+                <a href="rechercher_etudiant.php" class="nav-link">
+                    <i class="fas fa-search"></i>
+                    <span>Rechercher</span>
+                </a>
+                <a href="classe_presence.php" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Par Classe</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Salles & Horaires</div>
+                <a href="salles.php" class="nav-link">
+                    <i class="fas fa-door-open"></i>
+                    <span>Salles de Classe</span>
+                </a>
+                <a href="emploi_du_temps.php" class="nav-link">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Emploi du Temps</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Rapports</div>
+                <a href="rapports_presence.php" class="nav-link">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Rapports de Présence</span>
+                </a>
+                <a href="statistiques.php" class="nav-link">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Statistiques</span>
+                </a>
+                <a href="export.php" class="nav-link">
+                    <i class="fas fa-file-export"></i>
+                    <span>Exporter</span>
+                </a>
+            </div>
+            <div class="nav-section">
+                    <div class="nav-section-title">Communication</div>
+                    <a href="reunions.php" class="nav-link">
                         <i class="fas fa-users"></i>
-                        <span>Par Classe</span>
+                        <span>Réunions</span>
                     </a>
+                    <a href="messagerie.php" class="nav-link">
+                        <i class="fas fa-envelope"></i>
+                        <span>Messagerie</span>
+                        <?php if($statistiques['non_lus'] > 0): ?>
+                        <span class="nav-badge"><?php echo $statistiques['non_lus']; ?></span>
+                        <?php endif; ?>
+                    </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <button class="btn btn-outline-light w-100 mb-2" onclick="toggleTheme()" style="margin-left: 20px; margin-right: 20px; text-align: left; padding: 8px 15px;">
+                    <i class="fas fa-moon"></i> <span>Mode Sombre</span>
+                </button>
+                <a href="../../auth/logout.php" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Déconnexion</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contenu Principal -->
+    <div class="main-content" id="mainContent">
+        <!-- En-tête -->
+        <div class="content-header mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div class="mb-3 mb-md-0">
+                    <h2 class="mb-1 h4">
+                        <i class="fas fa-user-shield me-2"></i>
+                        Tableau de Bord - Surveillant Général
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        <i class="fas fa-calendar-day"></i> 
+                        <?php echo date('d/m/Y'); ?> - 
+                        <i class="fas fa-clock"></i> 
+                        <?php echo date('H:i'); ?>
+                    </p>
                 </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Salles & Horaires</div>
-                    <a href="salles.php" class="nav-link">
-                        <i class="fas fa-door-open"></i>
-                        <span>Salles de Classe</span>
-                    </a>
-                    <a href="emploi_du_temps.php" class="nav-link">
-                        <i class="fas fa-calendar-alt"></i>
-                        <span>Emploi du Temps</span>
-                    </a>
-                </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Rapports</div>
-                    <a href="rapports_presence.php" class="nav-link">
-                        <i class="fas fa-chart-bar"></i>
-                        <span>Rapports de Présence</span>
-                    </a>
-                    <a href="statistiques.php" class="nav-link">
-                        <i class="fas fa-chart-pie"></i>
-                        <span>Statistiques</span>
-                    </a>
-                    <a href="export.php" class="nav-link">
-                        <i class="fas fa-file-export"></i>
-                        <span>Exporter</span>
-                    </a>
-                </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Configuration</div>
-                    <button class="btn btn-outline-light w-100 mb-2" onclick="toggleTheme()">
-                        <i class="fas fa-moon"></i> <span>Mode Sombre</span>
+                <div class="btn-group w-100 w-md-auto">
+                    <button class="btn btn-success btn-sm" onclick="window.location.href='scanner_qr.php'">
+                        <i class="fas fa-qrcode"></i> <span class="d-none d-md-inline">Scanner QR</span>
                     </button>
-                    <a href="../../auth/logout.php" class="nav-link">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Déconnexion</span>
-                    </a>
+                    <button class="btn btn-primary btn-sm" onclick="location.reload()">
+                        <i class="fas fa-sync-alt"></i> <span class="d-none d-md-inline">Actualiser</span>
+                    </button>
                 </div>
             </div>
         </div>
         
-        <!-- Contenu Principal -->
-        <div class="main-content">
-            <!-- En-tête -->
-            <div class="content-header mb-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-0">
-                            <i class="fas fa-user-shield me-2"></i>
-                            Tableau de Bord - Surveillant Général
-                        </h2>
-                        <p class="text-muted mb-0">
-                            <i class="fas fa-calendar-day"></i> 
-                            <?php echo date('d/m/Y'); ?> - 
-                            <i class="fas fa-clock"></i> 
-                            <?php echo date('H:i'); ?>
-                        </p>
+        <?php if(isset($error)): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        
+        <!-- Section 1: Statistiques Principales -->
+        <div class="row g-2 mb-4">
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card stat-card">
+                    <div class="text-primary stat-icon">
+                        <i class="fas fa-user-graduate"></i>
                     </div>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="window.location.href='scanner_qr.php'">
-                            <i class="fas fa-qrcode"></i> Scanner QR Code
-                        </button>
-                        <button class="btn btn-primary" onclick="location.reload()">
-                            <i class="fas fa-sync-alt"></i> Actualiser
-                        </button>
+                    <div class="stat-value"><?php echo $stats['total_etudiants']; ?></div>
+                    <div class="stat-label">Étudiants Actifs</div>
+                </div>
+            </div>
+            
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card stat-card">
+                    <div class="text-success stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-value"><?php echo $stats['total_present']; ?></div>
+                    <div class="stat-label">Présents</div>
+                </div>
+            </div>
+            
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card stat-card">
+                    <div class="text-danger stat-icon">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="stat-value"><?php echo $stats['total_absent']; ?></div>
+                    <div class="stat-label">Absents</div>
+                </div>
+            </div>
+            
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card stat-card">
+                    <div class="text-warning stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-value"><?php echo $stats['total_retard']; ?></div>
+                    <div class="stat-label">Retards</div>
+                </div>
+            </div>
+            
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card stat-card">
+                    <div class="text-info stat-icon">
+                        <i class="fas fa-sign-in-alt"></i>
+                    </div>
+                    <div class="stat-value"><?php echo $stats['entrees_aujourdhui']; ?></div>
+                    <div class="stat-label">Entrées</div>
+                </div>
+            </div>
+            
+            <div class="col-6 col-md-4 col-lg-2">
+                <div class="card stat-card">
+                    <div class="text-secondary stat-icon">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </div>
+                    <div class="stat-value"><?php echo $stats['sorties_aujourdhui']; ?></div>
+                    <div class="stat-label">Sorties</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 2: Présences Récentes et Graphique -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-3">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-history me-2"></i>
+                            Présences Récentes
+                        </h5>
+                        <a href="presences.php" class="btn btn-sm btn-outline-primary">
+                            Voir toutes
+                        </a>
+                    </div>
+                    <div class="card-body p-3">
+                        <?php if(empty($presences_recentes)): ?>
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i> Aucune présence enregistrée dans les 2 dernières heures.
+                        </div>
+                        <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Étudiant</th>
+                                        <th class="d-none d-md-table-cell">Matricule</th>
+                                        <th>Type</th>
+                                        <th>Heure</th>
+                                        <th>Statut</th>
+                                        <th class="d-none d-sm-table-cell">Classe</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach($presences_recentes as $presence): ?>
+                                    <tr>
+                                        <td>
+                                            <small><strong><?php echo htmlspecialchars($presence['nom'] . ' ' . $presence['prenom']); ?></strong></small>
+                                        </td>
+                                        <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($presence['matricule']); ?></td>
+                                        <td>
+                                            <span class="badge bg-primary">
+                                                <?php 
+                                                $type = $presence['type_presence'];
+                                                echo $type === 'entree_ecole' ? 'Entrée' : 
+                                                     ($type === 'sortie_ecole' ? 'Sortie' : 
+                                                     ($type === 'entree_classe' ? 'E. Classe' : 'S. Classe')); 
+                                                ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo formatDateFr($presence['date_heure'], 'H:i'); ?></td>
+                                        <td>
+                                            <?php 
+                                            $statut = $presence['statut'];
+                                            $badgeClass = $statut === 'present' ? 'success' : 
+                                                         ($statut === 'absent' ? 'danger' : 
+                                                         ($statut === 'retard' ? 'warning' : 'secondary'));
+                                            echo '<span class="badge bg-'.$badgeClass.'">'.ucfirst($statut).'</span>'; 
+                                            ?>
+                                        </td>
+                                        <td class="d-none d-sm-table-cell">
+                                            <?php echo htmlspecialchars($presence['classe_nom'] ?? 'N/A'); ?>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
             
-            <?php if(isset($error)): ?>
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Section 1: Statistiques Principales -->
-            <div class="row mb-4">
-                <div class="col-md-2">
-                    <div class="card stat-card">
-                        <div class="text-primary stat-icon">
-                            <i class="fas fa-user-graduate"></i>
-                        </div>
-                        <div class="stat-value"><?php echo $stats['total_etudiants']; ?></div>
-                        <div class="stat-label">Étudiants Actifs</div>
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header py-3">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Statistiques Semaine
+                        </h5>
                     </div>
-                </div>
-                
-                <div class="col-md-2">
-                    <div class="card stat-card">
-                        <div class="text-success stat-icon">
-                            <i class="fas fa-check-circle"></i>
+                    <div class="card-body p-3">
+                        <div class="chart-container" style="height: 200px;">
+                            <canvas id="presenceChart"></canvas>
                         </div>
-                        <div class="stat-value"><?php echo $stats['total_present']; ?></div>
-                        <div class="stat-label">Présents</div>
-                    </div>
-                </div>
-                
-                <div class="col-md-2">
-                    <div class="card stat-card">
-                        <div class="text-danger stat-icon">
-                            <i class="fas fa-times-circle"></i>
-                        </div>
-                        <div class="stat-value"><?php echo $stats['total_absent']; ?></div>
-                        <div class="stat-label">Absents</div>
-                    </div>
-                </div>
-                
-                <div class="col-md-2">
-                    <div class="card stat-card">
-                        <div class="text-warning stat-icon">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div class="stat-value"><?php echo $stats['total_retard']; ?></div>
-                        <div class="stat-label">Retards</div>
-                    </div>
-                </div>
-                
-                <div class="col-md-2">
-                    <div class="card stat-card">
-                        <div class="text-info stat-icon">
-                            <i class="fas fa-sign-in-alt"></i>
-                        </div>
-                        <div class="stat-value"><?php echo $stats['entrees_aujourdhui']; ?></div>
-                        <div class="stat-label">Entrées</div>
-                    </div>
-                </div>
-                
-                <div class="col-md-2">
-                    <div class="card stat-card">
-                        <div class="text-secondary stat-icon">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </div>
-                        <div class="stat-value"><?php echo $stats['sorties_aujourdhui']; ?></div>
-                        <div class="stat-label">Sorties</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Section 2: Présences Récentes et Graphique -->
-            <div class="row mb-4">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="fas fa-history me-2"></i>
-                                Présences Récentes (2 dernières heures)
-                            </h5>
-                            <a href="presences.php" class="btn btn-sm btn-outline-primary">
-                                Voir toutes
-                            </a>
-                        </div>
-                        <div class="card-body">
-                            <?php if(empty($presences_recentes)): ?>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> Aucune présence enregistrée dans les 2 dernières heures.
-                            </div>
-                            <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Étudiant</th>
-                                            <th>Matricule</th>
-                                            <th>Type</th>
-                                            <th>Heure</th>
-                                            <th>Statut</th>
-                                            <th>Classe</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach($presences_recentes as $presence): ?>
-                                        <tr>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($presence['nom'] . ' ' . $presence['prenom']); ?></strong>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($presence['matricule']); ?></td>
-                                            <td><?php echo getTypePresenceBadge($presence['type_presence']); ?></td>
-                                            <td><?php echo formatDateFr($presence['date_heure'], 'H:i'); ?></td>
-                                            <td><?php echo getStatutBadge($presence['statut']); ?></td>
-                                            <td><?php echo htmlspecialchars($presence['classe_nom'] ?? 'N/A'); ?></td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-line me-2"></i>
-                                Statistiques de la Semaine
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="presenceChart"></canvas>
-                            </div>
-                            <div class="mt-3 text-center">
-                                <small class="text-muted">
-                                    <i class="fas fa-info-circle"></i> 
-                                    Évolution des présences sur 7 jours
-                                </small>
-                            </div>
+                        <div class="mt-3 text-center">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i> 
+                                Évolution sur 7 jours
+                            </small>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Section 3: Onglets -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <ul class="nav nav-tabs card-header-tabs" id="dashboardTabs" role="tablist">
+        </div>
+        
+        <!-- Section 3: Onglets -->
+        <div class="card mb-4">
+            <div class="card-header p-0">
+                <div class="scrollable-tabs">
+                    <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
                         <li class="nav-item" role="presentation">
                             <button class="nav-link active" id="presences-tab" data-bs-toggle="tab" data-bs-target="#presences" type="button">
-                                <i class="fas fa-calendar-day me-2"></i>Présences Aujourd'hui
+                                <i class="fas fa-calendar-day me-1"></i><span class="d-none d-sm-inline">Aujourd'hui</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="etudiants-tab" data-bs-toggle="tab" data-bs-target="#etudiants" type="button">
-                                <i class="fas fa-users me-2"></i>Liste Étudiants
+                                <i class="fas fa-users me-1"></i><span class="d-none d-sm-inline">Étudiants</span>
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="classes-tab" data-bs-toggle="tab" data-bs-target="#classes" type="button">
-                                <i class="fas fa-door-open me-2"></i>Salles de Classe
+                                <i class="fas fa-door-open me-1"></i><span class="d-none d-sm-inline">Classes</span>
                             </button>
                         </li>
                     </ul>
                 </div>
-                <div class="card-body">
-                    <div class="tab-content" id="dashboardTabsContent">
-                        <!-- Tab 1: Présences Aujourd'hui -->
-                        <div class="tab-pane fade show active" id="presences">
-                            <?php if(empty($presences_aujourdhui)): ?>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> Aucune présence enregistrée aujourd'hui.
+            </div>
+            <div class="card-body p-3">
+                <div class="tab-content" id="dashboardTabsContent">
+                    <!-- Tab 1: Présences Aujourd'hui -->
+                    <div class="tab-pane fade show active" id="presences">
+                        <?php if(empty($presences_aujourdhui)): ?>
+                        <div class="alert alert-info mb-0">
+                            <i class="fas fa-info-circle"></i> Aucune présence enregistrée aujourd'hui.
+                        </div>
+                        <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Étudiant</th>
+                                        <th class="d-none d-md-table-cell">Matricule</th>
+                                        <th>Type</th>
+                                        <th>Heure</th>
+                                        <th>Statut</th>
+                                        <th class="d-none d-sm-table-cell">Classe</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach($presences_aujourdhui as $presence): ?>
+                                    <tr>
+                                        <td>
+                                            <small><strong><?php echo htmlspecialchars($presence['nom'] . ' ' . $presence['prenom']); ?></strong></small>
+                                        </td>
+                                        <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($presence['matricule']); ?></td>
+                                        <td>
+                                            <span class="badge bg-primary">
+                                                <?php 
+                                                $type = $presence['type_presence'];
+                                                echo $type === 'entree_ecole' ? 'Entrée' : 
+                                                     ($type === 'sortie_ecole' ? 'Sortie' : 
+                                                     ($type === 'entree_classe' ? 'E. Classe' : 'S. Classe')); 
+                                                ?>
+                                            </span>
+                                        </td>
+                                        <td><?php echo formatDateFr($presence['date_heure'], 'H:i'); ?></td>
+                                        <td>
+                                            <?php 
+                                            $statut = $presence['statut'];
+                                            $badgeClass = $statut === 'present' ? 'success' : 
+                                                         ($statut === 'absent' ? 'danger' : 
+                                                         ($statut === 'retard' ? 'warning' : 'secondary'));
+                                            echo '<span class="badge bg-'.$badgeClass.'">'.ucfirst($statut).'</span>'; 
+                                            ?>
+                                        </td>
+                                        <td class="d-none d-sm-table-cell">
+                                            <?php echo htmlspecialchars($presence['classe_nom'] ?? 'N/A'); ?>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <!-- Tab 2: Liste Étudiants -->
+                    <div class="tab-pane fade" id="etudiants">
+                        <div class="row g-2 mb-3">
+                            <div class="col-12 col-md-6">
+                                <input type="text" class="form-control form-control-sm" id="searchStudent" placeholder="Rechercher...">
                             </div>
-                            <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Étudiant</th>
-                                            <th>Matricule</th>
-                                            <th>Type</th>
-                                            <th>Date/Heure</th>
-                                            <th>Statut</th>
-                                            <th>Classe</th>
-                                            <th>Matière</th>
-                                            <th>Surveillant</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach($presences_aujourdhui as $presence): ?>
-                                        <tr>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($presence['nom'] . ' ' . $presence['prenom']); ?></strong>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($presence['matricule']); ?></td>
-                                            <td><?php echo getTypePresenceBadge($presence['type_presence']); ?></td>
-                                            <td><?php echo formatDateFr($presence['date_heure']); ?></td>
-                                            <td><?php echo getStatutBadge($presence['statut']); ?></td>
-                                            <td><?php echo htmlspecialchars($presence['classe_nom'] ?? 'N/A'); ?></td>
-                                            <td><?php echo htmlspecialchars($presence['matiere_nom'] ?? '-'); ?></td>
-                                            <td>
-                                                <span class="badge bg-secondary">
-                                                    <?php echo $presence['surveillant_id'] ? 'Scanné' : 'Auto'; ?>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
+                            <div class="col-6 col-md-3">
+                                <select class="form-select form-select-sm" id="filterClasse">
+                                    <option value="">Toutes les classes</option>
+                                    <?php foreach($classes_actives as $classe): ?>
+                                    <option value="<?php echo $classe['id']; ?>">
+                                        <?php echo htmlspecialchars($classe['nom']); ?>
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
-                            <?php endif; ?>
+                            <div class="col-6 col-md-3">
+                                <select class="form-select form-select-sm" id="filterStatut">
+                                    <option value="">Tous statuts</option>
+                                    <option value="present">Présent</option>
+                                    <option value="absent">Absent</option>
+                                    <option value="retard">Retard</option>
+                                </select>
+                            </div>
                         </div>
                         
-                        <!-- Tab 2: Liste Étudiants -->
-                        <div class="tab-pane fade" id="etudiants">
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <input type="text" class="form-control" id="searchStudent" placeholder="Rechercher un étudiant...">
-                                </div>
-                                <div class="col-md-3">
-                                    <select class="form-select" id="filterClasse">
-                                        <option value="">Toutes les classes</option>
-                                        <?php foreach($classes_actives as $classe): ?>
-                                        <option value="<?php echo $classe['id']; ?>">
-                                            <?php echo htmlspecialchars($classe['nom']); ?> (<?php echo $classe['effectif']; ?>)
-                                        </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <select class="form-select" id="filterStatut">
-                                        <option value="">Tous statuts</option>
-                                        <option value="present">Présent</option>
-                                        <option value="absent">Absent</option>
-                                        <option value="retard">En retard</option>
-                                        <option value="justifie">Justifié</option>
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div class="table-responsive">
-                                <table class="table table-hover" id="studentTable">
-                                    <thead>
-                                        <tr>
-                                            <th>Matricule</th>
-                                            <th>Étudiant</th>
-                                            <th>Classe</th>
-                                            <th>Statut Aujourd'hui</th>
-                                            <th>Dernière Entrée</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach($liste_etudiants as $etudiant): ?>
-                                        <tr>
-                                            <td><?php echo htmlspecialchars($etudiant['matricule']); ?></td>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($etudiant['nom'] . ' ' . $etudiant['prenom']); ?></strong>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($etudiant['classe_nom'] ?? 'N/A'); ?></td>
-                                            <td>
-                                                <?php echo $etudiant['statut_aujourdhui'] ? 
-                                                    getStatutBadge($etudiant['statut_aujourdhui']) : 
-                                                    '<span class="badge bg-secondary">Non enregistré</span>'; ?>
-                                            </td>
-                                            <td>
-                                                <?php echo $etudiant['derniere_entree'] ? 
-                                                    formatDateFr($etudiant['derniere_entree'], 'd/m H:i') : 
-                                                    'Jamais'; ?>
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary" 
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0" id="studentTable">
+                                <thead>
+                                    <tr>
+                                        <th>Étudiant</th>
+                                        <th class="d-none d-sm-table-cell">Matricule</th>
+                                        <th>Classe</th>
+                                        <th>Statut</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach($liste_etudiants as $etudiant): ?>
+                                    <tr>
+                                        <td>
+                                            <small><strong><?php echo htmlspecialchars($etudiant['nom'] . ' ' . $etudiant['prenom']); ?></strong></small>
+                                        </td>
+                                        <td class="d-none d-sm-table-cell"><?php echo htmlspecialchars($etudiant['matricule']); ?></td>
+                                        <td><?php echo htmlspecialchars($etudiant['classe_nom'] ?? 'N/A'); ?></td>
+                                        <td>
+                                            <?php if($etudiant['statut_aujourdhui']): 
+                                                $statut = $etudiant['statut_aujourdhui'];
+                                                $badgeClass = $statut === 'present' ? 'success' : 
+                                                             ($statut === 'absent' ? 'danger' : 
+                                                             ($statut === 'retard' ? 'warning' : 'secondary'));
+                                            ?>
+                                            <span class="badge bg-<?php echo $badgeClass; ?>"><?php echo ucfirst($statut); ?></span>
+                                            <?php else: ?>
+                                            <span class="badge bg-secondary">Non enregistré</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <button class="btn btn-outline-primary" 
                                                         onclick="window.location.href='etudiant_detail.php?id=<?php echo $etudiant['id']; ?>'">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-success" 
+                                                <button class="btn btn-outline-success" 
                                                         onclick="markAttendance(<?php echo $etudiant['id']; ?>, 'present')">
                                                     <i class="fas fa-check"></i>
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger" 
+                                                <button class="btn btn-outline-danger" 
                                                         onclick="markAttendance(<?php echo $etudiant['id']; ?>, 'absent')">
                                                     <i class="fas fa-times"></i>
                                                 </button>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                        
-                        <!-- Tab 3: Salles de Classe -->
-                        <div class="tab-pane fade" id="classes">
-                            <div class="row">
-                                <?php foreach($classes_actives as $classe): ?>
-                                <div class="col-md-4 mb-3">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h5 class="card-title">
-                                                <i class="fas fa-door-open me-2"></i>
-                                                <?php echo htmlspecialchars($classe['nom']); ?>
-                                            </h5>
-                                            <p class="card-text">
-                                                <i class="fas fa-users me-2"></i>
-                                                Effectif: <strong><?php echo $classe['effectif']; ?> étudiants</strong>
-                                            </p>
-                                            <div class="d-flex justify-content-between">
-                                                <a href="classe_detail.php?id=<?php echo $classe['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-primary">
-                                                    <i class="fas fa-eye"></i> Détails
-                                                </a>
-                                                <a href="classe_presence.php?classe_id=<?php echo $classe['id']; ?>" 
-                                                   class="btn btn-sm btn-outline-success">
-                                                    <i class="fas fa-clipboard-check"></i> Présence
-                                                </a>
                                             </div>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Tab 3: Salles de Classe -->
+                    <div class="tab-pane fade" id="classes">
+                        <div class="row g-2">
+                            <?php foreach($classes_actives as $classe): ?>
+                            <div class="col-12 col-sm-6 col-lg-4">
+                                <div class="card h-100">
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title mb-2">
+                                            <i class="fas fa-door-open me-2"></i>
+                                            <?php echo htmlspecialchars($classe['nom']); ?>
+                                        </h6>
+                                        <p class="card-text small mb-2">
+                                            <i class="fas fa-users me-2"></i>
+                                            Effectif: <strong><?php echo $classe['effectif']; ?> étudiants</strong>
+                                        </p>
+                                        <div class="d-flex justify-content-between">
+                                            <a href="classe_detail.php?id=<?php echo $classe['id']; ?>" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="classe_presence.php?classe_id=<?php echo $classe['id']; ?>" 
+                                               class="btn btn-sm btn-outline-success">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </a>
                                         </div>
                                     </div>
                                 </div>
-                                <?php endforeach; ?>
                             </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 4: Actions Rapides et Info -->
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header py-3">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-bolt me-2"></i>
+                            Actions Rapides
+                        </h5>
+                    </div>
+                    <div class="card-body p-3">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success btn-sm" onclick="window.location.href='scanner_qr.php'">
+                                <i class="fas fa-qrcode me-2"></i>Scanner QR Code
+                            </button>
+                            <button class="btn btn-primary btn-sm" onclick="window.location.href='generer_qr.php'">
+                                <i class="fas fa-barcode me-2"></i>Générer QR Code
+                            </button>
+                            <button class="btn btn-info btn-sm" onclick="window.location.href='absences.php'">
+                                <i class="fas fa-user-times me-2"></i>Gérer Absences
+                            </button>
+                            <button class="btn btn-warning btn-sm" onclick="window.location.href='retards.php'">
+                                <i class="fas fa-clock me-2"></i>Voir Retards
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Section 4: Actions Rapides et Info -->
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-bolt me-2"></i>
-                                Actions Rapides
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="d-grid gap-2">
-                                <button class="btn btn-qr" onclick="window.location.href='scanner_qr.php'">
-                                    <i class="fas fa-qrcode me-2"></i>Scanner QR Code
-                                </button>
-                                <button class="btn btn-success" onclick="window.location.href='generer_qr.php'">
-                                    <i class="fas fa-barcode me-2"></i>Générer QR Code
-                                </button>
-                                <button class="btn btn-info" onclick="window.location.href='absences.php'">
-                                    <i class="fas fa-user-times me-2"></i>Gérer Absences
-                                </button>
-                                <button class="btn btn-warning" onclick="window.location.href='retards.php'">
-                                    <i class="fas fa-clock me-2"></i>Voir Retards
-                                </button>
-                                <button class="btn btn-primary" onclick="window.location.href='rapports_presence.php'">
-                                    <i class="fas fa-chart-bar me-2"></i>Générer Rapport
-                                </button>
-                            </div>
-                        </div>
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header py-3">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Informations et Alertes
+                        </h5>
                     </div>
-                </div>
-                
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Informations et Alertes
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <!-- Alertes absences prolongées -->
-                            <div class="alert alert-warning">
-                                <h6><i class="fas fa-exclamation-triangle"></i> Alertes de Présence</h6>
-                                <div id="alertsList">
-                                    <!-- Les alertes seront chargées en AJAX -->
-                                </div>
+                    <div class="card-body p-3">
+                        <div class="alert alert-warning mb-3">
+                            <h6 class="mb-2"><i class="fas fa-exclamation-triangle"></i> Alertes de Présence</h6>
+                            <div id="alertsList">
+                                <p class="mb-0 small">Chargement des alertes...</p>
                             </div>
-                            
-                            <!-- Statistiques du jour -->
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card bg-light">
-                                        <div class="card-body">
-                                            <h6><i class="fas fa-calendar-day"></i> Aujourd'hui</h6>
-                                            <div class="d-flex justify-content-between">
-                                                <span>Présents:</span>
-                                                <strong class="text-success"><?php echo $stats['total_present']; ?></strong>
-                                            </div>
-                                            <div class="d-flex justify-content-between">
-                                                <span>Absents:</span>
-                                                <strong class="text-danger"><?php echo $stats['total_absent']; ?></strong>
-                                            </div>
-                                            <div class="d-flex justify-content-between">
-                                                <span>Retards:</span>
-                                                <strong class="text-warning"><?php echo $stats['total_retard']; ?></strong>
-                                            </div>
+                        </div>
+                        
+                        <div class="row g-2">
+                            <div class="col-12 col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body p-3">
+                                        <h6 class="mb-2"><i class="fas fa-calendar-day"></i> Aujourd'hui</h6>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="small">Présents:</span>
+                                            <strong class="text-success small"><?php echo $stats['total_present']; ?></strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="small">Absents:</span>
+                                            <strong class="text-danger small"><?php echo $stats['total_absent']; ?></strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span class="small">Retards:</span>
+                                            <strong class="text-warning small"><?php echo $stats['total_retard']; ?></strong>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-6">
-                                    <div class="card bg-light">
-                                        <div class="card-body">
-                                            <h6><i class="fas fa-chart-pie"></i> Taux de Présence</h6>
-                                            <?php if($stats['total_etudiants'] > 0): ?>
-                                            <?php 
-                                            $taux_presence = ($stats['total_present'] / $stats['total_etudiants']) * 100;
-                                            $taux_absence = ($stats['total_absent'] / $stats['total_etudiants']) * 100;
-                                            ?>
-                                            <div class="progress mb-2" style="height: 20px;">
-                                                <div class="progress-bar bg-success" style="width: <?php echo $taux_presence; ?>%">
-                                                    <?php echo number_format($taux_presence, 1); ?>%
-                                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="card bg-light">
+                                    <div class="card-body p-3">
+                                        <h6 class="mb-2"><i class="fas fa-chart-pie"></i> Taux de Présence</h6>
+                                        <?php if($stats['total_etudiants'] > 0): ?>
+                                        <?php 
+                                        $taux_presence = ($stats['total_present'] / $stats['total_etudiants']) * 100;
+                                        ?>
+                                        <div class="progress mb-2" style="height: 15px;">
+                                            <div class="progress-bar bg-success" style="width: <?php echo $taux_presence; ?>%">
+                                                <?php echo number_format($taux_presence, 1); ?>%
                                             </div>
-                                            <small>Présence: <?php echo number_format($taux_presence, 1); ?>%</small>
-                                            <?php else: ?>
-                                            <p class="text-muted mb-0">Aucun étudiant actif</p>
-                                            <?php endif; ?>
                                         </div>
+                                        <small class="text-muted">Présence: <?php echo number_format($taux_presence, 1); ?>%</small>
+                                        <?php else: ?>
+                                        <p class="text-muted mb-0 small">Aucun étudiant actif</p>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </div>
@@ -1134,6 +1411,14 @@ try {
                     </div>
                 </div>
             </div>
+        </div>
+        
+        <!-- Footer Mobile -->
+        <div class="d-block d-md-none mt-4 pt-3 border-top text-center">
+            <small class="text-muted">
+                <?php echo $_SESSION['user_name'] ?? 'Surveillant'; ?> - 
+                <?php echo date('d/m/Y H:i'); ?>
+            </small>
         </div>
     </div>
     
@@ -1141,45 +1426,84 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
+    // Gestion du sidebar mobile
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mainContent = document.getElementById('mainContent');
+    
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('active');
+        document.body.classList.toggle('sidebar-open');
+    }
+    
+    function closeSidebar() {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+    }
+    
+    // Événements
+    hamburgerBtn.addEventListener('click', toggleSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
+    
+    // Fermer le sidebar en cliquant sur un lien (mobile)
+    document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 769) {
+                closeSidebar();
+            }
+        });
+    });
+    
+    // Ajuster le padding du main content pour le header mobile
+    function adjustContentPadding() {
+        if (window.innerWidth < 769) {
+            mainContent.style.paddingTop = '80px';
+        } else {
+            mainContent.style.paddingTop = '20px';
+        }
+    }
+    
     // Fonction pour basculer entre mode sombre et clair
     function toggleTheme() {
         const html = document.documentElement;
         const currentTheme = html.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
         
-        // Mettre à jour l'attribut
         html.setAttribute('data-theme', newTheme);
-        
-        // Sauvegarder dans un cookie (30 jours)
         document.cookie = `isgi_theme=${newTheme}; max-age=${30*24*60*60}; path=/`;
         
         // Mettre à jour le bouton
-        const button = event.target.closest('button');
-        if (button) {
-            const icon = button.querySelector('i');
+        const buttons = document.querySelectorAll('button[onclick="toggleTheme()"]');
+        buttons.forEach(button => {
             if (newTheme === 'dark') {
                 button.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
             } else {
                 button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
             }
-        }
+        });
     }
     
     // Initialiser le thème
     document.addEventListener('DOMContentLoaded', function() {
-        // Récupérer le thème sauvegardé ou utiliser 'light' par défaut
+        // Ajuster le padding
+        adjustContentPadding();
+        window.addEventListener('resize', adjustContentPadding);
+        
+        // Thème
         const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
         document.documentElement.setAttribute('data-theme', theme);
         
-        // Mettre à jour le bouton
-        const themeButton = document.querySelector('button[onclick="toggleTheme()"]');
-        if (themeButton) {
+        const themeButtons = document.querySelectorAll('button[onclick="toggleTheme()"]');
+        themeButtons.forEach(button => {
             if (theme === 'dark') {
-                themeButton.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
+                button.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
             } else {
-                themeButton.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+                button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
             }
-        }
+        });
         
         // Initialiser le graphique
         initializeChart();
@@ -1189,6 +1513,15 @@ try {
         
         // Initialiser la recherche
         initializeSearch();
+        
+        // Fermer le sidebar si on clique en dehors sur desktop
+        if (window.innerWidth >= 769) {
+            document.addEventListener('click', (e) => {
+                if (!sidebar.contains(e.target) && !hamburgerBtn.contains(e.target)) {
+                    closeSidebar();
+                }
+            });
+        }
     });
     
     // Initialiser le graphique de présence
@@ -1217,7 +1550,8 @@ try {
                         borderColor: '#27ae60',
                         backgroundColor: 'rgba(39, 174, 96, 0.1)',
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 2
                     },
                     {
                         label: 'Absents',
@@ -1225,7 +1559,8 @@ try {
                         borderColor: '#e74c3c',
                         backgroundColor: 'rgba(231, 76, 60, 0.1)',
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 2
                     },
                     {
                         label: 'Retards',
@@ -1233,7 +1568,8 @@ try {
                         borderColor: '#f39c12',
                         backgroundColor: 'rgba(243, 156, 18, 0.1)',
                         fill: true,
-                        tension: 0.4
+                        tension: 0.4,
+                        borderWidth: 2
                     }
                 ]
             },
@@ -1243,24 +1579,36 @@ try {
                 plugins: {
                     legend: {
                         position: 'top',
+                        labels: {
+                            font: {
+                                size: window.innerWidth < 768 ? 10 : 12
+                            },
+                            padding: 10,
+                            usePointStyle: true
+                        }
                     },
                     tooltip: {
                         mode: 'index',
-                        intersect: false
+                        intersect: false,
+                        bodyFont: {
+                            size: window.innerWidth < 768 ? 10 : 12
+                        }
                     }
                 },
                 scales: {
                     y: {
                         beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Nombre d\'étudiants'
+                        ticks: {
+                            font: {
+                                size: window.innerWidth < 768 ? 10 : 12
+                            }
                         }
                     },
                     x: {
-                        title: {
-                            display: true,
-                            text: 'Jours de la semaine'
+                        ticks: {
+                            font: {
+                                size: window.innerWidth < 768 ? 10 : 12
+                            }
                         }
                     }
                 }
@@ -1269,6 +1617,14 @@ try {
         <?php endif; ?>
     }
     
+    // Redimensionner le graphique quand la fenêtre change
+    window.addEventListener('resize', function() {
+        if (typeof initializeChart === 'function') {
+            // Recréer le graphique pour s'adapter à la nouvelle taille
+            initializeChart();
+        }
+    });
+    
     // Charger les alertes en AJAX
     function loadAlerts() {
         fetch('ajax/get_alerts.php')
@@ -1276,20 +1632,23 @@ try {
             .then(data => {
                 const alertsList = document.getElementById('alertsList');
                 if (data.length > 0) {
-                    let html = '<ul class="mb-0">';
-                    data.forEach(alert => {
+                    let html = '<ul class="mb-0 ps-3 small">';
+                    data.slice(0, 3).forEach(alert => {
                         html += `<li>${alert.message}</li>`;
                     });
                     html += '</ul>';
+                    if (data.length > 3) {
+                        html += `<p class="mb-0 mt-2 small text-end"><a href="#" class="text-warning">Voir toutes (${data.length})</a></p>`;
+                    }
                     alertsList.innerHTML = html;
                 } else {
-                    alertsList.innerHTML = '<p class="mb-0">Aucune alerte pour le moment.</p>';
+                    alertsList.innerHTML = '<p class="mb-0 small">Aucune alerte pour le moment.</p>';
                 }
             })
             .catch(error => {
                 console.error('Erreur:', error);
                 document.getElementById('alertsList').innerHTML = 
-                    '<p class="text-danger">Erreur de chargement des alertes</p>';
+                    '<p class="text-danger small">Erreur de chargement des alertes</p>';
             });
     }
     
@@ -1332,8 +1691,8 @@ try {
             const selectedStatut = filterStatut.value;
             
             tableRows.forEach(row => {
-                const matricule = row.cells[0].textContent.toLowerCase();
-                const nom = row.cells[1].textContent.toLowerCase();
+                const matricule = row.cells[1]?.textContent.toLowerCase() || '';
+                const nom = row.cells[0].textContent.toLowerCase();
                 const classe = row.cells[2].textContent;
                 const statutBadge = row.cells[3].querySelector('.badge');
                 const statut = statutBadge ? statutBadge.textContent.toLowerCase().trim() : '';

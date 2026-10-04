@@ -17,6 +17,12 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Vérifier le rôle (doit être administrateur principal)
+if ($_SESSION['role_id'] != 1) { // 1 = Administrateur principal
+    header('Location: ' . ROOT_PATH . '/dashboard/access_denied.php');
+    exit();
+}
+
 // Inclure la configuration
 @include_once ROOT_PATH . '/config/database.php';
 
@@ -120,97 +126,50 @@ function envoyerEmail($to, $subject, $body) {
     }
 }
 
-/**
- * Générer un lien de paiement unique avec interface MTN Mobile Money
- */
-function genererLienPaiement($demande_id, $numero_demande, $demande_data) {
-    global $db;
-    
-    // Générer un token sécurisé
-    $token = bin2hex(random_bytes(32));
-    
-    // Calculer les frais en fonction du mode de paiement
-    $frais_pourcentage = ($demande_data['mode_paiement'] == 'MTN Mobile Money' || 
-                         $demande_data['mode_paiement'] == 'Airtel Money') ? 1.5 : 0;
-    
-    // Déterminer le montant des frais (à adapter selon votre logique)
-    $montant_frais = 0;
-    if (in_array($demande_data['cycle_formation'], ['Licence', 'Master'])) {
-        $montant_frais = 25000; // Exemple pour licence/master
-    } else {
-        $montant_frais = 25000; // Exemple pour BTS
-    }
-    
-    $frais_transaction = $montant_frais * ($frais_pourcentage / 100);
-    $total_amount = $montant_frais + $frais_transaction;
-    
-    // Enregistrer le token avec plus d'informations
-    $query = "UPDATE demande_inscriptions SET 
-              token_paiement = ?, 
-              date_expiration_token = DATE_ADD(NOW(), INTERVAL 7 DAY)
-              WHERE id = ?";
-    $stmt = $db->prepare($query);
-    $stmt->execute([$token, $demande_id]);
-    
-    // Créer un enregistrement de paiement
-    $payment_query = "INSERT INTO paiements (
-        etudiant_id,
-        type_frais_id,
-        annee_academique_id,
-        reference,
-        montant,
-        frais_transaction,
-        mode_paiement,
-        numero_telephone,
-        operateur_mobile,
-        date_paiement,
-        statut,
-        date_creation
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), 'en_attente', NOW())";
-    
-    // Déterminer l'opérateur
-    $operateur = 'MTN';
-    if ($demande_data['mode_paiement'] == 'Airtel Money') {
-        $operateur = 'Airtel';
-    } elseif ($demande_data['mode_paiement'] == 'Espèce') {
-        $operateur = null;
-    }
-    
-    $payment_stmt = $db->prepare($payment_query);
-    $payment_stmt->execute([
-        null, // etudiant_id (null car pas encore créé)
-        1,    // type_frais_id (à adapter)
-        1,    // annee_academique_id (à adapter)
-        'PAY-' . date('Ymd') . '-' . str_pad($demande_id, 5, '0', STR_PAD_LEFT),
-        $montant_frais,
-        $frais_transaction,
-        $demande_data['mode_paiement'],
-        $demande_data['telephone'],
-        $operateur
-    ]);
-    
-    // Récupérer le site de formation
-    $site_id = $demande_data['site_id'] ?? 1;
-    if (!$site_id) {
-        if (strpos($demande_data['site_formation'], 'Brazzaville') !== false) $site_id = 1;
-        elseif (strpos($demande_data['site_formation'], 'Pointe-Noire') !== false) $site_id = 2;
-        elseif (strpos($demande_data['site_formation'], 'Ouesso') !== false) $site_id = 3;
-        else $site_id = 1;
-    }
-    
-    // Générer le lien vers l'interface de paiement
-    $base_url = "http://" . $_SERVER['HTTP_HOST'] . dirname(dirname($_SERVER['PHP_SELF']));
-    
-    return [
-        'url' => $base_url . "/payment-interface/?token=" . $token . 
-                "&demande_id=" . $demande_id . 
-                "&fee_type_id=1" .  // À adapter selon vos types de frais
-                "&reference=INSCRIPTION-" . $numero_demande,
-        'token' => $token,
-        'montant_frais' => $montant_frais,
-        'frais_transaction' => $frais_transaction,
-        'total_amount' => $total_amount
+// Fonction pour obtenir l'adresse d'un site
+function getSiteAddress($site_id) {
+    $addresses = [
+        1 => "Quartier Poto-Poto, Avenue de France, Brazzaville",
+        2 => "Quartier Mpita-Socoprise, Arrêt OCI, Pointe-Noire",
+        3 => "Centre-ville, en diagonale de la CNSS, Ouesso"
     ];
+    
+    return $addresses[$site_id] ?? "Adresse non spécifiée";
+}
+
+// Construire l'email d'approbation (sans détails de paiement)
+function buildApprovalEmail($demande) {
+    return "Félicitations " . $demande['prenom'] . " " . $demande['nom'] . ",\n\n" .
+           "Votre demande d'inscription à l'ISGI a été approuvée avec succès !\n\n" .
+           "📋 <strong>Numéro de dossier: " . $demande['numero_demande'] . "</strong>\n\n" .
+           "✅ <strong>Votre inscription est validée</strong>\n\n" .
+           "📚 <strong>Informations importantes:</strong>\n" .
+           "• Filière: " . $demande['filiere'] . " (" . $demande['niveau'] . ")\n" .
+           "• Site: " . $demande['site_formation'] . "\n" .
+           "• Rentrée: " . $demande['type_rentree'] . "\n\n" .
+           "📅 <strong>Prochaines étapes:</strong>\n" .
+           "• Vous serez contacté pour la création de votre compte étudiant\n" .
+           "• Vous recevrez votre matricule étudiant\n" .
+           "• La rentrée aura lieu selon le calendrier académique\n\n" .
+           "Nous sommes impatients de vous accueillir à l'ISGI !\n\n" .
+           "Cordialement,\nL'équipe ISGI Congo";
+}
+
+// Construire l'email de validation (création de l'étudiant)
+function buildValidationEmail($demande, $matricule) {
+    return "Félicitations " . $demande['prenom'] . " " . $demande['nom'] . ",\n\n" .
+           "Votre inscription à l'ISGI est maintenant complète et vous êtes officiellement étudiant(e) !\n\n" .
+           "🎓 <strong>Votre matricule étudiant: " . $matricule . "</strong>\n\n" .
+           "📚 <strong>Informations importantes:</strong>\n" .
+           "• Filière: " . $demande['filiere'] . " (" . $demande['niveau'] . ")\n" .
+           "• Site: " . $demande['site_formation'] . "\n" .
+           "• Rentrée: " . $demande['type_rentree'] . "\n\n" .
+           "📅 <strong>Prochaines étapes:</strong>\n" .
+           "1. Vous recevrez bientôt votre emploi du temps\n" .
+           "2. La rentrée aura lieu selon le calendrier académique\n" .
+           "3. Conservez précieusement votre matricule\n\n" .
+           "Bienvenue dans la famille ISGI !\n\n" .
+           "Cordialement,\nL'équipe ISGI Congo";
 }
 
 try {
@@ -380,125 +339,40 @@ try {
                     $corps = "Bonjour " . $demande['prenom'] . " " . $demande['nom'] . ",\n\n";
                     $corps .= "Nous avons bien reçu votre demande d'inscription n°" . $demande['numero_demande'] . " et elle est actuellement en cours de traitement.\n\n";
                     $corps .= "Notre équipe examine votre dossier et vous tiendra informé(e) de l'avancement dans les plus brefs délais.\n\n";
-                    $corps .= "Merci pour votre patience.\n\nCordialement,\nL'équipe ISGI Congo";
+                    $corps .= "Merci pour votre patience.\n\n";
+                    $corps .= "Cordialement,\nL'équipe ISGI Congo";
                     
                     envoyerEmail($demande['email'], $sujet, $corps);
                     
                 } 
-               // ACTION : APPOUVER
-elseif ($action == 'approuver') {
-    $update_query = "UPDATE demande_inscriptions 
-                    SET statut = 'approuvee', 
-                        validee_par = ?,
-                        date_validation = NOW(),
-                        commentaire_admin = ?
-                    WHERE id = ?";
-    
-    $update_stmt = $db->prepare($update_query);
-    $update_stmt->execute([$user_id, $commentaire, $demande_id]);
-    
-    // Générer le lien de paiement avec interface mobile money
-    $paiement_info = genererLienPaiement($demande_id, $demande['numero_demande'], $demande);
-    $lien_paiement = $paiement_info['url'];
-    
-    $message = "✅ DEMANDE APPROUVÉE AVEC SUCCÈS !<br>";
-    $message .= "👤 <strong>" . $demande['nom'] . " " . $demande['prenom'] . "</strong><br>";
-    $message .= "📧 Email: " . $demande['email'] . "<br>";
-    $message .= "📋 N° demande: " . $demande['numero_demande'] . "<br>";
-    $message .= "💰 Montant frais: " . number_format($paiement_info['montant_frais'], 0, ',', ' ') . " FCFA<br>";
-    $message .= "💳 Frais transaction: " . number_format($paiement_info['frais_transaction'], 0, ',', ' ') . " FCFA<br>";
-    $message .= "💰 Total à payer: " . number_format($paiement_info['total_amount'], 0, ',', ' ') . " FCFA<br>";
-    $message .= "🔗 Lien de paiement généré";
-    
-    // Envoyer l'email avec les détails du paiement
-    $sujet = "Félicitations ! Votre inscription à l'ISGI est approuvée - Procédez au paiement";
-    
-    /**
- * Construire l'email d'approbation avec détails du paiement
- */
-function buildApprovalEmail($demande, $paiement_info, $lien_paiement) {
-    $montant_format = number_format($paiement_info['montant_frais'], 0, ',', ' ');
-    $frais_format = number_format($paiement_info['frais_transaction'], 0, ',', ' ');
-    $total_format = number_format($paiement_info['total_amount'], 0, ',', ' ');
-    
-    $paiement_online = in_array($demande['mode_paiement'], ['MTN Mobile Money', 'Airtel Money']);
-    
-    if ($paiement_online) {
-        return "Félicitations " . $demande['prenom'] . " " . $demande['nom'] . ",\n\n" .
-               "Votre demande d'inscription à l'ISGI a été approuvée avec succès !\n\n" .
-               "📋 <strong>Numéro de dossier: " . $demande['numero_demande'] . "</strong>\n\n" .
-               "✅ <strong>Votre inscription est validée</strong>\n\n" .
-               "💰 <strong>Détails des frais:</strong>\n" .
-               "• Frais d'inscription: " . $montant_format . " FCFA\n" .
-               "• Frais de transaction: " . $frais_format . " FCFA\n" .
-               "• <strong>TOTAL À PAYER: " . $total_format . " FCFA</strong>\n\n" .
-               "📱 <strong>Mode de paiement choisi:</strong> " . $demande['mode_paiement'] . "\n\n" .
-               "🔗 <strong>Lien de paiement sécurisé:</strong>\n" .
-               $lien_paiement . "\n\n" .
-               "⏰ <strong>Durée de validité du lien:</strong> 7 jours\n\n" .
-               "📝 <strong>Instructions pour le paiement:</strong>\n" .
-               "1. Cliquez sur le lien ci-dessus\n" .
-               "2. Entrez votre numéro de téléphone " . $demande['mode_paiement'] . "\n" .
-               "3. Confirmez le paiement sur votre téléphone\n" .
-               "4. Vous recevrez une confirmation par SMS et email\n\n" .
-               "⚠️ <strong>Important:</strong>\n" .
-               "• Assurez-vous d'avoir suffisamment de crédit sur votre compte\n" .
-               "• Le lien est personnel et ne doit pas être partagé\n" .
-               "• Après paiement, vous serez automatiquement inscrit\n\n" .
-               "Si vous avez des questions, contactez-nous au +242 06 848 45 67\n\n" .
-               "Nous sommes impatients de vous accueillir à l'ISGI !\n\n" .
-               "Cordialement,\nL'équipe ISGI Congo";
-    } else {
-        // Paiement en espèces
-        return "Félicitations " . $demande['prenom'] . " " . $demande['nom'] . ",\n\n" .
-               "Votre demande d'inscription à l'ISGI a été approuvée avec succès !\n\n" .
-               "📋 <strong>Numéro de dossier: " . $demande['numero_demande'] . "</strong>\n\n" .
-               "✅ <strong>Votre inscription est validée</strong>\n\n" .
-               "💰 <strong>Détails des frais:</strong>\n" .
-               "• Frais d'inscription: " . $montant_format . " FCFA\n" .
-               "• <strong>TOTAL À PAYER: " . $total_format . " FCFA</strong>\n\n" .
-               "💵 <strong>Mode de paiement choisi:</strong> Espèces\n\n" .
-               "📍 <strong>Procédure de paiement:</strong>\n" .
-               "Veuillez vous présenter au secrétariat de l'ISGI pour effectuer votre paiement.\n\n" .
-               "🏛️ <strong>Adresse du site " . $demande['site_formation'] . ":</strong>\n" .
-               $this->getSiteAddress($demande['site_id'] ?? 1) . "\n\n" .
-               "📅 <strong>Horaires d'ouverture:</strong>\n" .
-               "Lundi - Vendredi: 8h00 - 17h00\n" .
-               "Samedi: 9h00 - 13h00\n\n" .
-               "⚠️ <strong>À apporter:</strong>\n" .
-               "• Une copie de ce mail\n" .
-               "• Votre pièce d'identité originale\n" .
-               "• Le montant exact en espèces\n\n" .
-               "Nous sommes impatients de vous accueillir à l'ISGI !\n\n" .
-               "Cordialement,\nL'équipe ISGI Congo";
-    }
-}
-
-/**
- * Obtenir l'adresse d'un site
- */
-function getSiteAddress($site_id) {
-    $addresses = [
-        1 => "Quartier Poto-Poto, Avenue de France, Brazzaville",
-        2 => "Quartier Mpita-Socoprise, Arrêt OCI, Pointe-Noire",
-        3 => "Centre-ville, en diagonale de la CNSS, Ouesso"
-    ];
-    
-    return $addresses[$site_id] ?? "Adresse non spécifiée";
-}
-    // Construire le corps de l'email
-    $corps = $this->buildApprovalEmail($demande, $paiement_info, $lien_paiement);
-    
-    envoyerEmail($demande['email'], $sujet, $corps);
-}
-                // ACTION : VALIDER
-                elseif ($action == 'valider') {
-                    $check_paiement = $db->prepare("SELECT id FROM paiements WHERE demande_id = ? AND statut = 'confirme'");
-                    $check_paiement->execute([$demande_id]);
+                // ACTION : APPOUVER (sans paiement)
+                elseif ($action == 'approuver') {
+                    $update_query = "UPDATE demande_inscriptions 
+                                    SET statut = 'approuvee', 
+                                        validee_par = ?,
+                                        date_validation = NOW(),
+                                        commentaire_admin = ?
+                                    WHERE id = ?";
                     
-                    if ($check_paiement->rowCount() == 0) {
-                        throw new Exception("Impossible de créer l'étudiant : paiement non confirmé");
-                    }
+                    $update_stmt = $db->prepare($update_query);
+                    $update_stmt->execute([$user_id, $commentaire, $demande_id]);
+                    
+                    $message = "✅ DEMANDE APPROUVÉE AVEC SUCCÈS !<br>";
+                    $message .= "👤 <strong>" . $demande['nom'] . " " . $demande['prenom'] . "</strong><br>";
+                    $message .= "📧 Email: " . $demande['email'] . "<br>";
+                    $message .= "📋 N° demande: " . $demande['numero_demande'] . "<br>";
+                    $message .= "✅ L'étudiant peut maintenant être validé pour création de compte";
+                    
+                    // Envoyer l'email d'approbation simple (sans paiement)
+                    $sujet = "Félicitations ! Votre inscription à l'ISGI est approuvée";
+                    $corps = buildApprovalEmail($demande);
+                    
+                    envoyerEmail($demande['email'], $sujet, $corps);
+                }
+                // ACTION : VALIDER (créer l'étudiant sans vérification de paiement)
+                elseif ($action == 'valider') {
+                    // Validation simple sans vérification de paiement
+                    // Création directe de l'étudiant
                     
                     $matricule = 'ISGI-' . date('Y') . '-' . str_pad($demande_id, 5, '0', STR_PAD_LEFT);
                     
@@ -517,6 +391,67 @@ function getSiteAddress($site_id) {
                         throw new Exception("Un étudiant avec ce CNI ou matricule existe déjà");
                     }
                     
+                    // Trouver la classe (optionnel - peut être null)
+                    $classe_id = null;
+                    $filiere_query = "SELECT id FROM filieres WHERE nom = ? LIMIT 1";
+                    $filiere_stmt = $db->prepare($filiere_query);
+                    $filiere_stmt->execute([$demande['filiere']]);
+                    $filiere_result = $filiere_stmt->fetch(PDO::FETCH_ASSOC);
+                    $filiere_id = $filiere_result['id'] ?? null;
+                    
+                    if ($filiere_id) {
+                        // Convertir le niveau pour correspondre au libellé
+                        $niveau_libelle = '';
+                        if (strpos($demande['niveau'], 'BTS 1') !== false || $demande['niveau'] == 'BTS1') {
+                            $niveau_libelle = 'BTS 1ère année';
+                        } elseif (strpos($demande['niveau'], 'BTS 2') !== false || $demande['niveau'] == 'BTS2') {
+                            $niveau_libelle = 'BTS 2ème année';
+                        } elseif (strpos($demande['niveau'], 'Licence 1') !== false || $demande['niveau'] == 'L1') {
+                            $niveau_libelle = 'Licence 1';
+                        } elseif (strpos($demande['niveau'], 'Licence 2') !== false || $demande['niveau'] == 'L2') {
+                            $niveau_libelle = 'Licence 2';
+                        } elseif (strpos($demande['niveau'], 'Licence 3') !== false || $demande['niveau'] == 'L3') {
+                            $niveau_libelle = 'Licence 3';
+                        } elseif (strpos($demande['niveau'], 'Master 1') !== false || $demande['niveau'] == 'M1') {
+                            $niveau_libelle = 'Master 1';
+                        } elseif (strpos($demande['niveau'], 'Master 2') !== false || $demande['niveau'] == 'M2') {
+                            $niveau_libelle = 'Master 2';
+                        } else {
+                            $niveau_libelle = $demande['niveau'];
+                        }
+                        
+                        $niveau_query = "SELECT id FROM niveaux WHERE libelle = ? LIMIT 1";
+                        $niveau_stmt = $db->prepare($niveau_query);
+                        $niveau_stmt->execute([$niveau_libelle]);
+                        $niveau_result = $niveau_stmt->fetch(PDO::FETCH_ASSOC);
+                        $niveau_id = $niveau_result['id'] ?? null;
+                        
+                        if (!$niveau_id) {
+                            $niveau_query2 = "SELECT id FROM niveaux WHERE code = ? LIMIT 1";
+                            $niveau_stmt2 = $db->prepare($niveau_query2);
+                            $niveau_stmt2->execute([$demande['niveau']]);
+                            $niveau_result2 = $niveau_stmt2->fetch(PDO::FETCH_ASSOC);
+                            $niveau_id = $niveau_result2['id'] ?? null;
+                        }
+                        
+                        if ($filiere_id && $niveau_id) {
+                            $classe_query = "SELECT id FROM classes WHERE filiere_id = ? AND niveau_id = ? AND site_id = ? LIMIT 1";
+                            $classe_stmt = $db->prepare($classe_query);
+                            $classe_stmt->execute([$filiere_id, $niveau_id, $site_id]);
+                            $classe_result = $classe_stmt->fetch(PDO::FETCH_ASSOC);
+                            $classe_id = $classe_result['id'] ?? null;
+                            
+                            if (!$classe_id) {
+                                $classe_query2 = "SELECT id FROM classes WHERE filiere_id = ? AND niveau_id = ? LIMIT 1";
+                                $classe_stmt2 = $db->prepare($classe_query2);
+                                $classe_stmt2->execute([$filiere_id, $niveau_id]);
+                                $classe_result2 = $classe_stmt2->fetch(PDO::FETCH_ASSOC);
+                                $classe_id = $classe_result2['id'] ?? null;
+                            }
+                        }
+                    }
+                    
+                    // Créer l'étudiant sans se soucier du paiement
                     $etudiant_query = "INSERT INTO etudiants 
                                       (utilisateur_id, site_id, classe_id, matricule, nom, prenom, numero_cni, 
                                        date_naissance, lieu_naissance, sexe, nationalite, adresse, ville, pays, 
@@ -525,22 +460,46 @@ function getSiteAddress($site_id) {
                                        telephone_parent, nom_tuteur, profession_tuteur,
                                        telephone_tuteur, lieu_service_tuteur,
                                        photo_identite, acte_naissance, releve_notes, attestation_legalisee,
+                                       filiere, niveau, cycle_formation, type_rentree, site_formation, mode_paiement,
                                        statut, date_inscription)
-                                      VALUES (NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'actif', NOW())";
+                                      VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'actif', NOW())";
                     
                     $etudiant_stmt = $db->prepare($etudiant_query);
                     $success = $etudiant_stmt->execute([
-                        $site_id, $matricule, $demande['nom'], $demande['prenom'], $demande['numero_cni'],
-                        $demande['date_naissance'], $demande['lieu_naissance'], $demande['sexe'],
-                        $demande['nationalite'] ?? 'Congolaise', $demande['adresse'], $demande['ville'],
-                        $demande['pays'] ?? 'Congo', $demande['profession'], $demande['situation_matrimoniale'],
-                        $demande['nom_pere'] ?? '', $demande['profession_pere'] ?? '',
-                        $demande['nom_mere'] ?? '', $demande['profession_mere'] ?? '',
-                        $demande['telephone_parent'] ?? '', $demande['nom_tuteur'] ?? '',
-                        $demande['profession_tuteur'] ?? '', $demande['telephone_tuteur'] ?? '',
-                        $demande['lieu_service_tuteur'] ?? '', $demande['photo_identite'] ?? '',
-                        $demande['acte_naissance'] ?? '', $demande['releve_notes'] ?? '',
-                        $demande['attestation_legalisee'] ?? ''
+                        $site_id, 
+                        $classe_id,
+                        $matricule, 
+                        $demande['nom'], 
+                        $demande['prenom'], 
+                        $demande['numero_cni'],
+                        $demande['date_naissance'], 
+                        $demande['lieu_naissance'], 
+                        $demande['sexe'],
+                        $demande['nationalite'] ?? 'Congolaise', 
+                        $demande['adresse'], 
+                        $demande['ville'],
+                        $demande['pays'] ?? 'Congo', 
+                        $demande['profession'], 
+                        $demande['situation_matrimoniale'],
+                        $demande['nom_pere'] ?? '', 
+                        $demande['profession_pere'] ?? '',
+                        $demande['nom_mere'] ?? '', 
+                        $demande['profession_mere'] ?? '',
+                        $demande['telephone_parent'] ?? $demande['telephone'] ?? '',
+                        $demande['nom_tuteur'] ?? '',
+                        $demande['profession_tuteur'] ?? '', 
+                        $demande['telephone_tuteur'] ?? '',
+                        $demande['lieu_service_tuteur'] ?? '', 
+                        $demande['photo_identite'] ?? '',
+                        $demande['acte_naissance'] ?? '', 
+                        $demande['releve_notes'] ?? '',
+                        $demande['attestation_legalisee'] ?? '',
+                        $demande['filiere'] ?? '',           // filiere
+                        $demande['niveau'] ?? '',            // niveau
+                        $demande['cycle_formation'] ?? '',   // cycle_formation
+                        $demande['type_rentree'] ?? '',      // type_rentree
+                        $demande['site_formation'] ?? '',    // site_formation
+                        $demande['mode_paiement'] ?? ''      // mode_paiement
                     ]);
                     
                     if (!$success) {
@@ -550,38 +509,30 @@ function getSiteAddress($site_id) {
                     
                     $etudiant_id = $db->lastInsertId();
                     
-                    $update_query = "UPDATE demande_inscriptions 
-                                    SET statut = 'validee', 
-                                        validee_par = ?,
-                                        date_validation = NOW(),
-                                        date_creation_compte = NOW(),
-                                        commentaire_admin = ?
-                                    WHERE id = ?";
-                    
-                    $update_stmt = $db->prepare($update_query);
-                    $update_stmt->execute([$user_id, $commentaire, $demande_id]);
+                   
+    // Mettre à jour la demande SANS la colonne etudiant_id
+    $update_query = "UPDATE demande_inscriptions 
+                    SET statut = 'validee', 
+                        validee_par = ?,
+                        date_validation = NOW(),
+                        date_creation_compte = NOW(),
+                        commentaire_admin = ?
+                    WHERE id = ?";
+    
+    $update_stmt = $db->prepare($update_query);
+    $update_stmt->execute([$user_id, $commentaire, $demande_id]);
+    
                     
                     $message = "🎉 ÉTUDIANT CRÉÉ AVEC SUCCÈS !<br>";
                     $message .= "📋 <strong>Matricule: $matricule</strong><br>";
                     $message .= "👤 <strong>" . $demande['nom'] . " " . $demande['prenom'] . "</strong><br>";
                     $message .= "📧 Email: " . $demande['email'] . "<br>";
-                    $message .= "🎓 Filière: " . $demande['filiere'] . "<br>";
+                    $message .= "🎓 Filière: " . $demande['filiere'] . " (" . $demande['niveau'] . ")<br>";
                     $message .= "🆔 ID étudiant: <strong>$etudiant_id</strong>";
                     
-                    $sujet = "Bienvenue à l'ISGI ! Votre inscription est complète";
-                    $corps = "Félicitations " . $demande['prenom'] . " " . $demande['nom'] . ",\n\n";
-                    $corps .= "Votre inscription à l'ISGI est maintenant complète et vous êtes officiellement étudiant(e) !\n\n";
-                    $corps .= "🎓 <strong>Votre matricule étudiant: " . $matricule . "</strong>\n\n";
-                    $corps .= "📚 <strong>Informations importantes:</strong>\n";
-                    $corps .= "• Filière: " . $demande['filiere'] . "\n";
-                    $corps .= "• Site: " . $demande['site_formation'] . "\n";
-                    $corps .= "• Rentrée: " . $demande['type_rentree'] . "\n\n";
-                    $corps .= "📅 <strong>Prochaines étapes:</strong>\n";
-                    $corps .= "1. Vous recevrez bientôt votre emploi du temps\n";
-                    $corps .= "2. La rentrée aura lieu selon le calendrier académique\n";
-                    $corps .= "3. Conservez précieusement votre matricule\n\n";
-                    $corps .= "Bienvenue dans la famille ISGI !\n\n";
-                    $corps .= "Cordialement,\nL'équipe ISGI Congo";
+                    // Envoyer l'email de bienvenue
+                    $sujet = "Bienvenue à l'ISGI ! Votre compte étudiant est créé";
+                    $corps = buildValidationEmail($demande, $matricule);
                     
                     envoyerEmail($demande['email'], $sujet, $corps);
                     
@@ -619,7 +570,8 @@ function getSiteAddress($site_id) {
                 $db->commit();
                 $message_type = 'success';
                 
-                header("Location: demandes.php?message=" . urlencode($message) . "&type=success");
+                // Redirection pour éviter la soumission multiple
+                header("Location: demandes.php?message=" . urlencode($message) . "&type=" . $message_type . "&statut=" . urlencode($statut_filter));
                 exit();
                 
             } catch (Exception $e) {
@@ -645,31 +597,433 @@ function getSiteAddress($site_id) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle); ?></title>
+    <title><?php echo htmlspecialchars($pageTitle); ?> - ISGI</title>
+    
+    <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
-        :root { --primary-color: #2c3e50; --secondary-color: #3498db; --accent-color: #e74c3c; --success-color: #27ae60; --warning-color: #f39c12; --info-color: #17a2b8; --bg-color: #f8f9fa; --card-bg: #ffffff; --text-color: #212529; --text-muted: #6c757d; --sidebar-bg: #2c3e50; --sidebar-text: #ffffff; --border-color: #dee2e6; }
-        [data-theme="dark"] { --primary-color: #3498db; --secondary-color: #2980b9; --accent-color: #e74c3c; --success-color: #2ecc71; --warning-color: #f39c12; --info-color: #17a2b8; --bg-color: #121212; --card-bg: #1e1e1e; --text-color: #e0e0e0; --text-muted: #a0a0a0; --sidebar-bg: #1a1a1a; --sidebar-text: #ffffff; --border-color: #333333; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; min-height: 100vh; transition: background-color 0.3s ease, color 0.3s ease; }
-        .app-container { display: flex; min-height: 100vh; }
-        .sidebar { width: 250px; background-color: var(--sidebar-bg); color: var(--sidebar-text); position: fixed; height: 100vh; overflow-y: auto; transition: background-color 0.3s ease; }
-        .main-content { flex: 1; margin-left: 250px; padding: 20px; min-height: 100vh; transition: background-color 0.3s ease, color 0.3s ease; }
-        .card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; color: var(--text-color); transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
-        .stat-card { text-align: center; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .stat-value { font-size: 1.8rem; font-weight: bold; margin-bottom: 5px; }
-        .stat-label { font-size: 0.9rem; color: var(--text-muted); }
-        .detail-row { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); }
-        .detail-label { font-weight: 600; color: var(--primary-color); }
-        .document-card { border: 1px solid var(--border-color); border-radius: 5px; margin-bottom: 10px; }
-        @media (max-width: 768px) { .sidebar { width: 70px; } .sidebar-header, .user-info, .nav-section-title, .nav-link span { display: none; } .nav-link { justify-content: center; padding: 15px; } .nav-link i { margin-right: 0; font-size: 18px; } .main-content { margin-left: 70px; padding: 15px; } }
-        [data-theme="dark"] .card-header { background-color: rgba(255, 255, 255, 0.05); }
-        [data-theme="dark"] .table { --bs-table-bg: var(--card-bg); --bs-table-striped-bg: rgba(255, 255, 255, 0.05); --bs-table-hover-bg: rgba(255, 255, 255, 0.1); }
-        .table thead th { background-color: var(--primary-color); color: white; border: none; }
-    </style>
+    :root {
+        --primary-color: #2c3e50;
+        --secondary-color: #3498db;
+        --accent-color: #e74c3c;
+        --success-color: #27ae60;
+        --warning-color: #f39c12;
+        --info-color: #17a2b8;
+        --bg-color: #f8f9fa;
+        --card-bg: #ffffff;
+        --text-color: #212529;
+        --text-muted: #6c757d;
+        --sidebar-bg: #2c3e50;
+        --sidebar-text: #ffffff;
+        --border-color: #dee2e6;
+    }
+    
+    [data-theme="dark"] {
+        --primary-color: #3498db;
+        --secondary-color: #2980b9;
+        --accent-color: #e74c3c;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --info-color: #17a2b8;
+        --bg-color: #121212;
+        --card-bg: #1e1e1e;
+        --text-color: #e0e0e0;
+        --text-muted: #a0a0a0;
+        --sidebar-bg: #1a1a1a;
+        --sidebar-text: #ffffff;
+        --border-color: #333333;
+    }
+    
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+    }
+    
+    .app-container {
+        display: flex;
+        min-height: 100vh;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+        width: 250px;
+        background-color: var(--sidebar-bg);
+        color: var(--sidebar-text);
+        position: fixed;
+        height: 100vh;
+        overflow-y: auto;
+        z-index: 1000;
+    }
+    
+    .sidebar-header {
+        padding: 20px 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+    }
+    
+    .sidebar-logo {
+        width: 50px;
+        height: 50px;
+        background: var(--secondary-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+    }
+    
+    .user-info {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 0 15px;
+    }
+    
+    .user-role {
+        display: inline-block;
+        padding: 4px 12px;
+        background: var(--secondary-color);
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-top: 5px;
+    }
+    
+    /* Navigation */
+    .sidebar-nav {
+        padding: 15px;
+    }
+    
+    .nav-section {
+        margin-bottom: 25px;
+    }
+    
+    .nav-section-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 10px;
+        padding: 0 10px;
+    }
+    
+    .nav-link {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        color: var(--sidebar-text);
+        text-decoration: none;
+        border-radius: 5px;
+        margin-bottom: 5px;
+        transition: all 0.3s;
+    }
+    
+    .nav-link:hover, .nav-link.active {
+        background-color: var(--secondary-color);
+        color: white;
+    }
+    
+    .nav-link i {
+        width: 20px;
+        margin-right: 10px;
+        text-align: center;
+    }
+    
+    .nav-badge {
+        margin-left: auto;
+        background: var(--accent-color);
+        color: white;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 10px;
+    }
+    
+    /* Contenu principal */
+    .main-content {
+        flex: 1;
+        margin-left: 250px;
+        padding: 20px;
+        min-height: 100vh;
+    }
+    
+    /* Cartes */
+    .card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        transition: transform 0.2s;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .card-header {
+        background-color: rgba(0, 0, 0, 0.03);
+        border-bottom: 1px solid var(--border-color);
+        padding: 15px 20px;
+    }
+    
+    .card-body {
+        padding: 20px;
+    }
+    
+    /* Stat cards */
+    .stat-card {
+        text-align: center;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        color: white;
+    }
+    
+    .stat-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .stat-label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+    
+    /* Détails */
+    .detail-row {
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+    
+    .document-card {
+        border: 1px solid var(--border-color);
+        border-radius: 5px;
+        margin-bottom: 10px;
+    }
+    
+    /* Tableaux */
+    .table {
+        color: var(--text-color);
+    }
+    
+    .table thead th {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 15px;
+    }
+    
+    .table tbody td {
+        border-color: var(--border-color);
+        padding: 15px;
+        color: var(--text-color);
+    }
+    
+    .table tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    [data-theme="dark"] .table tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Badges */
+    .badge {
+        font-size: 0.75em;
+        padding: 4px 8px;
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .sidebar {
+            width: 70px;
+            overflow-x: hidden;
+        }
+        
+        .sidebar-header, .user-info, .nav-section-title, .nav-link span {
+            display: none;
+        }
+        
+        .nav-link {
+            justify-content: center;
+            padding: 15px;
+        }
+        
+        .nav-link i {
+            margin-right: 0;
+            font-size: 18px;
+        }
+        
+        .main-content {
+            margin-left: 70px;
+            padding: 15px;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+        }
+    }
+    
+    /* En-têtes */
+    h1, h2, h3, h4, h5, h6 {
+        color: var(--text-color);
+    }
+    
+    .content-header h2 {
+        color: var(--text-color);
+    }
+    
+    .content-header .text-muted {
+        color: var(--text-muted);
+    }
+    
+    /* Boutons */
+    .btn-outline-light {
+        color: var(--sidebar-text);
+        border-color: var(--sidebar-text);
+    }
+    
+    .btn-outline-light:hover {
+        background-color: var(--sidebar-text);
+        color: var(--sidebar-bg);
+    }
+    
+    /* Formulaires */
+    .form-control, .form-select {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+    
+    .form-control:focus, .form-select:focus {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(52, 152, 219, 0.25);
+    }
+    
+    /* Progress bars */
+    .progress {
+        background-color: var(--border-color);
+    }
+    
+    .progress-bar {
+        background-color: var(--primary-color);
+    }
+    
+    /* List group */
+    .list-group-item {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+    
+    .list-group-item:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+    }
+    
+    [data-theme="dark"] .list-group-item:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Pagination */
+    .pagination .page-item .page-link {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+        border-color: var(--border-color);
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        color: white;
+    }
+    
+    /* Modal styles */
+    .modal-content {
+        background-color: var(--card-bg);
+        color: var(--text-color);
+    }
+    
+    .modal-header {
+        border-bottom-color: var(--border-color);
+    }
+    
+    .modal-footer {
+        border-top-color: var(--border-color);
+    }
+    
+    /* Alertes */
+    .alert {
+        border: none;
+        border-radius: 8px;
+        color: var(--text-color);
+        background-color: var(--card-bg);
+    }
+    
+    .alert-info {
+        background-color: rgba(23, 162, 184, 0.1);
+        border-left: 4px solid var(--info-color);
+    }
+    
+    .alert-success {
+        background-color: rgba(39, 174, 96, 0.1);
+        border-left: 4px solid var(--success-color);
+    }
+    
+    .alert-warning {
+        background-color: rgba(243, 156, 18, 0.1);
+        border-left: 4px solid var(--warning-color);
+    }
+    
+    .alert-danger {
+        background-color: rgba(231, 76, 60, 0.1);
+        border-left: 4px solid var(--accent-color);
+    }
+    
+    /* Action buttons */
+    .action-buttons .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .action-buttons .btn-sm {
+        padding: 4px 8px;
+        font-size: 12px;
+    }
+    
+    /* Fix pour éviter le tremblement de la page */
+    .action-form {
+        margin: 0;
+    }
+    
+    /* Animation pour le chargement */
+    .spinner-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 200px;
+    }
+</style>
 </head>
 <body>
     <div class="app-container">
+        <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
@@ -678,31 +1032,137 @@ function getSiteAddress($site_id) {
                 <h5 class="mt-2 mb-1">ISGI ADMIN</h5>
                 <div class="user-role">Administrateur Principal</div>
             </div>
+            
             <div class="user-info">
-                <p class="mb-1"><?php echo htmlspecialchars(SessionManager::getUserName()); ?></p>
-                <small>Gestion des Demandes</small>
+                <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Administrateur'); ?></p>
+                <small>Vue Globale Multi-Sites</small>
             </div>
+            
             <div class="sidebar-nav">
                 <div class="nav-section">
                     <div class="nav-section-title">Tableau de Bord</div>
-                    <a href="dashboard.php" class="nav-link"><i class="fas fa-tachometer-alt"></i><span>Dashboard Global</span></a>
-                </div>
-                <div class="nav-section">
-                    <div class="nav-section-title">Gestion Multi-Sites</div>
-                    <a href="sites.php" class="nav-link"><i class="fas fa-building"></i><span>Tous les Sites</span></a>
-                    <a href="utilisateurs.php" class="nav-link"><i class="fas fa-users"></i><span>Tous les Utilisateurs</span></a>
-                    <a href="demandes.php" class="nav-link active"><i class="fas fa-user-plus"></i><span>Demandes d'Inscription</span>
-                        <?php if ($stats['en_attente'] > 0): ?><span class="nav-badge"><?php echo $stats['en_attente']; ?></span><?php endif; ?>
+                    <a href="dashboard.php" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Dashboard Global</span>
                     </a>
                 </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Gestion Multi-Sites</div>
+                    <a href="sites.php" class="nav-link">
+                        <i class="fas fa-building"></i>
+                        <span>Tous les Sites</span>
+                    </a>
+                    <a href="utilisateurs.php" class="nav-link">
+                        <i class="fas fa-users"></i>
+                        <span>Tous les Utilisateurs</span>
+                    </a>
+                    <a href="validation_comptes.php" class="nav-link">
+                        <i class="fas fa-user-check"></i>
+                        <span>Validation des Comptes</span>
+                        <?php 
+                        // Récupérer le nombre de comptes en attente pour le badge
+                        if (class_exists('Database')) {
+                            try {
+                                $db_count = Database::getInstance()->getConnection();
+                                $count_result = $db_count->query("SELECT COUNT(*) as count FROM utilisateurs WHERE statut = 'en_attente'")->fetch();
+                                $count_validation = $count_result['count'] ?? 0;
+                                if ($count_validation > 0): ?>
+                                <span class="nav-badge"><?php echo $count_validation; ?></span>
+                                <?php endif;
+                            } catch (Exception $e) {
+                                // Silencieux
+                            }
+                        }
+                        ?>
+                    </a>
+                    <a href="demandes.php" class="nav-link active">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Demandes d'Inscription</span>
+                        <?php if ($stats['en_attente'] > 0): ?>
+                        <span class="nav-badge"><?php echo $stats['en_attente']; ?></span>
+                        <?php endif; ?>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Académique Global</div>
+                    <a href="etudiants.php" class="nav-link">
+                        <i class="fas fa-user-graduate"></i>
+                        <span>Tous les Étudiants</span>
+                    </a>
+                    <a href="professeurs.php" class="nav-link">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <span>Tous les Professeurs</span>
+                    </a>
+                    <a href="calendrier_examens.php" class="nav-link">
+                        <i class="fas fa-calendar-alt"></i>
+                        <span>Calendrier Examens</span>
+                    </a>
+                    <a href="calendrier_academique.php" class="nav-link">
+                        <i class="fas fa-calendar"></i>
+                        <span>Calendrier Académique</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Pédagogie & Ressources</div>
+                    <a href="cours_en_ligne.php" class="nav-link">
+                        <i class="fas fa-laptop"></i>
+                        <span>Cours en Ligne</span>
+                    </a>
+                    <a href="bibliotheque/bibliotheque.php" class="nav-link">
+                        <i class="fas fa-book"></i>
+                        <span>Bibliothèque</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Finances Globales</div>
+                    <a href="paiements.php" class="nav-link">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <span>Gestion Paiements</span>
+                    </a>
+                    <a href="dettes.php" class="nav-link">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>Gestion Dettes</span>
+                    </a>
+                    <a href="rapport_financier.php" class="nav-link">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Rapports Financiers</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Administration</div>
+                    <a href="reunions.php" class="nav-link">
+                        <i class="fas fa-users"></i>
+                        <span>Réunions</span>
+                    </a>
+                    <a href="rapports_statistiques.php" class="nav-link">
+                        <i class="fas fa-chart-pie"></i>
+                        <span>Rapports Statistiques</span>
+                    </a>
+                    <a href="notifications.php" class="nav-link">
+                        <i class="fas fa-bell"></i>
+                        <span>Notifications</span>
+                    </a>
+                </div>
+                
                 <div class="nav-section">
                     <div class="nav-section-title">Configuration</div>
-                    <button class="btn btn-outline-light w-100 mb-2" onclick="toggleTheme()"><i class="fas fa-moon"></i> <span>Mode Sombre</span></button>
-                    <a href="../../auth/logout.php" class="nav-link"><i class="fas fa-sign-out-alt"></i><span>Déconnexion</span></a>
+                    <button class="btn btn-outline-light w-100 mb-2" onclick="toggleTheme()">
+                        <i class="fas fa-moon"></i> <span>Mode Sombre</span>
+                    </button>
+                    <a href="../../auth/logout.php" class="nav-link">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Déconnexion</span>
+                    </a>
                 </div>
             </div>
         </div>
         
+        <!-- Contenu Principal -->
         <div class="main-content">
             <div class="content-header mb-4">
                 <div class="d-flex justify-content-between align-items-center">
@@ -746,22 +1206,76 @@ function getSiteAddress($site_id) {
             </div>
             
             <div class="row mb-4">
-                <div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #f39c12, #f1c40f); color: white;"><div class="stat-value"><?php echo $stats['en_attente']; ?></div><div class="stat-label">En attente</div></div></div>
-                <div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #3498db, #2980b9); color: white;"><div class="stat-value"><?php echo $stats['en_traitement']; ?></div><div class="stat-label">En traitement</div></div></div>
-                <div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #2c3e50, #3498db); color: white;"><div class="stat-value"><?php echo $stats['approuvee']; ?></div><div class="stat-label">Approuvées</div></div></div>
-                <div class="col-md-3"><div class="stat-card" style="background: linear-gradient(135deg, #27ae60, #2ecc71); color: white;"><div class="stat-value"><?php echo $stats['validee']; ?></div><div class="stat-label">Validées</div></div></div>
+                <div class="col-md-3">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #f39c12, #f1c40f);">
+                        <div class="stat-value"><?php echo $stats['en_attente']; ?></div>
+                        <div class="stat-label">En attente</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                        <div class="stat-value"><?php echo $stats['en_traitement']; ?></div>
+                        <div class="stat-label">En traitement</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #2c3e50, #3498db);">
+                        <div class="stat-value"><?php echo $stats['approuvee']; ?></div>
+                        <div class="stat-label">Approuvées</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card" style="background: linear-gradient(135deg, #27ae60, #2ecc71);">
+                        <div class="stat-value"><?php echo $stats['validee']; ?></div>
+                        <div class="stat-label">Validées</div>
+                    </div>
+                </div>
             </div>
             
             <div class="card mb-4">
                 <div class="card-header"><h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filtres de recherche</h5></div>
                 <div class="card-body">
-                    <form method="GET" action="" class="row g-3">
-                        <div class="col-md-3"><label class="form-label">Statut</label><select name="statut" class="form-select"><option value="tous" <?php echo $statut_filter == 'tous' ? 'selected' : ''; ?>>Tous les statuts</option><option value="en_attente" <?php echo $statut_filter == 'en_attente' ? 'selected' : ''; ?>>En attente</option><option value="en_traitement" <?php echo $statut_filter == 'en_traitement' ? 'selected' : ''; ?>>En traitement</option><option value="approuvee" <?php echo $statut_filter == 'approuvee' ? 'selected' : ''; ?>>Approuvées</option><option value="validee" <?php echo $statut_filter == 'validee' ? 'selected' : ''; ?>>Validées</option><option value="rejetee" <?php echo $statut_filter == 'rejetee' ? 'selected' : ''; ?>>Rejetées</option></select></div>
-                        <div class="col-md-3"><label class="form-label">Site</label><select name="site" class="form-select"><option value="">Tous les sites</option><?php foreach($sites as $site): ?><option value="<?php echo $site['id']; ?>" <?php echo $site_filter == $site['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($site['nom'] . ' - ' . $site['ville']); ?></option><?php endforeach; ?></select></div>
-                        <div class="col-md-2"><label class="form-label">Date début</label><input type="date" name="date_debut" class="form-control" value="<?php echo htmlspecialchars($date_debut); ?>"></div>
-                        <div class="col-md-2"><label class="form-label">Date fin</label><input type="date" name="date_fin" class="form-control" value="<?php echo htmlspecialchars($date_fin); ?>"></div>
-                        <div class="col-md-2"><label class="form-label">Recherche</label><input type="text" name="search" class="form-control" placeholder="Nom, email..." value="<?php echo htmlspecialchars($search); ?>"></div>
-                        <div class="col-md-12"><div class="d-flex justify-content-between mt-3"><button type="submit" class="btn btn-primary"><i class="fas fa-search me-2"></i>Filtrer</button><a href="demandes.php" class="btn btn-secondary"><i class="fas fa-times me-2"></i>Réinitialiser</a></div></div>
+                    <form method="GET" action="" class="row g-3" id="filterForm">
+                        <div class="col-md-3">
+                            <label class="form-label">Statut</label>
+                            <select name="statut" class="form-select">
+                                <option value="tous" <?php echo $statut_filter == 'tous' ? 'selected' : ''; ?>>Tous les statuts</option>
+                                <option value="en_attente" <?php echo $statut_filter == 'en_attente' ? 'selected' : ''; ?>>En attente</option>
+                                <option value="en_traitement" <?php echo $statut_filter == 'en_traitement' ? 'selected' : ''; ?>>En traitement</option>
+                                <option value="approuvee" <?php echo $statut_filter == 'approuvee' ? 'selected' : ''; ?>>Approuvées</option>
+                                <option value="validee" <?php echo $statut_filter == 'validee' ? 'selected' : ''; ?>>Validées</option>
+                                <option value="rejetee" <?php echo $statut_filter == 'rejetee' ? 'selected' : ''; ?>>Rejetées</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Site</label>
+                            <select name="site" class="form-select">
+                                <option value="">Tous les sites</option>
+                                <?php foreach($sites as $site): ?>
+                                <option value="<?php echo $site['id']; ?>" <?php echo $site_filter == $site['id'] ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($site['nom'] . ' - ' . $site['ville']); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Date début</label>
+                            <input type="date" name="date_debut" class="form-control" value="<?php echo htmlspecialchars($date_debut); ?>">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Date fin</label>
+                            <input type="date" name="date_fin" class="form-control" value="<?php echo htmlspecialchars($date_fin); ?>">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Recherche</label>
+                            <input type="text" name="search" class="form-control" placeholder="Nom, email..." value="<?php echo htmlspecialchars($search); ?>">
+                        </div>
+                        <div class="col-md-12">
+                            <div class="d-flex justify-content-between mt-3">
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-search me-2"></i>Filtrer</button>
+                                <a href="demandes.php" class="btn btn-secondary"><i class="fas fa-times me-2"></i>Réinitialiser</a>
+                            </div>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -770,256 +1284,622 @@ function getSiteAddress($site_id) {
                 <div class="card-header"><h5 class="mb-0"><i class="fas fa-list me-2"></i>Liste des Demandes (<?php echo count($demandes); ?>)</h5></div>
                 <div class="card-body">
                     <?php if(empty($demandes)): ?>
-                    <div class="alert alert-info text-center"><i class="fas fa-info-circle fa-2x mb-3"></i><h5>Aucune demande trouvée</h5><p class="mb-0">Aucune demande ne correspond aux critères de recherche.</p></div>
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle fa-2x mb-3"></i>
+                        <h5>Aucune demande trouvée</h5>
+                        <p class="mb-0">Aucune demande ne correspond aux critères de recherche.</p>
+                    </div>
                     <?php else: ?>
                     <div class="table-responsive">
                         <table class="table table-hover">
                             <thead>
-                                <tr><th>ID</th><th>Demandeur</th><th>Email</th><th>Filière</th><th>Site</th><th>Date demande</th><th>Statut</th><th>Actions</th></tr>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Demandeur</th>
+                                    <th>Email</th>
+                                    <th>Filière</th>
+                                    <th>Site</th>
+                                    <th>Date demande</th>
+                                    <th>Statut</th>
+                                    <th>Actions</th>
+                                </tr>
                             </thead>
                             <tbody>
                                 <?php foreach($demandes as $demande): ?>
                                 <tr>
                                     <td><strong><?php echo htmlspecialchars($demande['numero_demande']); ?></strong></td>
-                                    <td><strong><?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?></strong><br><small class="text-muted"><?php echo htmlspecialchars($demande['telephone']); ?></small></td>
+                                    <td>
+                                        <strong><?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?></strong>
+                                        <br><small class="text-muted"><?php echo htmlspecialchars($demande['telephone']); ?></small>
+                                    </td>
                                     <td><?php echo htmlspecialchars($demande['email']); ?></td>
-                                    <td><?php echo htmlspecialchars($demande['filiere']); ?><br><small class="text-muted"><?php echo htmlspecialchars($demande['niveau']); ?></small></td>
+                                    <td>
+                                        <?php echo htmlspecialchars($demande['filiere']); ?>
+                                        <br><small class="text-muted"><?php echo htmlspecialchars($demande['niveau']); ?></small>
+                                    </td>
                                     <td><?php echo htmlspecialchars($demande['site_nom'] ?? 'Non assigné'); ?></td>
-                                    <td><?php echo formatDateFr($demande['date_demande'], 'd/m/Y H:i'); ?><br><small class="text-muted"><?php $date1 = new DateTime($demande['date_demande']); $date2 = new DateTime(); $interval = $date1->diff($date2); echo $interval->days . ' jour(s)'; ?></small></td>
+                                    <td>
+                                        <?php echo formatDateFr($demande['date_demande'], 'd/m/Y H:i'); ?>
+                                        <br><small class="text-muted">
+                                            <?php 
+                                            $date1 = new DateTime($demande['date_demande']);
+                                            $date2 = new DateTime();
+                                            $interval = $date1->diff($date2);
+                                            echo $interval->days . ' jour(s)';
+                                            ?>
+                                        </small>
+                                    </td>
                                     <td><?php echo getStatutBadge($demande['statut']); ?></td>
                                     <td>
                                         <div class="action-buttons">
-                                            <button type="button" class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#viewModal<?php echo $demande['id']; ?>"><i class="fas fa-eye"></i></button>
-                                            <button type="button" class="btn btn-sm btn-secondary" onclick="telechargerDocuments(<?php echo $demande['id']; ?>, '<?php echo addslashes($demande['nom'] . ' ' . $demande['prenom']); ?>')"><i class="fas fa-download"></i></button>
+                                            <button type="button" class="btn btn-sm btn-info view-details" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#viewModal"
+                                                    data-demande-id="<?php echo $demande['id']; ?>"
+                                                    data-demande-nom="<?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?>">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-secondary" onclick="telechargerDocuments(<?php echo $demande['id']; ?>, '<?php echo addslashes($demande['nom'] . ' ' . $demande['prenom']); ?>')">
+                                                <i class="fas fa-download"></i>
+                                            </button>
                                             <?php if($demande['statut'] == 'en_attente' || $demande['statut'] == 'en_traitement'): ?>
                                             <div class="btn-group" role="group">
-                                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#approveModal<?php echo $demande['id']; ?>"><i class="fas fa-check-circle"></i> Approuver</button>
-                                                <?php if($demande['statut'] == 'en_attente'): ?><button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#processModal<?php echo $demande['id']; ?>"><i class="fas fa-cogs"></i> Traiter</button><?php endif; ?>
-                                                <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal<?php echo $demande['id']; ?>"><i class="fas fa-times"></i> Rejeter</button>
+                                                <button type="button" class="btn btn-sm btn-primary process-approve" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#approveModal"
+                                                        data-demande-id="<?php echo $demande['id']; ?>"
+                                                        data-demande-nom="<?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?>"
+                                                        data-mode-paiement="<?php echo htmlspecialchars($demande['mode_paiement']); ?>">
+                                                    <i class="fas fa-check-circle"></i> Approuver
+                                                </button>
+                                                <?php if($demande['statut'] == 'en_attente'): ?>
+                                                <button type="button" class="btn btn-sm btn-warning process-treat" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#processModal"
+                                                        data-demande-id="<?php echo $demande['id']; ?>"
+                                                        data-demande-nom="<?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?>">
+                                                    <i class="fas fa-cogs"></i> Traiter
+                                                </button>
+                                                <?php endif; ?>
+                                                <button type="button" class="btn btn-sm btn-danger process-reject" 
+                                                        data-bs-toggle="modal" 
+                                                        data-bs-target="#rejectModal"
+                                                        data-demande-id="<?php echo $demande['id']; ?>"
+                                                        data-demande-nom="<?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?>">
+                                                    <i class="fas fa-times"></i> Rejeter
+                                                </button>
                                             </div>
                                             <?php elseif($demande['statut'] == 'approuvee'): ?>
-                                            <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#validateModal<?php echo $demande['id']; ?>"><i class="fas fa-user-check"></i> Valider étudiant</button>
+                                            <button type="button" class="btn btn-sm btn-success process-validate" 
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#validateModal"
+                                                    data-demande-id="<?php echo $demande['id']; ?>"
+                                                    data-demande-nom="<?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?>"
+                                                    data-mode-paiement="<?php echo htmlspecialchars($demande['mode_paiement']); ?>">
+                                                <i class="fas fa-user-check"></i> Valider étudiant
+                                            </button>
                                             <?php endif; ?>
                                         </div>
                                     </td>
                                 </tr>
-                                
-                                <!-- Modal Vue détaillée -->
-                                <div class="modal fade" id="viewModal<?php echo $demande['id']; ?>" tabindex="-1">
-                                    <div class="modal-dialog modal-lg">
-                                        <div class="modal-content">
-                                            <div class="modal-header"><h5 class="modal-title">Détails de la demande</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                                            <div class="modal-body">
-                                                <div class="demande-details">
-                                                    <h6 class="mb-3">Informations personnelles</h6>
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="detail-row"><div class="detail-label">Nom complet</div><div><?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Date de naissance</div><div><?php echo formatDateFr($demande['date_naissance']); ?> à <?php echo htmlspecialchars($demande['lieu_naissance']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Sexe</div><div><?php echo htmlspecialchars($demande['sexe']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">CNI</div><div><?php echo htmlspecialchars($demande['numero_cni']); ?></div></div>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <div class="detail-row"><div class="detail-label">Adresse</div><div><?php echo htmlspecialchars($demande['adresse'] . ', ' . $demande['ville'] . ', ' . $demande['pays']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Téléphone</div><div><?php echo htmlspecialchars($demande['telephone']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Email</div><div><?php echo htmlspecialchars($demande['email']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Profession</div><div><?php echo htmlspecialchars($demande['profession']); ?></div></div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <h6 class="mb-3 mt-4">Informations académiques</h6>
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="detail-row"><div class="detail-label">Cycle</div><div><?php echo htmlspecialchars($demande['cycle_formation']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Domaine</div><div><?php echo htmlspecialchars($demande['domaine']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Filière</div><div><?php echo htmlspecialchars($demande['filiere']); ?></div></div>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <div class="detail-row"><div class="detail-label">Niveau</div><div><?php echo htmlspecialchars($demande['niveau']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Type rentrée</div><div><?php echo htmlspecialchars($demande['type_rentree']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Site formation</div><div><?php echo htmlspecialchars($demande['site_formation']); ?></div></div>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <h6 class="mb-3 mt-4">Documents téléchargés</h6>
-                                                    <div class="row">
-                                                        <?php
-                                                        $documents = [
-                                                            'Photo d\'identité' => $demande['photo_identite'],
-                                                            'Acte de naissance' => $demande['acte_naissance'],
-                                                            'Relevé de notes' => $demande['releve_notes'],
-                                                            'Attestation légalisée' => $demande['attestation_legalisee']
-                                                        ];
-                                                        
-                                                        foreach ($documents as $label => $fichier):
-                                                            if (!empty($fichier)):
-                                                                $chemin_complet = ROOT_PATH . '/' . $fichier;
-                                                                $taille = file_exists($chemin_complet) ? filesize($chemin_complet) : 0;
-                                                        ?>
-                                                        <div class="col-md-6 mb-2">
-                                                            <div class="document-card">
-                                                                <div class="card-body">
-                                                                    <div class="d-flex justify-content-between align-items-center">
-                                                                        <div>
-                                                                            <strong class="d-block"><?php echo $label; ?></strong>
-                                                                            <small class="text-muted"><?php echo formatTaille($taille); ?></small>
-                                                                            <div class="text-truncate" style="max-width: 200px;"><small><?php echo htmlspecialchars(basename($fichier)); ?></small></div>
-                                                                        </div>
-                                                                        <div class="btn-group">
-                                                                            <?php if (file_exists(ROOT_PATH . '/' . $fichier)): ?>
-                                                                                <a href="view_document.php?file=<?php echo urlencode($fichier); ?>" target="_blank" class="btn btn-sm btn-outline-primary" title="Visualiser"><i class="fas fa-eye"></i></a>
-                                                                                <a href="view_document.php?file=<?php echo urlencode($fichier); ?>&download=1" class="btn btn-sm btn-outline-secondary" title="Télécharger"><i class="fas fa-download"></i></a>
-                                                                            <?php else: ?>
-                                                                                <span class="btn btn-sm btn-outline-danger disabled" title="Fichier non trouvé"><i class="fas fa-exclamation-triangle"></i></span>
-                                                                            <?php endif; ?>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <?php endif; endforeach; ?>
-                                                    </div>
-                                                    
-                                                    <h6 class="mb-3 mt-4">Informations administratives</h6>
-                                                    <div class="row">
-                                                        <div class="col-md-6">
-                                                            <div class="detail-row"><div class="detail-label">Numéro demande</div><div><?php echo htmlspecialchars($demande['numero_demande']); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Date demande</div><div><?php echo formatDateFr($demande['date_demande'], 'd/m/Y H:i'); ?></div></div>
-                                                            <div class="detail-row"><div class="detail-label">Statut</div><div><?php echo getStatutBadge($demande['statut']); ?></div></div>
-                                                            <?php if($demande['mode_paiement']): ?><div class="detail-row"><div class="detail-label">Mode de paiement</div><div><?php echo htmlspecialchars($demande['mode_paiement']); ?></div></div><?php endif; ?>
-                                                        </div>
-                                                        <div class="col-md-6">
-                                                            <?php if($demande['date_traitement']): ?><div class="detail-row"><div class="detail-label">Date traitement</div><div><?php echo formatDateFr($demande['date_traitement']); ?></div></div><?php endif; ?>
-                                                            <?php if($demande['date_validation']): ?><div class="detail-row"><div class="detail-label">Date validation</div><div><?php echo formatDateFr($demande['date_validation']); ?></div></div><?php endif; ?>
-                                                            <?php if($demande['commentaire_admin']): ?><div class="detail-row"><div class="detail-label">Commentaire admin</div><div><?php echo htmlspecialchars($demande['commentaire_admin']); ?></div></div><?php endif; ?>
-                                                        </div>
-                                                    </div>
-                                                    
-                                                    <?php if($demande['admin_traitant_nom'] || $demande['validateur_nom']): ?>
-                                                    <h6 class="mb-3 mt-4">Traçabilité</h6>
-                                                    <div class="row">
-                                                        <?php if($demande['admin_traitant_nom']): ?>
-                                                        <div class="col-md-6">
-                                                            <div class="detail-row"><div class="detail-label">Traité par</div><div><?php echo htmlspecialchars($demande['admin_traitant_nom']); ?></div>
-                                                            <?php if($demande['date_traitement']): ?><small class="text-muted"><?php echo formatDateFr($demande['date_traitement'], 'd/m/Y H:i'); ?></small><?php endif; ?></div>
-                                                        </div>
-                                                        <?php endif; ?>
-                                                        <?php if($demande['validateur_nom']): ?>
-                                                        <div class="col-md-6">
-                                                            <div class="detail-row"><div class="detail-label">Validé par</div><div><?php echo htmlspecialchars($demande['validateur_nom']); ?></div>
-                                                            <?php if($demande['date_validation']): ?><small class="text-muted"><?php echo formatDateFr($demande['date_validation'], 'd/m/Y H:i'); ?></small><?php endif; ?></div>
-                                                        </div>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button></div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Modal Traiter -->
-                                <div class="modal fade" id="processModal<?php echo $demande['id']; ?>" tabindex="-1">
-                                    <div class="modal-dialog"><div class="modal-content">
-                                        <form method="POST" action=""><div class="modal-header"><h5 class="modal-title">Traiter la demande</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                                        <div class="modal-body"><p>Êtes-vous sûr de vouloir traiter la demande de <strong><?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?></strong> ?</p>
-                                        <input type="hidden" name="demande_id" value="<?php echo $demande['id']; ?>"><input type="hidden" name="action" value="traiter">
-                                        <div class="mb-3"><label class="form-label">Commentaire (optionnel)</label><textarea name="commentaire" class="form-control" rows="3" placeholder="Ajoutez un commentaire..."></textarea></div></div>
-                                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-warning"><i class="fas fa-cogs me-2"></i>Mettre en traitement</button></div></form>
-                                    </div></div>
-                                </div>
-                                
-                                <!-- Modal Approuver -->
-                                <div class="modal fade" id="approveModal<?php echo $demande['id']; ?>" tabindex="-1">
-                                    <div class="modal-dialog"><div class="modal-content">
-                                        <form method="POST" action=""><div class="modal-header"><h5 class="modal-title">Approuver la demande</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                                        <div class="modal-body"><div class="alert alert-info"><i class="fas fa-info-circle"></i> Cette action approuvera la demande. L'étudiant recevra un email avec les instructions de paiement.</div>
-                                        <p>Approuver la demande de <strong><?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?></strong> ?</p>
-                                        <p><strong>Mode de paiement choisi :</strong> <?php echo htmlspecialchars($demande['mode_paiement']); ?></p>
-                                        <input type="hidden" name="demande_id" value="<?php echo $demande['id']; ?>"><input type="hidden" name="action" value="approuver">
-                                        <div class="mb-3"><label class="form-label">Commentaire (optionnel)</label><textarea name="commentaire" class="form-control" rows="3" placeholder="Commentaire d'approbation..."></textarea></div></div>
-                                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-primary"><i class="fas fa-check-circle me-2"></i>Approuver et envoyer email</button></div></form>
-                                    </div></div>
-                                </div>
-                                
-                                <!-- Modal Valider étudiant -->
-                                <div class="modal fade" id="validateModal<?php echo $demande['id']; ?>" tabindex="-1">
-                                    <div class="modal-dialog"><div class="modal-content">
-                                        <form method="POST" action=""><div class="modal-header"><h5 class="modal-title">Valider et créer l'étudiant</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                                        <div class="modal-body"><div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> Cette action créera un étudiant dans la base de données. Assurez-vous que le paiement a été confirmé.</div>
-                                        <p>Valider la demande et créer l'étudiant <strong><?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?></strong> ?</p>
-                                        <input type="hidden" name="demande_id" value="<?php echo $demande['id']; ?>"><input type="hidden" name="action" value="valider">
-                                        <div class="mb-3"><label class="form-label">Commentaire (optionnel)</label><textarea name="commentaire" class="form-control" rows="3" placeholder="Commentaire de validation..."></textarea></div></div>
-                                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-success"><i class="fas fa-user-check me-2"></i>Valider et créer étudiant</button></div></form>
-                                    </div></div>
-                                </div>
-                                
-                                <!-- Modal Rejeter -->
-                                <div class="modal fade" id="rejectModal<?php echo $demande['id']; ?>" tabindex="-1">
-                                    <div class="modal-dialog"><div class="modal-content">
-                                        <form method="POST" action=""><div class="modal-header"><h5 class="modal-title">Rejeter la demande</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                                        <div class="modal-body"><p>Rejeter la demande de <strong><?php echo htmlspecialchars($demande['nom'] . ' ' . $demande['prenom']); ?></strong> ?</p>
-                                        <input type="hidden" name="demande_id" value="<?php echo $demande['id']; ?>"><input type="hidden" name="action" value="rejeter">
-                                        <div class="mb-3"><label class="form-label">Raison du rejet <span class="text-danger">*</span></label><textarea name="raison_rejet" class="form-control" rows="3" placeholder="Expliquez la raison du rejet..." required></textarea></div>
-                                        <div class="mb-3"><label class="form-label">Commentaire (optionnel)</label><textarea name="commentaire" class="form-control" rows="3" placeholder="Commentaire additionnel..."></textarea></div></div>
-                                        <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-danger"><i class="fas fa-times me-2"></i>Rejeter</button></div></form>
-                                    </div></div>
-                                </div>
-                                
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
-                    <nav aria-label="Pagination"><ul class="pagination justify-content-center"><li class="page-item disabled"><a class="page-link" href="#">Précédent</a></li><li class="page-item active"><a class="page-link" href="#">1</a></li><li class="page-item"><a class="page-link" href="#">2</a></li><li class="page-item"><a class="page-link" href="#">3</a></li><li class="page-item"><a class="page-link" href="#">Suivant</a></li></ul></nav>
+                    <nav aria-label="Pagination">
+                        <ul class="pagination justify-content-center">
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">Précédent</a>
+                            </li>
+                            <li class="page-item active">
+                                <a class="page-link" href="#">1</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">2</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">3</a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">Suivant</a>
+                            </li>
+                        </ul>
+                    </nav>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
     
+    <!-- Modal Vue détaillée (UN SEUL MODAL POUR TOUS) -->
+    <div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Détails de la demande</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="viewModalBody">
+                    <div class="spinner-container">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p class="ms-3">Chargement des détails...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Traiter (UN SEUL MODAL POUR TOUS) -->
+    <div class="modal fade" id="processModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="demandes.php" class="action-form">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Traiter la demande</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Êtes-vous sûr de vouloir traiter la demande de <strong id="processDemandeNom"></strong> ?</p>
+                        <input type="hidden" id="processDemandeId" name="demande_id" value="">
+                        <input type="hidden" name="action" value="traiter">
+                        <div class="mb-3">
+                            <label class="form-label">Commentaire (optionnel)</label>
+                            <textarea name="commentaire" class="form-control" rows="3" placeholder="Ajoutez un commentaire..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-warning"><i class="fas fa-cogs me-2"></i>Mettre en traitement</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Approuver (UN SEUL MODAL POUR TOUS) -->
+    <div class="modal fade" id="approveModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="demandes.php" class="action-form">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Approuver la demande</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Cette action approuvera la demande. L'étudiant recevra un email de confirmation.
+                        </div>
+                        <p>Approuver la demande de <strong id="approveDemandeNom"></strong> ?</p>
+                        <input type="hidden" id="approveDemandeId" name="demande_id" value="">
+                        <input type="hidden" name="action" value="approuver">
+                        <div class="mb-3">
+                            <label class="form-label">Commentaire (optionnel)</label>
+                            <textarea name="commentaire" class="form-control" rows="3" placeholder="Commentaire d'approbation..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-primary"><i class="fas fa-check-circle me-2"></i>Approuver et envoyer email</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Valider étudiant (UN SEUL MODAL POUR TOUS) -->
+    <div class="modal fade" id="validateModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="demandes.php" class="action-form">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Valider et créer l'étudiant</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Cette action créera un étudiant dans la base de données.
+                        </div>
+                        <p>Valider la demande et créer l'étudiant <strong id="validateDemandeNom"></strong> ?</p>
+                        <input type="hidden" id="validateDemandeId" name="demande_id" value="">
+                        <input type="hidden" name="action" value="valider">
+                        <div class="mb-3">
+                            <label class="form-label">Commentaire (optionnel)</label>
+                            <textarea name="commentaire" class="form-control" rows="3" placeholder="Commentaire de validation..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-success"><i class="fas fa-user-check me-2"></i>Valider et créer étudiant</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Rejeter (UN SEUL MODAL POUR TOUS) -->
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form method="POST" action="demandes.php" class="action-form">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Rejeter la demande</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Rejeter la demande de <strong id="rejectDemandeNom"></strong> ?</p>
+                        <input type="hidden" id="rejectDemandeId" name="demande_id" value="">
+                        <input type="hidden" name="action" value="rejeter">
+                        <div class="mb-3">
+                            <label class="form-label">Raison du rejet <span class="text-danger">*</span></label>
+                            <textarea name="raison_rejet" class="form-control" rows="3" placeholder="Expliquez la raison du rejet..." required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Commentaire (optionnel)</label>
+                            <textarea name="commentaire" class="form-control" rows="3" placeholder="Commentaire additionnel..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                        <button type="submit" class="btn btn-danger"><i class="fas fa-times me-2"></i>Rejeter</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+    // Fonction pour basculer entre mode sombre et clair
     function toggleTheme() {
         const html = document.documentElement;
         const currentTheme = html.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        // Mettre à jour l'attribut
         html.setAttribute('data-theme', newTheme);
-        localStorage.setItem('isgi_theme', newTheme);
-        const themeButton = document.querySelector('button[onclick="toggleTheme()"]');
-        if (themeButton) {
-            themeButton.innerHTML = newTheme === 'dark' ? '<i class="fas fa-sun"></i> <span>Mode Clair</span>' : '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+        
+        // Sauvegarder dans un cookie (30 jours)
+        document.cookie = `isgi_theme=${newTheme}; max-age=${30*24*60*60}; path=/`;
+        
+        // Mettre à jour le bouton
+        const button = event.target.closest('button');
+        if (button) {
+            if (newTheme === 'dark') {
+                button.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
+            } else {
+                button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+            }
         }
     }
+    
+    // Fonction pour télécharger les documents
     function telechargerDocuments(demandeId, demandeNom) {
         if (confirm('Télécharger tous les documents de cette demande ?')) {
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = 'telecharger_documents.php';
             form.style.display = 'none';
+            
             const input = document.createElement('input');
             input.type = 'hidden';
             input.name = 'demande_id';
             input.value = demandeId;
             form.appendChild(input);
+            
             document.body.appendChild(form);
             form.submit();
             document.body.removeChild(form);
         }
     }
+    
+    // Données des demandes pour la vue détaillée
+    const demandesData = <?php 
+        $demandesData = [];
+        foreach($demandes as $demande) {
+            $demandesData[$demande['id']] = [
+                'nom' => $demande['nom'],
+                'prenom' => $demande['prenom'],
+                'email' => $demande['email'],
+                'telephone' => $demande['telephone'],
+                'filiere' => $demande['filiere'],
+                'niveau' => $demande['niveau'],
+                'site_formation' => $demande['site_formation'],
+                'mode_paiement' => $demande['mode_paiement'],
+                'statut' => $demande['statut'],
+                'numero_demande' => $demande['numero_demande'],
+                'date_naissance' => $demande['date_naissance'],
+                'lieu_naissance' => $demande['lieu_naissance'],
+                'sexe' => $demande['sexe'],
+                'numero_cni' => $demande['numero_cni'],
+                'adresse' => $demande['adresse'],
+                'ville' => $demande['ville'],
+                'pays' => $demande['pays'],
+                'profession' => $demande['profession'],
+                'cycle_formation' => $demande['cycle_formation'],
+                'domaine' => $demande['domaine'],
+                'type_rentree' => $demande['type_rentree'],
+                'date_demande' => $demande['date_demande'],
+                'date_traitement' => $demande['date_traitement'],
+                'date_validation' => $demande['date_validation'],
+                'commentaire_admin' => $demande['commentaire_admin'],
+                'admin_traitant_nom' => $demande['admin_traitant_nom'] ?? '',
+                'validateur_nom' => $demande['validateur_nom'] ?? ''
+            ];
+        }
+        echo json_encode($demandesData);
+    ?>;
+    
+    // Gestionnaire pour le modal de visualisation
     document.addEventListener('DOMContentLoaded', function() {
-        const theme = localStorage.getItem('isgi_theme') || 'light';
+        // Récupérer le thème sauvegardé ou utiliser 'light' par défaut
+        const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
         document.documentElement.setAttribute('data-theme', theme);
+        
+        // Mettre à jour le bouton du thème
         const themeButton = document.querySelector('button[onclick="toggleTheme()"]');
         if (themeButton) {
-            themeButton.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i> <span>Mode Clair</span>' : '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+            if (theme === 'dark') {
+                themeButton.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
+            } else {
+                themeButton.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+            }
         }
+        
+        // Fermer automatiquement les alertes après 5 secondes
         setTimeout(function() {
             document.querySelectorAll('.alert').forEach(function(alert) {
                 const bsAlert = new bootstrap.Alert(alert);
                 bsAlert.close();
             });
         }, 5000);
+        
+        // Empêcher la soumission multiple des formulaires d'action
+        document.querySelectorAll('.action-form').forEach(function(form) {
+            form.addEventListener('submit', function(e) {
+                const submitButton = this.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Traitement en cours...';
+                }
+            });
+        });
+        
+        // Gestion du modal de visualisation
+        const viewModal = document.getElementById('viewModal');
+        if (viewModal) {
+            viewModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const demandeId = button.getAttribute('data-demande-id');
+                
+                if (demandeId && demandesData[demandeId]) {
+                    const demande = demandesData[demandeId];
+                    const modalBody = document.getElementById('viewModalBody');
+                    
+                    // Formater la date
+                    function formatDate(dateStr) {
+                        if (!dateStr || dateStr === '0000-00-00') return '';
+                        const date = new Date(dateStr);
+                        return date.toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    }
+                    
+                    // Mettre à jour le contenu du modal
+                    modalBody.innerHTML = `
+                        <div class="demande-details">
+                            <h6 class="mb-3">Informations personnelles</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="detail-row">
+                                        <div class="detail-label">Nom complet</div>
+                                        <div>${demande.nom} ${demande.prenom}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Date de naissance</div>
+                                        <div>${formatDate(demande.date_naissance)} à ${demande.lieu_naissance}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Sexe</div>
+                                        <div>${demande.sexe}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">CNI</div>
+                                        <div>${demande.numero_cni}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="detail-row">
+                                        <div class="detail-label">Adresse</div>
+                                        <div>${demande.adresse}, ${demande.ville}, ${demande.pays}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Téléphone</div>
+                                        <div>${demande.telephone}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Email</div>
+                                        <div>${demande.email}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Profession</div>
+                                        <div>${demande.profession}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3 mt-4">Informations académiques</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="detail-row">
+                                        <div class="detail-label">Cycle</div>
+                                        <div>${demande.cycle_formation}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Domaine</div>
+                                        <div>${demande.domaine}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Filière</div>
+                                        <div>${demande.filiere}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="detail-row">
+                                        <div class="detail-label">Niveau</div>
+                                        <div>${demande.niveau}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Type rentrée</div>
+                                        <div>${demande.type_rentree}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Site formation</div>
+                                        <div>${demande.site_formation}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <h6 class="mb-3 mt-4">Informations administratives</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="detail-row">
+                                        <div class="detail-label">Numéro demande</div>
+                                        <div>${demande.numero_demande}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Date demande</div>
+                                        <div>${formatDate(demande.date_demande)}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Statut</div>
+                                        <div>${demande.statut}</div>
+                                    </div>
+                                    <div class="detail-row">
+                                        <div class="detail-label">Mode de paiement</div>
+                                        <div>${demande.mode_paiement}</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    ${demande.date_traitement ? `
+                                    <div class="detail-row">
+                                        <div class="detail-label">Date traitement</div>
+                                        <div>${formatDate(demande.date_traitement)}</div>
+                                    </div>
+                                    ` : ''}
+                                    ${demande.date_validation ? `
+                                    <div class="detail-row">
+                                        <div class="detail-label">Date validation</div>
+                                        <div>${formatDate(demande.date_validation)}</div>
+                                    </div>
+                                    ` : ''}
+                                    ${demande.commentaire_admin ? `
+                                    <div class="detail-row">
+                                        <div class="detail-label">Commentaire admin</div>
+                                        <div>${demande.commentaire_admin}</div>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            
+                            ${(demande.admin_traitant_nom || demande.validateur_nom) ? `
+                            <h6 class="mb-3 mt-4">Traçabilité</h6>
+                            <div class="row">
+                                ${demande.admin_traitant_nom ? `
+                                <div class="col-md-6">
+                                    <div class="detail-row">
+                                        <div class="detail-label">Traité par</div>
+                                        <div>${demande.admin_traitant_nom}</div>
+                                        ${demande.date_traitement ? `
+                                        <small class="text-muted">${formatDate(demande.date_traitement)}</small>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                ` : ''}
+                                ${demande.validateur_nom ? `
+                                <div class="col-md-6">
+                                    <div class="detail-row">
+                                        <div class="detail-label">Validé par</div>
+                                        <div>${demande.validateur_nom}</div>
+                                        ${demande.date_validation ? `
+                                        <small class="text-muted">${formatDate(demande.date_validation)}</small>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            ` : ''}
+                            
+                            <div class="alert alert-info mt-4">
+                                <i class="fas fa-info-circle"></i> Pour visualiser les documents téléchargés, utilisez le bouton de téléchargement.
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+        }
+        
+        // Gestion du modal de traitement
+        const processModal = document.getElementById('processModal');
+        if (processModal) {
+            processModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const demandeId = button.getAttribute('data-demande-id');
+                const demandeNom = button.getAttribute('data-demande-nom');
+                
+                document.getElementById('processDemandeId').value = demandeId;
+                document.getElementById('processDemandeNom').textContent = demandeNom;
+            });
+        }
+        
+        // Gestion du modal d'approbation
+        const approveModal = document.getElementById('approveModal');
+        if (approveModal) {
+            approveModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const demandeId = button.getAttribute('data-demande-id');
+                const demandeNom = button.getAttribute('data-demande-nom');
+                const modePaiement = button.getAttribute('data-mode-paiement');
+                
+                document.getElementById('approveDemandeId').value = demandeId;
+                document.getElementById('approveDemandeNom').textContent = demandeNom;
+            });
+        }
+        
+        // Gestion du modal de validation
+        const validateModal = document.getElementById('validateModal');
+        if (validateModal) {
+            validateModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const demandeId = button.getAttribute('data-demande-id');
+                const demandeNom = button.getAttribute('data-demande-nom');
+                const modePaiement = button.getAttribute('data-mode-paiement');
+                
+                document.getElementById('validateDemandeId').value = demandeId;
+                document.getElementById('validateDemandeNom').textContent = demandeNom;
+            });
+        }
+        
+        // Gestion du modal de rejet
+        const rejectModal = document.getElementById('rejectModal');
+        if (rejectModal) {
+            rejectModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const demandeId = button.getAttribute('data-demande-id');
+                const demandeNom = button.getAttribute('data-demande-nom');
+                
+                document.getElementById('rejectDemandeId').value = demandeId;
+                document.getElementById('rejectDemandeNom').textContent = demandeNom;
+            });
+        }
     });
     </script>
 </body>

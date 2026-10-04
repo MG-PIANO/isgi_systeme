@@ -198,6 +198,7 @@ try {
              JOIN sites s ON ca.site_id = s.id
              LEFT JOIN utilisateurs u ON ca.cree_par = u.id
              WHERE ca.site_id = ? 
+             AND ca.publie = 1
              AND ca.statut IN ('planifie', 'en_cours')
              AND CURDATE() BETWEEN ca.date_debut_cours AND ca.date_fin_cours
              ORDER BY ca.date_debut_cours DESC
@@ -211,6 +212,7 @@ try {
              JOIN annees_academiques aa ON ca.annee_academique_id = aa.id
              JOIN sites s ON ca.site_id = s.id
              WHERE ca.site_id = ? 
+             AND ca.publie = 1
              AND ca.statut = 'planifie'
              AND ca.date_debut_cours > CURDATE()
              ORDER BY ca.date_debut_cours ASC
@@ -224,6 +226,7 @@ try {
              JOIN annees_academiques aa ON ca.annee_academique_id = aa.id
              JOIN sites s ON ca.site_id = s.id
              WHERE ca.site_id = ? 
+             AND ca.publie = 1
              AND ca.statut IN ('termine', 'annule')
              AND ca.date_fin_cours < CURDATE()
              ORDER BY ca.date_fin_cours DESC
@@ -245,6 +248,7 @@ try {
              JOIN types_examens te ON ce.type_examen_id = te.id
              JOIN classes c ON ce.classe_id = c.id
              WHERE c.id = ? 
+             AND ce.publie_etudiants = 1
              AND ce.date_examen >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
              AND ce.date_examen <= DATE_ADD(CURDATE(), INTERVAL 60 DAY)
              
@@ -260,6 +264,7 @@ try {
                 'warning' as couleur
              FROM calendrier_academique ca
              WHERE ca.site_id = ?
+             AND ca.publie = 1
              AND ca.date_debut_conge_etude IS NOT NULL
              AND ca.date_fin_conge_etude IS NOT NULL
              AND (
@@ -279,6 +284,7 @@ try {
                 'success' as couleur
              FROM calendrier_academique ca
              WHERE ca.site_id = ?
+             AND ca.publie = 1
              AND ca.date_debut_stage IS NOT NULL
              AND ca.date_fin_stage IS NOT NULL
              AND (
@@ -298,6 +304,7 @@ try {
                 'info' as couleur
              FROM calendrier_academique ca
              WHERE ca.site_id = ?
+             AND ca.publie = 1
              AND ca.date_reprise_cours IS NOT NULL
              AND ca.date_reprise_cours BETWEEN DATE_SUB(CURDATE(), INTERVAL 30 DAY) AND DATE_ADD(CURDATE(), INTERVAL 60 DAY)
              

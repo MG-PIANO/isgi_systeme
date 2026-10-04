@@ -19,8 +19,9 @@ try {
     $pdo = new PDO($dsn, $config['db_user'], $config['db_pass']);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Récupérer le matricule
+    // Récupérer les données
     $matricule = isset($_POST['matricule']) ? trim($_POST['matricule']) : '';
+    $role = isset($_POST['role']) ? trim($_POST['role']) : 'etudiant'; // 'etudiant' ou 'tuteur'
     
     if (empty($matricule)) {
         echo json_encode(['success' => false, 'message' => 'Matricule requis']);
@@ -43,11 +44,22 @@ try {
     
     $student = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Vérifier si un compte existe déjà
-    if ($student['utilisateur_id'] !== null) {
-        echo json_encode(['success' => false, 'message' => 'Un compte existe déjà pour cet étudiant']);
-        exit();
-    }
+    // Vérifier si un compte étudiant existe déjà
+    $compte_etudiant_existe = ($student['utilisateur_id'] !== null);
+    
+    // Logique différente selon le rôle
+    if ($role === 'etudiant') {
+        // Pour un étudiant : on bloque si un compte existe déjà
+        if ($compte_etudiant_existe) {
+            echo json_encode([
+                'success' => false, 
+                'message' => 'Un compte existe déjà pour cet étudiant',
+                'compte_etudiant_existe' => true
+            ]);
+            exit();
+        }
+    } 
+    // Pour un tuteur, on permet toujours la vérification même si un compte étudiant existe
     
     echo json_encode([
         'success' => true,
@@ -58,7 +70,8 @@ try {
             'site_id' => $student['site_id'],
             'statut' => $student['statut']
         ],
-        'site_nom' => $student['site_nom']
+        'site_nom' => $student['site_nom'],
+        'compte_etudiant_existe' => $compte_etudiant_existe
     ]);
     
 } catch (PDOException $e) {

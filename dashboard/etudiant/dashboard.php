@@ -1046,7 +1046,7 @@ try {
                     <div class="nav-section-title">Tableau de Bord</div>
                     <a href="dashboard.php" class="nav-link active">
                         <i class="fas fa-tachometer-alt"></i>
-                        <span>Dashboard</span>
+                        <span>Tableau de Bord</span>
                     </a>
                     <a href="informations.php" class="nav-link">
                         <i class="fas fa-user-circle"></i>
@@ -1198,7 +1198,7 @@ try {
                         <button class="btn btn-primary" onclick="location.reload()">
                             <i class="fas fa-sync-alt"></i> Actualiser
                         </button>
-                        <a href="carte_etudiante.php" class="btn btn-success">
+                        <a href="carte.php" class="btn btn-success">
                             <i class="fas fa-id-card"></i> Carte Étudiante
                         </a>
                     </div>
@@ -1221,7 +1221,7 @@ try {
                                 Informations Personnelles
                             </h5>
                             <a href="informations.php" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-edit"></i> Modifier
+                                <i class="fas fa-edit"></i>Info perso
                             </a>
                         </div>
                         <div class="card-body">
@@ -1271,27 +1271,6 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-4">
-                    <div class="student-card">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h5 class="mb-2">Carte Étudiante</h5>
-                                <p class="mb-1"><?php echo safeHtml($info_etudiant['nom'] ?? ''); ?> <?php echo safeHtml($info_etudiant['prenom'] ?? ''); ?></p>
-                                <p class="mb-1 small"><?php echo safeHtml($info_etudiant['matricule'] ?? ''); ?></p>
-                                <p class="mb-0 small"><?php echo safeHtml($info_etudiant['filiere_nom'] ?? ''); ?></p>
-                            </div>
-                            <div class="student-qr">
-                                <!-- QR Code sera généré ici -->
-                                <div class="text-center">
-                                    <i class="fas fa-qrcode fa-3x text-dark"></i>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <small>Valable jusqu'à: <?php echo date('m/Y', strtotime('+1 year')); ?></small>
-                        </div>
-                    </div>
-                </div>
             </div>
             
             <!-- Section 2: Statistiques Principales -->
@@ -2067,10 +2046,10 @@ try {
                             <div class="alert alert-info">
                                 <h6><i class="fas fa-phone-alt"></i> Contacts importants</h6>
                                 <ul class="mb-0 small">
-                                    <li><strong>Secrétariat:</strong> +242 XX XX XX XX</li>
-                                    <li><strong>Service financier:</strong> +242 XX XX XX XX</li>
-                                    <li><strong>Service académique:</strong> +242 XX XX XX XX</li>
-                                    <li><strong>Urgences:</strong> +242 XX XX XX XX</li>
+                                    <li><strong>Secrétariat:</strong> +242 06 543 3333</li>
+                                    <li><strong>Service financier:</strong> +242 05 345 6878</li>
+                                    <li><strong>Service académique:</strong> +242 06 584 4844</li>
+                                    <li><strong>Urgences:</strong> +242 06 543 3333</li>
                                 </ul>
                             </div>
                             

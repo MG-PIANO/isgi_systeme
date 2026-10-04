@@ -1,0 +1,56 @@
+{
+    "name": "app-informaticien-isgi",
+    "version": "1.0.0",
+    "description": "Application Informaticiens ISGI - Gestion Badges et Videos",
+    "main": "main.js",
+    "author": "ISGI Service Informatique",
+    "license": "MIT",
+    "scripts": {
+        "start": "electron .",
+        "dev": "electron . --dev",
+        "build:setup": "electron-builder --win nsis --publish never",
+        "build:android": "node scripts/build-android.cjs"
+    },
+    "build": {
+        "appId": "com.isgi.informaticien",
+        "productName": "ISGI Informaticien",
+        "directories": {
+            "output": "C:\\Users\\pc\\Downloads\\isgi_setup_informaticien"
+        },
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ]
+        },
+        "nsis": {
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "ISGI Informaticien",
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true
+        },
+        "files": [
+            "**/*",
+            "!node_modules/.cache/**"
+        ]
+    },
+    "dependencies": {
+        "@capacitor/android": "^8.5.2",
+        "@capacitor/core": "^8.5.2",
+        "@supabase/supabase-js": "^2.45.4",
+        "dexie": "^4.0.8",
+        "pdf-lib": "^1.17.1",
+        "qrcode": "^1.5.4"
+    },
+    "devDependencies": {
+        "@capacitor/cli": "^8.5.2",
+        "electron": "^32.0.0",
+        "electron-builder": "^26.0.0",
+        "esbuild": "^0.28.2"
+    }
+}

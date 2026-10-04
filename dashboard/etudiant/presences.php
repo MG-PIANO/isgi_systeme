@@ -85,6 +85,22 @@ try {
         }
     }
     
+    // Fonction pour obtenir le nom du mois en toute sécurité
+    function getMoisNom($numero_mois) {
+        $mois_liste = [
+            1 => 'Janvier', 2 => 'Février', 3 => 'Mars', 4 => 'Avril',
+            5 => 'Mai', 6 => 'Juin', 7 => 'Juillet', 8 => 'Août',
+            9 => 'Septembre', 10 => 'Octobre', 11 => 'Novembre', 12 => 'Décembre'
+        ];
+        
+        $num = intval($numero_mois);
+        if ($num < 1 || $num > 12) {
+            $num = date('n');
+        }
+        
+        return $mois_liste[$num] ?? 'Mois inconnu';
+    }
+    
     // Fonction sécurisée pour afficher du texte
     function safeHtml($text) {
         if ($text === null || $text === '') {
@@ -738,16 +754,62 @@ try {
         color: var(--primary-color);
     }
     
-    /* Progress bars */
+    /* Amélioration des barres de progression */
     .progress {
         background-color: var(--border-color);
-        height: 10px;
-        border-radius: 5px;
+        height: 12px;
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 10px;
     }
     
     .progress-bar {
-        background-color: var(--primary-color);
-        border-radius: 5px;
+        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
+        border-radius: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        transition: width 0.6s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Couleurs spécifiques pour chaque type */
+    .progress-bar.bg-success {
+        background: linear-gradient(45deg, #27ae60, #2ecc71) !important;
+    }
+    
+    .progress-bar.bg-warning {
+        background: linear-gradient(45deg, #f39c12, #f1c40f) !important;
+    }
+    
+    .progress-bar.bg-danger {
+        background: linear-gradient(45deg, #e74c3c, #c0392b) !important;
+    }
+    
+    .progress-bar.bg-info {
+        background: linear-gradient(45deg, #17a2b8, #3498db) !important;
+    }
+    
+    /* Effet de brillance sur les barres */
+    .progress-bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.3),
+            transparent
+        );
+        animation: shimmer 2s infinite;
+        transform: translateX(-100%);
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
     }
     
     /* Graphiques */
@@ -915,8 +977,14 @@ try {
                             Suivi des Présences
                         </h2>
                         <p class="text-muted mb-0">
+                            <?php 
+                            // Récupérer le nom du mois en toute sécurité
+                            $mois_num = intval($mois_filtre);
+                            $mois_nom = getMoisNom($mois_num);
+                            ?>
+                            Période : <?php echo $mois_nom . ' ' . $annee_filtre; ?>
                             <?php if(isset($info_etudiant['filiere_nom']) && !empty($info_etudiant['filiere_nom'])): ?>
-                            <?php echo safeHtml($info_etudiant['filiere_nom']); ?> - 
+                            | <?php echo safeHtml($info_etudiant['filiere_nom']); ?> - 
                             <?php endif; ?>
                             <?php if(isset($info_etudiant['classe_nom']) && !empty($info_etudiant['classe_nom'])): ?>
                             <?php echo safeHtml($info_etudiant['classe_nom']); ?>
@@ -952,7 +1020,7 @@ try {
                         </label>
                         <select name="mois" class="form-select" onchange="this.form.submit()">
                             <?php foreach($mois_liste as $num => $nom): ?>
-                            <option value="<?php echo $num; ?>" <?php echo $mois_filtre == $num ? 'selected' : ''; ?>>
+                            <option value="<?php echo intval($num); ?>" <?php echo intval($mois_filtre) == intval($num) ? 'selected' : ''; ?>>
                                 <?php echo $nom; ?>
                             </option>
                             <?php endforeach; ?>
@@ -1187,7 +1255,7 @@ try {
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h5>
                                     <i class="fas fa-calendar me-2"></i>
-                                    Présences du <?php echo $mois_liste[$mois_filtre]; ?> <?php echo $annee_filtre; ?>
+                                    Présences du <?php echo getMoisNom($mois_filtre); ?> <?php echo $annee_filtre; ?>
                                 </h5>
                                 <div>
                                     <span class="badge bg-secondary me-2">
@@ -1476,6 +1544,8 @@ try {
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
+                                    </tbody>
+                                </table>
                             </div>
                             
                             <!-- Statistiques des retards -->
@@ -2340,7 +2410,7 @@ try {
                 <h3>Rapport de Présences - <?php echo safeHtml($info_etudiant['nom'] ?? ''); ?> <?php echo safeHtml($info_etudiant['prenom'] ?? ''); ?></h3>
                 <p>Matricule: <?php echo safeHtml($info_etudiant['matricule'] ?? ''); ?> | 
                    Classe: <?php echo safeHtml($info_etudiant['classe_nom'] ?? ''); ?> | 
-                   Période: <?php echo $mois_liste[$mois_filtre]; ?> <?php echo $annee_filtre; ?></p>
+                   Période: <?php echo getMoisNom($mois_filtre); ?> <?php echo $annee_filtre; ?></p>
                 <p>Imprimé le <?php echo date('d/m/Y à H:i'); ?></p>
             </div>
         `;

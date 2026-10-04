@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>ISGI Informaticien — Gestion Badges & Vidéos</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- ───── Titlebar ───── -->
+  <div class="titlebar" id="titlebar">
+    <div class="titlebar-left">
+      <div class="app-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#FF6B00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span class="app-title">ISGI Informaticien</span>
+      <span class="app-version" id="appVersion">v1.0.0</span>
+    </div>
+    <div class="titlebar-right">
+    <span id="signedInUser" class="signed-in-user hidden"></span>
+    <button id="signOutButton" class="win-btn hidden" onclick="signOut()" title="Déconnexion">↪</button>
+      <button class="win-btn desktop-window-control" onclick="window.electronAPI.minimize()">&#8722;</button>
+      <button class="win-btn desktop-window-control" onclick="window.electronAPI.maximize()">&#9633;</button>
+      <button class="win-btn close desktop-window-control" onclick="window.electronAPI.close()">&#10005;</button>
+    </div>
+  </div>
+
+  <!-- ───── Layout ───── -->
+  <div class="app-layout">
+
+    <!-- ─── Sidebar ─── -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="isgi-brand">
+          <div class="brand-icon">
+            <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+              <rect width="40" height="40" rx="10" fill="#FF6B00"/>
+              <path d="M8 30L20 10L32 30H8Z" fill="white" opacity="0.9"/>
+              <circle cx="20" cy="9" r="4" fill="white"/>
+            </svg>
+          </div>
+          <div>
+            <div class="brand-name">ISGI</div>
+            <div class="brand-sub">Service Informatique</div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">PRINCIPAL</div>
+        <button class="nav-item active" data-page="dashboard" onclick="navigate('dashboard')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Tableau de Bord</span>
+        </button>
+
+        <div class="nav-section-label">BADGES</div>
+        <button class="nav-item" data-page="badge-create" onclick="navigate('badge-create')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+          <span>Créer un Badge</span>
+        </button>
+        <button class="nav-item" data-page="badge-batch" onclick="navigate('badge-batch')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M9 3v18M3 9h18M3 15h18"/></svg>
+          <span>Génération en Lot</span>
+          <span class="nav-badge">BATCH</span>
+        </button>
+        <button class="nav-item" data-page="badge-list" onclick="navigate('badge-list')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          <span>Liste des Badges</span>
+        </button>
+
+        <div class="nav-section-label">MÉDIATHÈQUE</div>
+        <button class="nav-item" data-page="videos" onclick="navigate('videos')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+          <span>Vidéos & Cours</span>
+        </button>
+
+        <div class="nav-section-label">SYSTÈME</div>
+        <button class="nav-item" data-page="etudiants" onclick="navigate('etudiants')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>Étudiants</span>
+        </button>
+        <button class="nav-item" data-page="parametres" onclick="navigate('parametres')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>Paramètres</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="connection-status" id="connStatus">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">Connexion...</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── Main Content ─── -->
+    <main class="main-content">
+
+      <!-- ══ PAGE: DASHBOARD ══ -->
+      <section id="page-dashboard" class="page active">
+        <div class="page-header">
+          <div>
+            <h1>Tableau de Bord</h1>
+            <p class="page-subtitle">Vue d'ensemble du service informatique</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="navigate('badge-create')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Nouveau Badge
+            </button>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card" style="--accent:#FF6B00">
+            <div class="stat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="statBadgesTotal">—</div>
+              <div class="stat-label">Badges Générés</div>
+            </div>
+          </div>
+          <div class="stat-card" style="--accent:#003087">
+            <div class="stat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="statEtudiants">—</div>
+              <div class="stat-label">Étudiants Inscrits</div>
+            </div>
+          </div>
+          <div class="stat-card" style="--accent:#10b981">
+            <div class="stat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="statVideos">—</div>
+              <div class="stat-label">Vidéos en Bibliothèque</div>
+            </div>
+          </div>
+          <div class="stat-card" style="--accent:#8b5cf6">
+            <div class="stat-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg></div>
+            <div class="stat-info">
+              <div class="stat-value" id="statBadgesAujourdhui">—</div>
+              <div class="stat-label">Badges Aujourd'hui</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="card">
+            <div class="card-header">
+              <h3>Derniers Badges Générés</h3>
+              <button class="btn btn-sm" onclick="navigate('badge-list')">Voir tout</button>
+            </div>
+            <div class="recent-badges" id="recentBadges">
+              <div class="empty-state-sm">Aucun badge récent</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Actions Rapides</h3>
+            </div>
+            <div class="quick-actions">
+              <button class="quick-action-btn" onclick="navigate('badge-create')">
+                <div class="qa-icon" style="background:#FF6B00">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </div>
+                <span>Créer Badge</span>
+              </button>
+              <button class="quick-action-btn" onclick="navigate('badge-batch')">
+                <div class="qa-icon" style="background:#003087">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M3 3h18v18H3z"/><path d="M9 3v18M3 9h18"/></svg>
+                </div>
+                <span>Lot Filière</span>
+              </button>
+              <button class="quick-action-btn" onclick="navigate('videos')">
+                <div class="qa-icon" style="background:#10b981">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </div>
+                <span>Vidéothèque</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ PAGE: BADGE CREATE ══ -->
+      <section id="page-badge-create" class="page">
+        <div class="page-header">
+          <div>
+            <h1>Créateur de Badges Officiels ISGI</h1>
+            <p class="page-subtitle">Modèle officiel · Recto dynamique + QR Code · Verso fixe · Capture smartphone en temps réel</p>
+          </div>
+          <div class="header-actions">
+            <button class="btn btn-outline" onclick="resetBadgeForm()">Réinitialiser</button>
+            <button class="btn btn-outline" onclick="startPhonePhotoSession()" style="border-color:var(--orange);color:var(--orange)">
+              📱 Studio Smartphone
+            </button>
+            <button class="btn btn-primary" onclick="exportBadgePNG()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              PNG HD
+            </button>
+            <button class="btn btn-primary" onclick="generateBadgePDF()" style="background:#10b981">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PDF Recto/Verso
+            </button>
+          </div>
+        </div>
+
+        <div class="badge-studio-grid">
+          <!-- ── Col 1: Recherche & Liste des Étudiants ── -->
+          <div class="badge-col-students">
+            <div class="badge-students-header">
+              <div class="badge-students-title-bar">
+                <h3>Étudiants (<span id="badgeStudentCount">0</span>)</h3>
+                <button class="btn btn-sm btn-outline" onclick="syncEtudiants()" title="Recharger la liste">🔄</button>
+              </div>
+              <div class="badge-search-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="badgeStudentSearch" placeholder="Rechercher nom, matricule..." oninput="filterBadgeStudentList()" />
+              </div>
+              <div class="badge-filter-pills">
+                <button class="badge-pill-btn active" data-filter="all" onclick="setStudentListFilter('all', this)">Tous</button>
+                <button class="badge-pill-btn" data-filter="no-photo" onclick="setStudentListFilter('no-photo', this)">Sans photo</button>
+                <button class="badge-pill-btn" data-filter="has-photo" onclick="setStudentListFilter('has-photo', this)">Avec photo</button>
+              </div>
+            </div>
+            <div class="badge-students-list" id="badgeStudentList">
+              <div class="empty-state-sm">Chargement des étudiants...</div>
+            </div>
+          </div>
+
+          <!-- ── Col 2: Fiche Étudiant & Options Photo ── -->
+          <div class="badge-col-editor">
+            <!-- Box Photo -->
+            <div class="badge-photo-box">
+              <div class="photo-flex-wrapper">
+                <div class="photo-avatar-preview" id="photoAvatarBox">
+                  <div class="empty-icon" id="photoEmptyIcon">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span>Aucune photo</span>
+                  </div>
+                  <img id="photoThumbImg" class="hidden" alt="Photo Étudiant" />
+                </div>
+                <div class="photo-action-buttons">
+                  <button type="button" class="btn-phone-photo" onclick="startPhonePhotoSession()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                    <span>Prendre avec Téléphone</span>
+                  </button>
+                  <span class="photo-mobile-hint">La photo est prise sur le téléphone et enregistrée dans Supabase.</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fiche Informations -->
+            <div class="card" style="padding:18px">
+              <div class="card-header" style="padding:0 0 12px 0;margin-bottom:12px;border-bottom:1px solid var(--border)">
+                <h4 style="font-size:13px;font-weight:700;text-transform:uppercase;color:var(--text-muted)">
+                  Données du Badge (Modèle Officiel)
+                </h4>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Nom(s) *</label>
+                  <input type="text" id="badge-nom" placeholder="Ex: ELESSA" oninput="updateBadgeCanvas()" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Prénom(s) *</label>
+                  <input type="text" id="badge-prenom" placeholder="Ex: Frédéric" oninput="updateBadgeCanvas()" class="form-control" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>N° ISGI (Matricule) *</label>
+                  <input type="text" id="badge-matricule" placeholder="Ex: ISGI-2024-001" oninput="updateBadgeCanvas()" class="form-control" />
+                </div>
+                <div class="form-group">
+                  <label>Né(e) le Lieu</label>
+                  <input type="text" id="badge-lieu" placeholder="Ex: Brazzaville" oninput="updateBadgeCanvas()" class="form-control" />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Filière *</label>
+                  <select id="badge-filiere" onchange="updateBadgeCanvas()" class="form-control">
+                    <option value="">-- Choisir --</option>
+                    <option>Informatique de Gestion</option>
+                    <option>Réseaux et Télécommunications</option>
+                    <option>Finance et Comptabilité</option>
+                    <option>Marketing et Commerce</option>
+                    <option>Gestion des Entreprises</option>
+                    <option>Droit des Affaires</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Niveau *</label>
+                  <select id="badge-niveau" onchange="updateBadgeCanvas()" class="form-control">
+                    <option value="">-- Choisir --</option>
+                    <option>Licence 1</option>
+                    <option>Licence 2</option>
+                    <option>Licence 3</option>
+                    <option>Master 1</option>
+                    <option>Master 2</option>
+                    <option>BTS 1</option>
+                    <option>BTS 2</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Année Académique</label>
+                  <select id="badge-annee" onchange="updateBadgeCanvas()" class="form-control">
+                    <option>2026 - 2027</option>
+                    <option>2025 - 2026</option>
+                    <option>2027 - 2028</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Col 3: Aperçu Réel du Badge Officiel ── -->
+          <div class="badge-col-preview">
+            <div class="badge-tab-nav">
+              <button class="badge-tab-btn active" id="tabBadgeRecto" onclick="switchBadgeSide('recto')">
+                👁 RECTO (Généré)
+              </button>
+              <button class="badge-tab-btn" id="tabBadgeVerso" onclick="switchBadgeSide('verso')">
+                🔄 VERSO (Officiel)
+              </button>
+            </div>
+
+            <div class="badge-canvas-container">
+              <!-- Canvas HD 1063 x 1535 (Template Recto) -->
+              <canvas id="badgeOfficialCanvas" width="1063" height="1535"></canvas>
+              <!-- Template Verso (PNG Original) -->
+              <img id="badgeOfficialVersoImg" src="./images/badge_verso.png" alt="Badge Verso" style="display:none" />
+            </div>
+
+            <div class="badge-export-actions">
+              <button class="btn btn-primary full-width" onclick="generateBadgePDF()" style="background:#10b981;font-weight:700">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Télécharger PDF (Recto + Verso)
+              </button>
+              <button class="btn btn-outline full-width" onclick="exportBadgePNG()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Télécharger Image HD (PNG 300 DPI)
+              </button>
+              <button class="btn btn-outline full-width" onclick="printBadge()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Imprimer le Badge
+              </button>
+              <button class="btn btn-outline full-width" onclick="saveBadge()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Enregistrer dans la Base
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ PAGE: BADGE BATCH ══ -->
+      <section id="page-badge-batch" class="page">
+        <div class="page-header">
+          <div>
+            <h1>Génération en Lot</h1>
+            <p class="page-subtitle">Générer tous les badges d'une filière ou promotion</p>
+          </div>
+        </div>
+        <div class="batch-workspace">
+          <div class="card">
+            <div class="card-header"><h3>Filtres de Sélection</h3></div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Filière</label>
+                <select id="batch-filiere" class="form-control" onchange="loadBatchStudents()">
+                  <option value="">Toutes les filières</option>
+                  <option>Informatique de Gestion</option>
+                  <option>Réseaux et Télécommunications</option>
+                  <option>Finance et Comptabilité</option>
+                  <option>Marketing et Commerce</option>
+                  <option>Gestion des Entreprises</option>
+                  <option>Droit des Affaires</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Niveau</label>
+                <select id="batch-niveau" class="form-control" onchange="loadBatchStudents()">
+                  <option value="">Tous les niveaux</option>
+                  <option>Licence 1</option>
+                  <option>Licence 2</option>
+                  <option>Licence 3</option>
+                  <option>Master 1</option>
+                  <option>Master 2</option>
+                  <option>BTS 1</option>
+                  <option>BTS 2</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Année</label>
+                <select id="batch-annee" class="form-control">
+                  <option>2026 - 2027</option>
+                  <option>2025 - 2026</option>
+                </select>
+              </div>
+            </div>
+            <div class="batch-info" id="batchInfo">
+              <span class="badge-count" id="batchCount">0 étudiant(s) sélectionné(s)</span>
+              <button class="btn btn-primary" onclick="generateBatchPDF()" id="batchGenBtn" disabled>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Générer tous les badges (PDF)
+              </button>
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-header"><h3>Liste des Étudiants</h3><span id="batchListCount" class="text-muted"></span></div>
+            <div class="batch-student-list" id="batchStudentList">
+              <div class="empty-state">Sélectionnez une filière ou un niveau pour charger les étudiants</div>
+            </div>
+          </div>
+          <div class="progress-overlay hidden" id="batchProgress">
+            <div class="progress-box">
+              <div class="progress-title">Génération en cours...</div>
+              <div class="progress-bar-wrap"><div class="progress-bar" id="batchProgressBar" style="width:0%"></div></div>
+              <div class="progress-text" id="batchProgressText">0 / 0</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ PAGE: BADGE LIST ══ -->
+      <section id="page-badge-list" class="page">
+        <div class="page-header">
+          <div><h1>Liste des Badges</h1><p class="page-subtitle">Historique et renouvellements</p></div>
+          <div class="header-actions">
+            <input type="search" id="badgeSearch" class="search-input" placeholder="🔍 Rechercher..." oninput="filterBadgeList()" />
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table" id="badgeTable">
+              <thead>
+                <tr>
+                  <th>Matricule</th>
+                  <th>Nom & Prénom</th>
+                  <th>Filière</th>
+                  <th>Niveau</th>
+                  <th>Année</th>
+                  <th>Date Génération</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="badgeTableBody">
+                <tr><td colspan="7" class="empty-cell">Aucun badge généré</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ PAGE: VIDEOS ══ -->
+      <section id="page-videos" class="page">
+        <div class="page-header">
+          <div><h1>Médiathèque Vidéos</h1><p class="page-subtitle">Bibliothèque publique et vidéos par classe</p></div>
+          <div class="header-actions">
+            <button class="btn btn-primary" onclick="showAddVideoModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Publier une Vidéo
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabs bibliothèque -->
+        <div class="video-tabs">
+          <button class="vtab active" data-tab="publique" onclick="switchVideoTab('publique', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Bibliothèque Publique
+            <span class="vtab-count" id="countPublique">0</span>
+          </button>
+          <button class="vtab" data-tab="classe" onclick="switchVideoTab('classe', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Vidéos par Classe
+            <span class="vtab-count" id="countClasse">0</span>
+          </button>
+        </div>
+
+        <!-- Filtres catégorie -->
+        <div class="video-filter-bar">
+          <div class="video-filters">
+            <button class="filter-btn active" onclick="filterVideos('all', this)">Toutes catégories</button>
+            <button class="filter-btn" onclick="filterVideos('cours', this)">📚 Cours</button>
+            <button class="filter-btn" onclick="filterVideos('tutoriel', this)">🎯 Tutoriels</button>
+            <button class="filter-btn" onclick="filterVideos('presentation', this)">📊 Présentations</button>
+            <button class="filter-btn" onclick="filterVideos('autre', this)">📁 Autres</button>
+          </div>
+          <!-- Filtres classe (visible uniquement onglet classe) -->
+          <div class="classe-filters hidden" id="classeFilters">
+            <select class="form-control" id="filter-classe" onchange="renderVideoGrid()" style="width:auto;padding:6px 12px;font-weight:600">
+              <option value="">🎓 Toutes les classes</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="video-grid" id="videoGrid"></div>
+
+        <!-- Video Player Modal -->
+        <div class="modal-overlay hidden" id="videoPlayerModal">
+          <div class="video-modal">
+            <div class="modal-header">
+              <h3 id="videoPlayerTitle">Titre de la vidéo</h3>
+              <button class="modal-close" onclick="closeVideoPlayer()">✕</button>
+            </div>
+            <video id="videoPlayer" controls class="video-player" preload="metadata">
+              Votre navigateur ne supporte pas la lecture vidéo.
+            </video>
+            <div class="video-player-meta" id="videoPlayerMeta"></div>
+          </div>
+        </div>
+
+        <!-- Add Video Modal -->
+        <div class="modal-overlay hidden" id="addVideoModal">
+          <div class="modal-box" style="width:640px">
+            <div class="modal-header">
+              <h3>Publier une Vidéo</h3>
+              <button class="modal-close" onclick="closeAddVideoModal()">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-row">
+                <div class="form-group" style="flex:2">
+                  <label>Titre *</label>
+                  <input type="text" id="video-titre" class="form-control" placeholder="Titre de la vidéo" />
+                </div>
+                <div class="form-group">
+                  <label>Catégorie</label>
+                  <select id="video-categorie" class="form-control">
+                    <option value="cours">📚 Cours</option>
+                    <option value="tutoriel">🎯 Tutoriel</option>
+                    <option value="presentation">📊 Présentation</option>
+                    <option value="autre">📁 Autre</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Description</label>
+                <textarea id="video-desc" class="form-control" rows="2" placeholder="Description du contenu..."></textarea>
+              </div>
+
+              <!-- Visibilité : choix principal -->
+              <div class="form-group">
+                <label>Visibilité *</label>
+                <div class="visibility-selector">
+                  <label class="vis-option" id="vis-publique" onclick="setVisibility('publique')">
+                    <input type="radio" name="visibilite" value="publique" checked />
+                    <div class="vis-card active" id="viscard-publique">
+                      <div class="vis-icon">🌐</div>
+                      <div>
+                        <div class="vis-title">Bibliothèque Publique</div>
+                        <div class="vis-desc">Visible par tous les étudiants, professeurs et staff</div>
+                      </div>
+                    </div>
+                  </label>
+                  <label class="vis-option" id="vis-classe" onclick="setVisibility('classe')">
+                    <input type="radio" name="visibilite" value="classe" />
+                    <div class="vis-card" id="viscard-classe">
+                      <div class="vis-icon">🎓</div>
+                      <div>
+                        <div class="vis-title">Vidéo de Classe</div>
+                        <div class="vis-desc">Accessible uniquement aux étudiants et profs de la classe ciblée</div>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Classe cible (affiché si visibilité = classe) -->
+              <div id="classeTargetFields" class="hidden">
+                <div class="classe-target-box">
+                  <div class="classe-target-title">🎯 Classe Destinataire (Contrôle d'Accès par Classe)</div>
+                  
+                  <div class="form-group" style="margin-bottom:12px">
+                    <label>Classe Structurée *</label>
+                    <select id="video-classe-select" class="form-control" onchange="onVideoClasseSelectChange(this.value)" style="font-weight:600">
+                      <option value="">-- Choisir une classe structurée --</option>
+                    </select>
+                  </div>
+
+                  <div class="selected-class-info" id="video-classe-info">Choisis une classe synchronisée depuis Supabase.</div>
+                  <div class="classe-access-info">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                    Contrôle d'accès strict par <strong>Classe</strong> : seuls les étudiants inscrits dans cette classe et leurs professeurs ont accès. Les comptes administratifs (Secrétariat, DAC, Comptable, Surveillant...) disposent d'un accès de supervision complet.
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Fichier Vidéo *</label>
+                <div class="file-drop-zone" id="videoDropZone" onclick="document.getElementById('video-file-input').click()">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                  <p id="videoFileLabel">Cliquer pour choisir un fichier vidéo</p>
+                  <span>MP4, WebM, MOV · téléversée dans Supabase Storage</span>
+                </div>
+                <input type="file" id="video-file-input" accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/avi" hidden onchange="onVideoFileSelected(this)" />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Miniature (optionnel)</label>
+                  <div class="file-drop-zone small" onclick="document.getElementById('video-thumb-input').click()">
+                    <span id="thumbLabel">📷 Choisir une image de couverture</span>
+                  </div>
+                  <input type="file" id="video-thumb-input" accept="image/jpeg,image/png,image/webp" hidden onchange="onThumbnailSelected(this)" />
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline" onclick="closeAddVideoModal()">Annuler</button>
+              <button class="btn btn-primary" onclick="addVideo()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Publier la Vidéo
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ PAGE: ETUDIANTS ══ -->
+      <section id="page-etudiants" class="page">
+        <div class="page-header">
+          <div><h1>Étudiants</h1><p class="page-subtitle">Base de données des étudiants inscrits</p></div>
+          <div class="header-actions">
+            <input type="search" id="etudiantSearch" class="search-input" placeholder="🔍 Nom, matricule..." oninput="filterEtudiants()" />
+            <button class="btn btn-outline" onclick="syncEtudiants()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Sync Supabase
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Photo</th>
+                  <th>Matricule</th>
+                  <th>Nom & Prénom</th>
+                  <th>Filière</th>
+                  <th>Niveau</th>
+                  <th>Statut Badge</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="etudiantTableBody">
+                <tr><td colspan="7" class="empty-cell">Cliquer sur "Sync Supabase" pour charger les étudiants</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ PAGE: PARAMETRES ══ -->
+      <section id="page-parametres" class="page">
+        <div class="page-header">
+          <div><h1>Paramètres</h1><p class="page-subtitle">Configuration de l'application</p></div>
+        </div>
+        <div class="settings-grid">
+          <div class="card">
+            <div class="card-header"><h3>Connexion Supabase</h3></div>
+            <div class="form-group">
+              <label>URL Supabase</label>
+              <input type="text" id="supabase-url" class="form-control" placeholder="https://xxx.supabase.co" />
+            </div>
+            <div class="form-group">
+              <label>Clé Anonyme (anon key)</label>
+              <input type="password" id="supabase-key" class="form-control" placeholder="eyJ..." />
+            </div>
+            <div class="form-group">
+              <label>Adresse du studio photo mobile</label>
+              <input type="url" id="mobile-photo-url" class="form-control" placeholder="https://photos.isgi.cg/" />
+              <small class="form-hint">Cette page doit être publiée en HTTPS pour être accessible depuis les téléphones.</small>
+            </div>
+            <button class="btn btn-primary" onclick="saveSupabaseConfig()">Sauvegarder & Tester</button>
+            <div id="supabase-test-result" class="test-result hidden"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Paramètres Badges</h3></div>
+            <div class="form-group">
+              <label>Année Académique par défaut</label>
+              <select id="param-annee" class="form-control">
+                <option>2026 - 2027</option>
+                <option>2025 - 2026</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Nom Directeur Général</label>
+              <input type="text" id="param-directeur" class="form-control" value="ELESSA FREDERIC" />
+            </div>
+            <div class="form-group">
+              <label>Dossier de sauvegarde des badges</label>
+              <div class="path-input-group">
+                <input type="text" id="param-output-dir" class="form-control" readonly placeholder="Choisir un dossier..." />
+                <button class="btn btn-sm btn-outline" onclick="chooseOutputDir()">Parcourir</button>
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="saveAppParams()">Sauvegarder</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>À propos</h3></div>
+            <div class="about-info">
+              <div class="about-logo">🎓 ISGI Informaticien</div>
+              <div class="about-version">Version <span id="aboutVersion">1.0.0</span></div>
+              <div class="about-desc">Application de gestion des badges étudiants et de la médiathèque vidéo.</div>
+              <div class="about-tech">Electron · pdf-lib · QRCode · Supabase</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="auth-screen" id="authScreen">
+    <form class="auth-card" onsubmit="signIn(event)">
+      <div class="auth-brand">ISGI <span>INFORMATICIEN</span></div>
+      <h1>Connexion sécurisée</h1>
+      <p>Connecte-toi avec ton compte Supabase Informaticien.</p>
+      <label for="auth-email">Adresse e-mail</label>
+      <input id="auth-email" type="email" autocomplete="username" required />
+      <label for="auth-password">Mot de passe</label>
+      <input id="auth-password" type="password" autocomplete="current-password" required />
+      <button id="authSubmit" class="btn btn-primary full-width" type="submit">Se connecter</button>
+      <div id="loginStatus" class="auth-message" role="status"></div>
+      <button class="auth-settings-link" type="button" onclick="openSupabaseSettings()">Configurer Supabase</button>
+    </form>
+  </div>
+
+  <!-- Modal: Smartphone Photo Studio QR Code -->
+  <div class="modal-overlay hidden" id="phonePhotoModal">
+    <div class="modal-box" style="max-width:440px">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">📱</span>
+          <h3 style="font-size:15px;font-weight:700">Studio Photo Smartphone</h3>
+        </div>
+        <button class="modal-close" onclick="closePhonePhotoModal()">✕</button>
+      </div>
+      <div class="modal-body" style="text-align:center">
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+          Scanne le QR code avec le téléphone, connecte-toi avec le compte Informaticien, puis prends et valides la photo de :<br/>
+          <strong id="phoneModalStudentName" style="color:var(--text);font-size:14px">—</strong>
+        </p>
+
+        <div class="phone-qr-frame">
+          <canvas id="phoneQRCanvas" width="220" height="220"></canvas>
+        </div>
+
+        <div>
+          <a id="phoneModalUrlLink" href="#" target="_blank" class="phone-qr-url" title="Cliquer pour tester dans le navigateur">
+            https://photos.isgi.cg/...
+          </a>
+        </div>
+
+        <div class="pulse-indicator" id="phoneModalIndicator">
+          <div class="pulse-dot"></div>
+          <span id="phoneModalStatusText">En attente de capture du smartphone...</span>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:center">
+        <button class="btn btn-outline" onclick="closePhonePhotoModal()">Fermer la session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Loading overlay -->
+  <div class="loading-overlay hidden" id="loadingOverlay">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <div class="loading-text" id="loadingText">Chargement...</div>
+    </div>
+  </div>
+
+  <script src="../node_modules/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

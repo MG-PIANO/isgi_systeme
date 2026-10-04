@@ -177,6 +177,21 @@
             outline: none;
         }
         
+        .password-input-group {
+            position: relative;
+        }
+        
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        
         /* Alerts */
         .alert-container {
             margin-bottom: 20px;
@@ -214,6 +229,12 @@
             background-color: rgba(0, 102, 204, 0.1);
             border-left-color: var(--primary-blue);
             color: #004085;
+        }
+        
+        .alert-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-left-color: var(--warning-yellow);
+            color: #856404;
         }
         
         /* Role Selection */
@@ -343,6 +364,13 @@
             box-shadow: var(--shadow-md);
         }
         
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
         .btn-outline {
             background: transparent;
             border: 2px solid var(--primary-blue);
@@ -396,6 +424,35 @@
         
         .form-footer-links a:hover {
             text-decoration: underline;
+        }
+        
+        /* Tutor-specific styles */
+        .tutor-warning {
+            background-color: rgba(255, 107, 53, 0.1);
+            border: 1px solid rgba(255, 107, 53, 0.3);
+            border-left: 4px solid var(--accent-orange);
+            border-radius: var(--radius-sm);
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .account-status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .account-exists {
+            background-color: rgba(255, 193, 7, 0.2);
+            color: #856404;
+        }
+        
+        .account-none {
+            background-color: rgba(40, 167, 69, 0.2);
+            color: #155724;
         }
         
         @media (max-width: 768px) {
@@ -463,7 +520,9 @@
                 confirm_password: '',
                 nom: '',
                 prenom: '',
-                telephone: ''
+                telephone: '',
+                relation_tuteur: '',
+                etudiant_id: ''
             }
         };
         
@@ -528,14 +587,14 @@
                                     <i class="fas fa-hands-helping"></i>
                                 </div>
                                 <h4>Tuteur</h4>
-                                <p>Créez un compte pour suivre un étudiant</p>
+                                <p>Créez un compte pour suivre un étudiant<br><small>Même si l'étudiant a déjà un compte</small></p>
                             </div>
                         </div>
                         
                         <div class="form-footer">
                             <p>Vous êtes un membre du personnel ?</p>
                             <div class="form-footer-links">
-                                <a href="create_account_api.php">Créer un compte personnel</a>
+                                <a href="creation_comptes.php">Créer un compte personnel</a>
                             </div>
                         </div>
                     </div>
@@ -624,7 +683,8 @@
                                 <i class="fas fa-info-circle"></i>
                                 <div>
                                     <strong>Information :</strong> Vous devez entrer le matricule de l'étudiant 
-                                    que vous souhaitez suivre. Ce matricule doit être validé par l'administration.
+                                    que vous souhaitez suivre. Vous pouvez créer un compte même si l'étudiant 
+                                    possède déjà son propre compte.
                                 </div>
                             </div>
                             
@@ -665,6 +725,45 @@
             
             const roleName = appState.selectedRole === 8 ? 'étudiant' : 'tuteur';
             
+            let relationField = '';
+            if (appState.selectedRole === 9) {
+                relationField = `
+                    <div class="form-group">
+                        <label class="form-label">
+                            <i class="fas fa-user-friends"></i> Relation avec l'étudiant
+                        </label>
+                        <select class="form-control" id="relation_tuteur" required>
+                            <option value="">Sélectionnez votre relation</option>
+                            <option value="parent">Parent</option>
+                            <option value="tuteur_legal">Tuteur légal</option>
+                            <option value="frere_soeur">Frère/Sœur</option>
+                            <option value="oncle_tante">Oncle/Tante</option>
+                            <option value="grand_parent">Grand-parent</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                        <small class="text-muted" style="display: block; margin-top: 5px;">
+                            Précisez votre relation avec l'étudiant pour validation
+                        </small>
+                    </div>
+                `;
+            }
+            
+            // Vérifier si l'étudiant a déjà un compte (pour affichage info)
+            let compteStatus = '';
+            if (appState.selectedRole === 9 && appState.studentInfo && appState.studentInfo.compte_etudiant_existe) {
+                compteStatus = `
+                    <div class="tutor-warning">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <i class="fas fa-exclamation-triangle" style="color: var(--accent-orange); margin-top: 2px;"></i>
+                            <div>
+                                <strong>Note :</strong> Cet étudiant possède déjà un compte étudiant. 
+                                Vous pouvez tout de même créer un compte tuteur pour le suivre.
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
             document.getElementById("contentContainer").innerHTML = `
                 <div class="form-panel">
                     <div class="form-title">
@@ -677,6 +776,10 @@
                             <div class="student-info-header">
                                 <i class="fas fa-user-check" style="color: var(--primary-blue);"></i>
                                 <h5>Étudiant vérifié</h5>
+                                ${appState.selectedRole === 9 && appState.studentInfo && appState.studentInfo.compte_etudiant_existe ? 
+                                    '<span class="account-status-badge account-exists"><i class="fas fa-user-circle"></i> Compte étudiant existe</span>' : 
+                                    appState.selectedRole === 9 ? 
+                                    '<span class="account-status-badge account-none"><i class="fas fa-user-plus"></i> Pas de compte étudiant</span>' : ''}
                             </div>
                             <div class="student-details">
                                 <div class="detail-item">
@@ -691,7 +794,14 @@
                                     <div class="detail-label">Site :</div>
                                     <div class="detail-value">${appState.studentInfo.site_nom || 'Non spécifié'}</div>
                                 </div>
+                                ${appState.selectedRole === 9 ? `
+                                <div class="detail-item">
+                                    <div class="detail-label">Statut étudiant :</div>
+                                    <div class="detail-value">${appState.studentInfo.statut || 'Actif'}</div>
+                                </div>
+                                ` : ''}
                             </div>
+                            ${compteStatus}
                         </div>
                         
                         <form id="accountForm" onsubmit="createAccount(event)">
@@ -699,23 +809,25 @@
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label class="form-label">
-                                            <i class="fas fa-user"></i> Nom
+                                            <i class="fas fa-user"></i> Votre nom
                                         </label>
                                         <input type="text" class="form-control" id="nom" 
-                                               value="${appState.studentInfo.nom}" required>
+                                               placeholder="Votre nom de famille" required>
                                     </div>
                                 </div>
                                 
                                 <div class="col-md-6">
                                     <div class="form-group">
                                         <label class="form-label">
-                                            <i class="fas fa-user"></i> Prénom
+                                            <i class="fas fa-user"></i> Votre prénom
                                         </label>
                                         <input type="text" class="form-control" id="prenom" 
-                                               value="${appState.studentInfo.prenom}" required>
+                                               placeholder="Votre prénom" required>
                                     </div>
                                 </div>
                             </div>
+                            
+                            ${relationField}
                             
                             <div class="form-group">
                                 <label class="form-label">
@@ -724,7 +836,7 @@
                                 <input type="email" class="form-control" id="email" 
                                        placeholder="votre.email@exemple.com" required>
                                 <small class="text-muted" style="display: block; margin-top: 5px;">
-                                    Cette adresse servira pour la connexion
+                                    Cette adresse servira pour la connexion (différente de celle de l'étudiant)
                                 </small>
                             </div>
                             
@@ -786,7 +898,7 @@
                                     </button>
                                 </div>
                                 <div class="col-6">
-                                    <button type="submit" class="btn btn-primary">
+                                    <button type="submit" class="btn btn-primary" id="createAccountButton">
                                         <i class="fas fa-user-plus"></i> Créer le compte
                                     </button>
                                 </div>
@@ -796,12 +908,21 @@
                 </div>
             `;
             
-            // Remplir les données existantes
+            // Remplir les données existantes si disponibles
             if (appState.formData.email) {
                 document.getElementById('email').value = appState.formData.email;
             }
             if (appState.formData.telephone) {
                 document.getElementById('telephone').value = appState.formData.telephone;
+            }
+            if (appState.formData.nom) {
+                document.getElementById('nom').value = appState.formData.nom;
+            }
+            if (appState.formData.prenom) {
+                document.getElementById('prenom').value = appState.formData.prenom;
+            }
+            if (appState.formData.relation_tuteur) {
+                document.getElementById('relation_tuteur').value = appState.formData.relation_tuteur;
             }
         }
         
@@ -820,8 +941,7 @@
                         <h3 style="margin-bottom: 15px; color: var(--success-green);">Demande envoyée avec succès !</h3>
                         <p style="color: #666; margin-bottom: 25px; max-width: 600px; margin-left: auto; margin-right: auto;">
                             Votre demande de création de compte a été enregistrée. 
-                            Un administrateur vérifiera votre matricule et vos informations 
-                            avant d'activer votre compte.
+                            Un administrateur vérifiera vos informations avant d'activer votre compte.
                         </p>
                         
                         <div class="alert alert-info" style="text-align: left; max-width: 500px; margin: 25px auto;">
@@ -829,9 +949,10 @@
                             <div>
                                 <strong>Récapitulatif :</strong><br>
                                 <strong>Type de compte :</strong> ${roleName}<br>
-                                <strong>Matricule :</strong> ${appState.formData.matricule}<br>
-                                <strong>Nom :</strong> ${appState.formData.nom} ${appState.formData.prenom}<br>
-                                <strong>Email :</strong> ${appState.formData.email}
+                                <strong>Matricule suivi :</strong> ${appState.formData.matricule}<br>
+                                <strong>Votre nom :</strong> ${appState.formData.nom} ${appState.formData.prenom}<br>
+                                <strong>Votre email :</strong> ${appState.formData.email}
+                                ${appState.selectedRole === 9 ? `<br><strong>Relation :</strong> ${appState.formData.relation_tuteur}` : ''}
                             </div>
                         </div>
                         
@@ -868,15 +989,25 @@
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `matricule=${encodeURIComponent(matricule)}`
+                    body: `matricule=${encodeURIComponent(matricule)}&role=etudiant`
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
+                    // Pour un étudiant, vérifier si un compte existe déjà
+                    if (result.compte_etudiant_existe) {
+                        showAlert("Un compte existe déjà pour cet étudiant", "danger");
+                        verifyButton.disabled = false;
+                        verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier le matricule';
+                        return;
+                    }
+                    
                     appState.formData.matricule = matricule;
+                    appState.formData.etudiant_id = result.student_info.id;
                     appState.studentInfo = result.student_info;
                     appState.studentInfo.site_nom = result.site_nom;
+                    appState.studentInfo.compte_etudiant_existe = result.compte_etudiant_existe;
                     
                     // Afficher les informations de l'étudiant
                     const preview = document.getElementById("studentInfoPreview");
@@ -909,18 +1040,18 @@
                     // Changer le bouton pour continuer
                     verifyButton.innerHTML = '<i class="fas fa-arrow-right"></i> Continuer';
                     verifyButton.onclick = function() { showAccountForm(); };
+                    verifyButton.disabled = false;
                 } else {
                     showAlert(result.message || "Matricule non trouvé", "danger");
+                    verifyButton.disabled = false;
+                    verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier le matricule';
                 }
                 
             } catch (error) {
                 console.error('Erreur:', error);
                 showAlert("Erreur de connexion au serveur", "danger");
-            } finally {
                 verifyButton.disabled = false;
-                if (verifyButton.innerHTML.includes('Vérification')) {
-                    verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier le matricule';
-                }
+                verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier le matricule';
             }
         }
         
@@ -939,21 +1070,37 @@
                 verifyButton.disabled = true;
                 verifyButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
                 
-                // Appeler l'API pour vérifier le matricule
+                // Appeler l'API pour vérifier le matricule (avec paramètre spécifique pour tuteur)
                 const response = await fetch('verify_matricule.php', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `matricule=${encodeURIComponent(matricule)}`
+                    body: `matricule=${encodeURIComponent(matricule)}&role=tuteur`
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
                     appState.formData.matricule = matricule;
+                    appState.formData.etudiant_id = result.student_info.id;
                     appState.studentInfo = result.student_info;
                     appState.studentInfo.site_nom = result.site_nom;
+                    appState.studentInfo.compte_etudiant_existe = result.compte_etudiant_existe;
+                    
+                    // Construire le message d'information
+                    let warningMessage = '';
+                    if (result.compte_etudiant_existe) {
+                        warningMessage = `
+                            <div class="alert alert-info" style="margin-top: 10px; padding: 10px; font-size: 13px;">
+                                <i class="fas fa-info-circle"></i>
+                                <div>
+                                    <strong>Information :</strong> Cet étudiant possède déjà un compte étudiant. 
+                                    Vous pouvez tout de même créer un compte tuteur pour le suivre.
+                                </div>
+                            </div>
+                        `;
+                    }
                     
                     // Afficher les informations de l'étudiant
                     const preview = document.getElementById("tutorStudentInfoPreview");
@@ -961,6 +1108,9 @@
                         <div class="student-info-header">
                             <i class="fas fa-check-circle" style="color: var(--success-green);"></i>
                             <h5>Étudiant vérifié</h5>
+                            ${result.compte_etudiant_existe ? 
+                                '<span class="account-status-badge account-exists"><i class="fas fa-user-circle"></i> Compte étudiant existe</span>' : 
+                                '<span class="account-status-badge account-none"><i class="fas fa-user-plus"></i> Pas de compte étudiant</span>'}
                         </div>
                         <div class="student-details">
                             <div class="detail-item">
@@ -975,7 +1125,12 @@
                                 <div class="detail-label">Site :</div>
                                 <div class="detail-value">${result.site_nom}</div>
                             </div>
+                            <div class="detail-item">
+                                <div class="detail-label">Statut étudiant :</div>
+                                <div class="detail-value">${result.student_info.statut || 'Actif'}</div>
+                            </div>
                         </div>
+                        ${warningMessage}
                         <div class="alert alert-warning" style="margin-top: 10px; padding: 10px; font-size: 13px;">
                             <i class="fas fa-exclamation-triangle"></i>
                             <div>
@@ -989,18 +1144,18 @@
                     // Changer le bouton pour continuer
                     verifyButton.innerHTML = '<i class="fas fa-arrow-right"></i> Continuer';
                     verifyButton.onclick = function() { showAccountForm(); };
+                    verifyButton.disabled = false;
                 } else {
                     showAlert(result.message || "Matricule non trouvé", "danger");
+                    verifyButton.disabled = false;
+                    verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier le matricule';
                 }
                 
             } catch (error) {
                 console.error('Erreur:', error);
                 showAlert("Erreur de connexion au serveur", "danger");
-            } finally {
                 verifyButton.disabled = false;
-                if (verifyButton.innerHTML.includes('Vérification')) {
-                    verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier le matricule';
-                }
+                verifyButton.innerHTML = '<i class="fas fa-check-circle"></i> Vérifier le matricule';
             }
         }
         
@@ -1015,9 +1170,21 @@
             appState.formData.mot_de_passe = document.getElementById("mot_de_passe").value;
             appState.formData.confirm_password = document.getElementById("confirm_password").value;
             
-            // Validation simple
+            if (appState.selectedRole === 9) {
+                const relationSelect = document.getElementById("relation_tuteur");
+                if (relationSelect) {
+                    appState.formData.relation_tuteur = relationSelect.value;
+                }
+            }
+            
+            // Validation
             if (!appState.formData.email || !appState.formData.mot_de_passe) {
                 showAlert("Veuillez remplir tous les champs obligatoires", "danger");
+                return;
+            }
+            
+            if (appState.selectedRole === 9 && !appState.formData.relation_tuteur) {
+                showAlert("Veuillez spécifier votre relation avec l'étudiant", "danger");
                 return;
             }
             
@@ -1031,15 +1198,32 @@
                 return;
             }
             
+            // Vérifier l'email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(appState.formData.email)) {
+                showAlert("Veuillez entrer une adresse email valide", "danger");
+                return;
+            }
+            
             try {
                 // Afficher un indicateur de chargement
-                showAlert("Création du compte en cours...", "info");
+                const createButton = document.getElementById("createAccountButton");
+                const originalText = createButton.innerHTML;
+                createButton.disabled = true;
+                createButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Création en cours...';
                 
                 // Envoyer les données au serveur
                 const formData = new FormData();
                 Object.keys(appState.formData).forEach(key => {
-                    formData.append(key, appState.formData[key]);
+                    if (appState.formData[key]) {
+                        formData.append(key, appState.formData[key]);
+                    }
                 });
+                
+                // Ajouter l'information sur l'existence d'un compte étudiant
+                if (appState.studentInfo && appState.studentInfo.compte_etudiant_existe !== undefined) {
+                    formData.append('compte_etudiant_existe', appState.studentInfo.compte_etudiant_existe);
+                }
                 
                 const response = await fetch('create_account_student_tutor.php', {
                     method: 'POST',
@@ -1047,6 +1231,9 @@
                 });
                 
                 const result = await response.json();
+                
+                createButton.disabled = false;
+                createButton.innerHTML = originalText;
                 
                 if (result.success) {
                     showSuccessScreen();
@@ -1057,6 +1244,11 @@
             } catch (error) {
                 console.error('Erreur:', error);
                 showAlert("Erreur de connexion au serveur", "danger");
+                const createButton = document.getElementById("createAccountButton");
+                if (createButton) {
+                    createButton.disabled = false;
+                    createButton.innerHTML = '<i class="fas fa-user-plus"></i> Créer le compte';
+                }
             }
         }
         
@@ -1065,7 +1257,7 @@
             const input = document.getElementById(inputId);
             if (!input) return;
             
-            const button = input.nextElementSibling;
+            const button = input.parentElement.querySelector(".password-toggle");
             const icon = button.querySelector("i");
             
             if (input.type === "password") {
@@ -1089,7 +1281,9 @@
                     confirm_password: '',
                     nom: '',
                     prenom: '',
-                    telephone: ''
+                    telephone: '',
+                    relation_tuteur: '',
+                    etudiant_id: ''
                 }
             };
             

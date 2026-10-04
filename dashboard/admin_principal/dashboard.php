@@ -743,7 +743,7 @@ try {
                     <div class="nav-section-title">Tableau de Bord</div>
                     <a href="dashboard.php" class="nav-link active">
                         <i class="fas fa-tachometer-alt"></i>
-                        <span>Dashboard Global</span>
+                        <span>Tableau de Bord Global</span>
                     </a>
                 </div>
                 
@@ -796,7 +796,7 @@ try {
                         <i class="fas fa-laptop"></i>
                         <span>Cours en Ligne</span>
                     </a>
-                    <a href="bibliotheque/bibliotheque.php" class="nav-link">
+                    <a href="bibliotheque.php" class="nav-link">
                         <i class="fas fa-book"></i>
                         <span>Bibliothèque</span>
                     </a>
@@ -828,10 +828,12 @@ try {
                         <i class="fas fa-chart-pie"></i>
                         <span>Rapports Statistiques</span>
                     </a>
-                    <a href="notifications.php" class="nav-link">
+                    <a href="messagerie.php" class="nav-link">
                         <i class="fas fa-bell"></i>
-                        <span>Notifications</span>
+                        <span>Messagerie</span>
+                       
                     </a>
+                    
                 </div>
                 
                 <div class="nav-section">

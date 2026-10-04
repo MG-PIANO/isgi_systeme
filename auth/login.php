@@ -1,5 +1,5 @@
 <?php
-// auth/login.php avec double authentification pour production
+// auth/login.php avec double authentification et mot de passe oublié
 require_once '../config/database.php';
 require_once '../lib/EmailSender.php';
 
@@ -10,7 +10,7 @@ $step = isset($_GET['step']) ? $_GET['step'] : 'login';
 $error = '';
 $success = '';
 $user_data = [];
-$email_sent = false; // <-- Initialiser ici
+$email_sent = false;
 
 // Rediriger si déjà connecté et vérifié 2FA
 if (isset($_SESSION['user_id']) && isset($_SESSION['2fa_verified']) && $_SESSION['2fa_verified'] === true) {
@@ -59,36 +59,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                     
                     if ($password_valid) {
-                        // Générer un code de vérification
-                        $verification_code = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
-                        $expires_at = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+                        // Bypass 2FA - Connecter directement
+                        $_SESSION['user_id'] = $user['id'];
+                        $_SESSION['role_id'] = $user['role_id'];
+                        $_SESSION['site_id'] = $user['site_id'];
+                        $_SESSION['user_name'] = $user['prenom'] . ' ' . $user['nom'];
+                        $_SESSION['role_name'] = $user['role_nom'];
+                        $_SESSION['site_name'] = $user['site_nom'];
+                        $_SESSION['login_time'] = time();
+                        $_SESSION['last_activity'] = time();
+                        $_SESSION['2fa_verified'] = true;
                         
-                        // Stocker en session
-                        $_SESSION['2fa_user_id'] = $user['id'];
-                        $_SESSION['2fa_code'] = $verification_code;
-                        $_SESSION['2fa_expires'] = $expires_at;
-                        $_SESSION['2fa_user_data'] = $user;
+                        // Mettre à jour dernière connexion
+                        $updateQuery = "UPDATE utilisateurs SET derniere_connexion = NOW() WHERE id = ?";
+                        $updateStmt = $db->prepare($updateQuery);
+                        $updateStmt->execute([$user['id']]);
                         
-                        // Envoyer l'email
-                        $emailSender = EmailSender::getInstance();
-                        $email_sent = $emailSender->sendVerificationCode(
-                            $user['email'],
-                            $user['prenom'] . ' ' . $user['nom'],
-                            $verification_code
-                        );
-                        
-                        if ($email_sent) {
-                            $_SESSION['demo_2fa_code'] = $verification_code;
-                            header('Location: ?step=verification');
-                            exit();
-                        } else {
-                            $error = 'Erreur d\'envoi du code. Veuillez réessayer.';
-                            // Nettoyer la session
-                            unset($_SESSION['2fa_user_id']);
-                            unset($_SESSION['2fa_code']);
-                            unset($_SESSION['2fa_expires']);
-                            unset($_SESSION['2fa_user_data']);
-                        }
+                        header('Location: ../dashboard/');
+                        exit();
                     } else {
                         $error = 'Mot de passe incorrect';
                     }
@@ -154,8 +142,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
+        // ÉTAPE 3: Mot de passe oublié
+        elseif ($step === 'forgot_password') {
+            $email = $_POST['email'] ?? '';
+            
+            if (empty($email)) {
+                $error = 'Veuillez entrer votre adresse email';
+            } else {
+                // Vérifier si l'email existe
+                $query = "SELECT * FROM utilisateurs WHERE email = ? AND statut = 'actif'";
+                $stmt = $db->prepare($query);
+                $stmt->execute([$email]);
+                $user = $stmt->fetch();
+                
+                if ($user) {
+                    // Générer un token de réinitialisation
+                    $reset_token = bin2hex(random_bytes(32));
+                    $token_expiry = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                    
+                    // Stocker le token en base de données
+                    $updateQuery = "UPDATE utilisateurs 
+                                    SET reset_token = ?, reset_token_expiry = ? 
+                                    WHERE id = ?";
+                    $updateStmt = $db->prepare($updateQuery);
+                    $updateStmt->execute([$reset_token, $token_expiry, $user['id']]);
+                    
+                    // Construire le lien de réinitialisation CORRECTEMENT
+                    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+                    $host = $_SERVER['HTTP_HOST'];
+                    
+                    // Obtenir le chemin de base du projet
+                    $script_path = dirname($_SERVER['SCRIPT_NAME']); // ex: /isgi_system/auth
+                    $project_root = dirname($script_path); // ex: /isgi_system
+                    
+                    // Construire l'URL complète
+                    $reset_link = $protocol . $host . $project_root . "/auth/reset_password.php?token=" . urlencode($reset_token);
+                    
+                    // Debug: logger le lien généré
+                    error_log("Lien de réinitialisation généré : " . $reset_link);
+                    
+                    // Envoyer l'email de réinitialisation
+                    $emailSender = EmailSender::getInstance();
+                    $email_sent = $emailSender->sendPasswordResetLink(
+                        $email,
+                        $user['prenom'] . ' ' . $user['nom'],
+                        $reset_link
+                    );
+                    
+                    if ($email_sent) {
+                        $success = 'Un lien de réinitialisation a été envoyé à votre email. Il est valable 1 heure.';
+                    } else {
+                        $error = 'Erreur lors de l\'envoi de l\'email. Veuillez réessayer.';
+                    }
+                } else {
+                    $error = 'Aucun compte actif trouvé avec cet email';
+                }
+            }
+        }
+        
     } catch (Exception $e) {
-        error_log("Erreur login 2FA: " . $e->getMessage());
+        error_log("Erreur login: " . $e->getMessage());
         $error = 'Une erreur est survenue. Veuillez réessayer.';
     }
 } elseif ($step === 'verification' && isset($_SESSION['2fa_user_data'])) {
@@ -807,7 +853,7 @@ if (isset($_GET['resend']) && $_GET['resend'] == 1 && isset($_SESSION['2fa_user_
         <!-- Header -->
         <header class="main-header">
             <div class="logo-container">
-                <img src="../image/logo.jpg" alt="Logo ISGI" width="15%" style="border-radius: 5px; padding-left: 100px;">
+                <img src="../image/logo isgi.jpg" alt="Logo ISGI" width="15%" style="border-radius: 5px; padding-left: 100px;">
                 <div class="logo-text" style="padding-left: 50px;">
                     <h1>Institut Supérieur de Gestion et d'Ingénierie</h1>
                     <p>Système d'authentification sécurisée à double facteur</p>
@@ -933,73 +979,78 @@ if (isset($_GET['resend']) && $_GET['resend'] == 1 && isset($_SESSION['2fa_user_
                                         <i class="fas fa-key"></i> Mot de passe oublié ?
                                     </a>
                                 </div>
+                                <div class="text-center mt-3">
+                                    <a href="../register_student_tutor.php" class="btn-link">
+                                        <i class="fas fa-user-plus"></i> Créer un compte
+                                    </a>
+                                </div>
                             </form>
                         </div>
                         
                     <?php elseif ($step === 'verification' && !empty($user_data)): ?>
-    <!-- ÉTAPE 2: Vérification 2FA -->
-    <div class="form-title">
-        <h2><i class="fas fa-shield-alt"></i> Vérification en deux étapes</h2>
-        <p>Un code de sécurité a été envoyé à votre email</p>
-    </div>
-    
-    <div class="form-card">
-        <div class="verification-container">
-            <div class="verification-icon">
-                <i class="fas fa-envelope"></i>
-            </div>
-            
-            <h4 style="margin-bottom: 10px;">Vérification requise</h4>
-            <p style="color: #666; margin-bottom: 30px;">
-                Pour sécuriser votre compte, un code à 6 chiffres a été envoyé à :
-                <br>
-                <strong><?php echo htmlspecialchars($user_data['email']); ?></strong>
-            </p>
-            
-            <form method="POST" action="">
-                <div class="form-group">
-                    <label class="form-label">Code de vérification à 6 chiffres</label>
-                    <div class="code-inputs-container">
-                        <input type="text" class="code-input" name="code1" maxlength="1" 
-                               oninput="moveToNext(this, 1)" onkeyup="moveToPrev(this, event)" 
-                               pattern="[0-9]" inputmode="numeric" autocomplete="off">
-                        <input type="text" class="code-input" name="code2" maxlength="1" 
-                               oninput="moveToNext(this, 2)" onkeyup="moveToPrev(this, event)"
-                               pattern="[0-9]" inputmode="numeric" autocomplete="off">
-                        <input type="text" class="code-input" name="code3" maxlength="1" 
-                               oninput="moveToNext(this, 3)" onkeyup="moveToPrev(this, event)"
-                               pattern="[0-9]" inputmode="numeric" autocomplete="off">
-                        <input type="text" class="code-input" name="code4" maxlength="1" 
-                               oninput="moveToNext(this, 4)" onkeyup="moveToPrev(this, event)"
-                               pattern="[0-9]" inputmode="numeric" autocomplete="off">
-                        <input type="text" class="code-input" name="code5" maxlength="1" 
-                               oninput="moveToNext(this, 5)" onkeyup="moveToPrev(this, event)"
-                               pattern="[0-9]" inputmode="numeric" autocomplete="off">
-                        <input type="text" class="code-input" name="code6" maxlength="1" 
-                               oninput="moveToNext(this, 6)" onkeyup="moveToPrev(this, event)"
-                               pattern="[0-9]" inputmode="numeric" autocomplete="off">
-                    </div>
-                </div>
-                
-                <div class="timer-container">
-                    <div class="timer" id="timer">Le code expire dans : <strong>10:00</strong></div>
-                </div>
-                
-                <div class="form-group" style="margin-top: 25px;">
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-check-circle"></i> Vérifier le code
-                    </button>
-                </div>
-            </form>
-            
-            <div style="margin-top: 20px;">
-                <p style="color: #666; margin-bottom: 10px;">Vous n'avez pas reçu le code ?</p>
-                <a href="?step=verification&resend=1" class="btn btn-outline">
-                    <i class="fas fa-redo"></i> Renvoyer le code
-                </a>
-            </div>
-        </div>
-    </div>
+                        <!-- ÉTAPE 2: Vérification 2FA -->
+                        <div class="form-title">
+                            <h2><i class="fas fa-shield-alt"></i> Vérification en deux étapes</h2>
+                            <p>Un code de sécurité a été envoyé à votre email</p>
+                        </div>
+                        
+                        <div class="form-card">
+                            <div class="verification-container">
+                                <div class="verification-icon">
+                                    <i class="fas fa-envelope"></i>
+                                </div>
+                                
+                                <h4 style="margin-bottom: 10px;">Vérification requise</h4>
+                                <p style="color: #666; margin-bottom: 30px;">
+                                    Pour sécuriser votre compte, un code à 6 chiffres a été envoyé à :
+                                    <br>
+                                    <strong><?php echo htmlspecialchars($user_data['email']); ?></strong>
+                                </p>
+                                
+                                <form method="POST" action="">
+                                    <div class="form-group">
+                                        <label class="form-label">Code de vérification à 6 chiffres</label>
+                                        <div class="code-inputs-container">
+                                            <input type="text" class="code-input" name="code1" maxlength="1" 
+                                                   oninput="moveToNext(this, 1)" onkeyup="moveToPrev(this, event)" 
+                                                   pattern="[0-9]" inputmode="numeric" autocomplete="off">
+                                            <input type="text" class="code-input" name="code2" maxlength="1" 
+                                                   oninput="moveToNext(this, 2)" onkeyup="moveToPrev(this, event)"
+                                                   pattern="[0-9]" inputmode="numeric" autocomplete="off">
+                                            <input type="text" class="code-input" name="code3" maxlength="1" 
+                                                   oninput="moveToNext(this, 3)" onkeyup="moveToPrev(this, event)"
+                                                   pattern="[0-9]" inputmode="numeric" autocomplete="off">
+                                            <input type="text" class="code-input" name="code4" maxlength="1" 
+                                                   oninput="moveToNext(this, 4)" onkeyup="moveToPrev(this, event)"
+                                                   pattern="[0-9]" inputmode="numeric" autocomplete="off">
+                                            <input type="text" class="code-input" name="code5" maxlength="1" 
+                                                   oninput="moveToNext(this, 5)" onkeyup="moveToPrev(this, event)"
+                                                   pattern="[0-9]" inputmode="numeric" autocomplete="off">
+                                            <input type="text" class="code-input" name="code6" maxlength="1" 
+                                                   oninput="moveToNext(this, 6)" onkeyup="moveToPrev(this, event)"
+                                                   pattern="[0-9]" inputmode="numeric" autocomplete="off">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="timer-container">
+                                        <div class="timer" id="timer">Le code expire dans : <strong>10:00</strong></div>
+                                    </div>
+                                    
+                                    <div class="form-group" style="margin-top: 25px;">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-check-circle"></i> Vérifier le code
+                                        </button>
+                                    </div>
+                                </form>
+                                
+                                <div style="margin-top: 20px;">
+                                    <p style="color: #666; margin-bottom: 10px;">Vous n'avez pas reçu le code ?</p>
+                                    <a href="?step=verification&resend=1" class="btn btn-outline">
+                                        <i class="fas fa-redo"></i> Renvoyer le code
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
 
                     <?php elseif ($step === 'forgot_password'): ?>
                         <!-- MOT DE PASSE OUBLIÉ -->
@@ -1038,7 +1089,7 @@ if (isset($_GET['resend']) && $_GET['resend'] == 1 && isset($_SESSION['2fa_user_
                     
                     <!-- Footer -->
                     <div class="form-footer">
-                        <p><?php echo $step === 'login' ? 'Système d\'authentification ISGI v2.0 - Production' : 'Vérification de sécurité en cours'; ?></p>
+                        <p><?php echo $step === 'login' ? 'Système d\'authentification ISGI v1.0 - Production' : 'Vérification de sécurité en cours'; ?></p>
                         <div class="form-footer-links">
                             <?php if ($step === 'login'): ?>
                                 <a href="#" onclick="alert('Support technique : support@isgi.cg')">

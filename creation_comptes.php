@@ -2,1373 +2,1120 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <script>
+        if (window.location.protocol === 'file:') {
+            window.location.replace('http://localhost:5180/');
+        }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ISGI - Création de Compte</title>
+    <title>ISGI - Création et Gestion des Comptes Utilisateurs</title>
     
     <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Supabase JS Client v2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <style>
         :root {
-            --primary-blue: #0066cc;
-            --secondary-blue: #0052a3;
-            --accent-orange: #ff6b35;
-            --success-green: #28a745;
-            --warning-yellow: #ffc107;
-            --danger-red: #dc3545;
-            --light-gray: #f8f9fa;
-            --medium-gray: #e9ecef;
-            --dark-gray: #343a40;
-            --text-primary: #212529;
-            --text-secondary: #6c757d;
-            --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
-            --shadow-md: 0 4px 8px rgba(0,0,0,0.12);
-            --shadow-lg: 0 8px 16px rgba(0,0,0,0.15);
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 16px;
+            --primary: #1e40af;
+            --primary-dark: #1e3a8a;
+            --primary-light: #3b82f6;
+            --accent: #0284c7;
+            --bg-page: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-dark: #0f172a;
+            --text-muted: #64748b;
         }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+
         body {
-            font-family: 'Inter', 'Segoe UI', sans-serif;
-            background: linear-gradient(135deg, #f5f8ff 0%, #e6f0ff 100%);
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-page);
+            color: var(--text-dark);
             min-height: 100vh;
-            color: var(--text-primary);
-            line-height: 1.6;
+            padding-bottom: 60px;
         }
-        
-        .container-fluid {
-            max-width: 1400px;
-            padding: 20px;
+
+        /* Top Navbar */
+        .navbar-custom {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+            box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.15);
+            padding: 14px 0;
         }
-        
-        /* Header Style */
-        .main-header {
-            background: white;
-            border-radius: var(--radius-lg);
-            padding: 20px 30px;
-            margin-bottom: 30px;
-            box-shadow: var(--shadow-md);
-            border-left: 5px solid var(--primary-blue);
-        }
-        
-        .logo-container {
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: #ffffff !important;
+            letter-spacing: -0.5px;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 12px;
         }
-        
-        .logo-icon {
-            background: var(--primary-blue);
-            color: white;
-            width: 50px;
-            height: 50px;
+
+        .logo-badge {
+            width: 42px;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 1.2rem;
+            color: #ffffff;
         }
-        
-        .logo-text h1 {
-            font-size: 24px;
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+
+        /* Cards */
+        .glass-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .card-header-custom {
+            padding: 24px 28px 18px;
+            border-bottom: 1px solid var(--border-color);
+            background: #ffffff;
+        }
+
+        .card-header-custom h2 {
+            font-size: 1.25rem;
             font-weight: 700;
-            margin-bottom: 4px;
-            color: var(--primary-blue);
-        }
-        
-        .logo-text p {
-            font-size: 14px;
-            color: var(--text-secondary);
             margin: 0;
-        }
-        
-        /* Main Container */
-        .auth-main-container {
+            color: var(--text-dark);
             display: flex;
-            gap: 30px;
-            min-height: calc(100vh - 150px);
+            align-items: center;
+            gap: 10px;
         }
-        
-        /* Left Info Panel */
-        .info-panel {
-            flex: 0 0 400px;
-            background: white;
-            border-radius: var(--radius-lg);
-            padding: 40px;
-            box-shadow: var(--shadow-md);
-            display: flex;
-            flex-direction: column;
+
+        .card-body-custom {
+            padding: 28px;
         }
-        
-        .panel-header {
-            margin-bottom: 30px;
+
+        /* Role Selector Cards */
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
         }
-        
-        .panel-header h2 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--primary-blue);
-            margin-bottom: 10px;
-            line-height: 1.3;
+
+        @media (max-width: 576px) {
+            .role-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
-        
-        .panel-header p {
-            color: var(--text-secondary);
-            font-size: 16px;
+
+        .role-card {
+            border: 1.5px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #ffffff;
+            position: relative;
         }
-        
-        .security-features {
-            margin-top: 40px;
+
+        .role-card:hover {
+            border-color: var(--primary-light);
+            transform: translateY(-2px);
         }
-        
-        .security-feature {
-            display: flex;
-            align-items: flex-start;
-            gap: 15px;
-            margin-bottom: 25px;
-            padding: 15px;
-            border-radius: var(--radius-md);
-            background: var(--light-gray);
-            transition: transform 0.2s;
+
+        .role-card.active {
+            border-color: var(--primary);
+            background: #eff6ff;
+            box-shadow: 0 4px 12px rgba(30, 64, 175, 0.12);
         }
-        
-        .security-feature:hover {
-            transform: translateX(5px);
-            background: #f0f7ff;
-        }
-        
-        .feature-icon {
-            background: var(--primary-blue);
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+
+        .role-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 9px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
-            flex-shrink: 0;
+            margin: 0 auto 6px;
+            font-size: 1rem;
+            transition: all 0.2s ease;
         }
-        
-        .feature-text h4 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 5px;
-            color: var(--text-primary);
-        }
-        
-        .feature-text p {
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin: 0;
-        }
-        
-        /* Right Form Panel */
-        .form-panel {
-            flex: 1;
-            background: white;
-            border-radius: var(--radius-lg);
-            padding: 40px;
-            box-shadow: var(--shadow-md);
-            min-height: 600px;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        /* Form Styles */
-        .form-container {
-            max-width: 500px;
-            width: 100%;
-            margin: 0 auto;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        .form-title {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        
-        .form-title h2 {
-            font-size: 24px;
+
+        .role-title {
+            font-size: 0.76rem;
             font-weight: 700;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-        }
-        
-        .form-title p {
-            color: var(--text-secondary);
-            font-size: 15px;
-        }
-        
-        /* Form Card */
-        .form-card {
-            background: white;
-            border-radius: var(--radius-md);
-            border: 1px solid var(--medium-gray);
-            padding: 30px;
-            margin-bottom: 25px;
-            position: relative;
+            margin-bottom: 2px;
+            color: var(--text-dark);
+            line-height: 1.2;
+            white-space: nowrap;
             overflow: hidden;
+            text-overflow: ellipsis;
         }
-        
-        .form-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 5px;
-            height: 100%;
-            background: linear-gradient(to bottom, var(--primary-blue), var(--secondary-blue));
+
+        .role-subtitle {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        
-        /* Form Groups */
-        .form-group {
-            margin-bottom: 20px;
-        }
-        
-        .form-label {
-            font-weight: 600;
+
+        /* Form Controls */
+        .form-label-custom {
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
             margin-bottom: 8px;
-            color: var(--text-primary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
+            display: block;
         }
-        
-        .form-label i {
-            color: var(--primary-blue);
-            width: 16px;
-        }
-        
-        .form-control {
-            padding: 12px 16px;
-            border: 2px solid var(--medium-gray);
-            border-radius: var(--radius-sm);
-            font-size: 15px;
-            transition: all 0.3s;
-            height: 48px;
-        }
-        
-        .form-control:focus {
-            border-color: var(--primary-blue);
-            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
-            outline: none;
-        }
-        
-        /* Password Input Group */
-        .password-input-group {
+
+        .input-group-custom {
             position: relative;
         }
-        
-        .password-toggle {
+
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 1rem;
+            z-index: 5;
+        }
+
+        .form-control-custom {
+            width: 100%;
+            padding: 12px 14px 12px 42px;
+            border-radius: 12px;
+            border: 1.5px solid var(--border-color);
+            font-size: 0.92rem;
+            font-family: inherit;
+            color: var(--text-dark);
+            background-color: #f8fafc;
+            transition: all 0.2s ease;
+        }
+
+        .form-control-custom:focus {
+            outline: none;
+            border-color: var(--primary);
+            background-color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(30, 64, 175, 0.1);
+        }
+
+        .btn-toggle-pwd {
             position: absolute;
             right: 12px;
             top: 50%;
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: var(--text-secondary);
+            color: #94a3b8;
             cursor: pointer;
             padding: 4px;
         }
-        
-        /* Role Select Styling */
-        .role-select-container {
-            position: relative;
+
+        .btn-toggle-pwd:hover {
+            color: var(--text-dark);
         }
-        
-        .role-select-wrapper {
-            border: 2px solid var(--medium-gray);
-            border-radius: var(--radius-sm);
-            background: white;
-            transition: all 0.3s;
-        }
-        
-        .role-select-wrapper:focus-within {
-            border-color: var(--primary-blue);
-            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
-        }
-        
-        .role-select {
-            width: 100%;
-            padding: 12px 16px;
+
+        .btn-submit-custom {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
             border: none;
-            background: transparent;
-            font-size: 15px;
-            color: var(--text-primary);
-            cursor: pointer;
-            outline: none;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            height: 48px;
-        }
-        
-        .role-select-arrow {
-            position: absolute;
-            right: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            pointer-events: none;
-            color: var(--primary-blue);
-        }
-        
-        /* Site Select Styling */
-        .site-select-container {
-            position: relative;
-        }
-        
-        .site-select-wrapper {
-            border: 2px solid var(--medium-gray);
-            border-radius: var(--radius-sm);
-            background: white;
-            transition: all 0.3s;
-        }
-        
-        .site-select-wrapper:focus-within {
-            border-color: var(--primary-blue);
-            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
-        }
-        
-        .site-select {
+            border-radius: 14px;
+            padding: 14px 24px;
+            font-weight: 700;
+            font-size: 0.95rem;
             width: 100%;
-            padding: 12px 16px;
-            border: none;
-            background: transparent;
-            font-size: 15px;
-            color: var(--text-primary);
-            cursor: pointer;
-            outline: none;
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            height: 48px;
-        }
-        
-        /* Role Preview */
-        .role-preview {
-            margin-top: 15px;
-            padding: 15px;
-            border-radius: var(--radius-sm);
-            background: #f8fbff;
-            border: 1px solid #e1f0ff;
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .role-preview.show {
-            display: block;
-        }
-        
-        .role-preview-header {
+            box-shadow: 0 4px 15px rgba(30, 64, 175, 0.3);
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
+            justify-content: center;
             gap: 10px;
-            margin-bottom: 8px;
         }
-        
-        .role-icon-preview {
-            color: var(--primary-blue);
-            font-size: 18px;
+
+        .btn-submit-custom:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(30, 64, 175, 0.4);
+            color: white;
         }
-        
-        .role-preview-header h5 {
-            font-size: 15px;
-            font-weight: 600;
-            margin: 0;
-            color: var(--text-primary);
+
+        .btn-submit-custom:disabled {
+            opacity: 0.65;
+            cursor: not-allowed;
         }
-        
-        .role-description {
-            font-size: 13px;
-            color: var(--text-secondary);
-            margin: 0;
-            line-height: 1.5;
-        }
-        
-        /* Buttons */
-        .btn {
-            padding: 14px 28px;
-            font-weight: 600;
-            border-radius: var(--radius-sm);
-            transition: all 0.3s;
-            font-size: 15px;
-            border: none;
-            cursor: pointer;
+
+        /* Badges */
+        .badge-role {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
+            gap: 6px;
         }
-        
-        .btn-primary {
-            background: linear-gradient(135deg, var(--primary-blue), var(--secondary-blue));
-            color: white;
+
+        .badge-admin { background: #fee2e2; color: #b91c1c; }
+        .badge-dac { background: #e0f2fe; color: #0284c7; }
+        .badge-comptable { background: #dcfce7; color: #15803d; }
+        .badge-secretariat { background: #f3e8ff; color: #7e22ce; }
+        .badge-secretaire-dac { background: #cffafe; color: #0891b2; }
+        .badge-surveillant { background: #dbeafe; color: #1d4ed8; }
+        .badge-informaticien { background: #e0e7ff; color: #4338ca; }
+        .badge-professeur { background: #fef3c7; color: #b45309; }
+        .badge-etudiant { background: #f1f5f9; color: #334155; }
+        .badge-tuteur { background: #fef9c3; color: #854d0e; }
+
+        /* User Table */
+        .table-custom {
             width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
         }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
+
+        .table-custom th {
+            background: #f8fafc;
+            padding: 14px 16px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
         }
-        
-        .btn-outline {
-            background: transparent;
-            border: 2px solid var(--primary-blue);
-            color: var(--primary-blue);
-            width: 100%;
+
+        .table-custom td {
+            padding: 16px;
+            font-size: 0.9rem;
+            vertical-align: middle;
+            border-bottom: 1px solid #f1f5f9;
         }
-        
-        .btn-outline:hover {
-            background: var(--primary-blue);
-            color: white;
+
+        .table-custom tr:hover td {
+            background: #f8fafc;
         }
-        
-        .btn-link {
-            background: transparent;
-            color: var(--primary-blue);
-            text-decoration: none;
-            padding: 8px 0;
-            font-weight: 500;
-        }
-        
-        .btn-link:hover {
-            text-decoration: underline;
-        }
-        
-        /* Alerts */
-        .alert-container {
-            margin-bottom: 20px;
-        }
-        
-        .alert {
-            padding: 15px 20px;
-            border-radius: var(--radius-sm);
-            margin-bottom: 15px;
-            border-left: 4px solid transparent;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            animation: slideIn 0.3s ease;
-        }
-        
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        
-        .alert-success {
-            background-color: rgba(40, 167, 69, 0.1);
-            border-left-color: var(--success-green);
-            color: #155724;
-        }
-        
-        .alert-danger {
-            background-color: rgba(220, 53, 69, 0.1);
-            border-left-color: var(--danger-red);
-            color: #721c24;
-        }
-        
-        .alert-info {
-            background-color: rgba(0, 102, 204, 0.1);
-            border-left-color: var(--primary-blue);
-            color: #004085;
-        }
-        
-        .alert-warning {
-            background-color: rgba(255, 193, 7, 0.1);
-            border-left-color: var(--warning-yellow);
-            color: #856404;
-        }
-        
-        /* Step Indicator */
-        .step-indicator {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin-bottom: 30px;
-            position: relative;
-        }
-        
-        .step-indicator::before {
-            content: '';
-            position: absolute;
-            top: 15px;
-            left: 50px;
-            right: 50px;
-            height: 2px;
-            background: var(--medium-gray);
-            z-index: 1;
-        }
-        
-        .step {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: white;
-            border: 2px solid var(--medium-gray);
+
+        .user-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 600;
-            color: var(--text-secondary);
-            position: relative;
-            z-index: 2;
-            transition: all 0.3s;
-        }
-        
-        .step.active {
-            background: var(--primary-blue);
-            border-color: var(--primary-blue);
+            font-weight: 700;
+            font-size: 0.9rem;
             color: white;
         }
-        
-        .step.completed {
-            background: var(--success-green);
-            border-color: var(--success-green);
-            color: white;
-        }
-        
-        /* Footer Links */
-        .form-footer {
-            text-align: center;
-            padding-top: 20px;
-            border-top: 1px solid var(--medium-gray);
-            margin-top: auto;
-        }
-        
-        .form-footer p {
-            color: var(--text-secondary);
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-        
-        .form-footer-links {
+
+        .stat-card {
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 18px 22px;
             display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
             justify-content: center;
-            gap: 20px;
+            font-size: 1.35rem;
         }
-        
-        .form-footer-links a {
-            color: var(--primary-blue);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 14px;
+
+        .stat-value {
+            font-size: 1.6rem;
+            font-weight: 800;
+            line-height: 1.2;
+            color: var(--text-dark);
         }
-        
-        .form-footer-links a:hover {
-            text-decoration: underline;
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
         }
-        
-        /* Responsive */
-        @media (max-width: 1200px) {
-            .auth-main-container {
-                flex-direction: column;
-            }
-            
-            .info-panel {
-                flex: none;
-                width: 100%;
-            }
+
+        /* Tips Alert */
+        .info-callout {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
         }
-        
-        @media (max-width: 768px) {
-            .container-fluid {
-                padding: 15px;
-            }
-            
-            .main-header {
-                padding: 15px 20px;
-            }
-            
-            .info-panel,
-            .form-panel {
-                padding: 25px;
-            }
-            
-            .form-card {
-                padding: 20px;
-            }
-            
-            .step-indicator {
-                gap: 20px;
-            }
-            
-            .step-indicator::before {
-                left: 30px;
-                right: 30px;
-            }
-            
-            .form-footer-links {
-                flex-direction: column;
-                gap: 10px;
-            }
+
+        .info-callout i {
+            font-size: 1.3rem;
+            color: #16a34a;
+            margin-top: 2px;
         }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
-        <!-- Header -->
-        <header class="main-header">
-            <div class="logo-container">
-                <div class="logo-icon">
-                    <i class="fas fa-user-graduate"></i>
-                </div>
-                <div class="logo-text">
-                    <h1>Institut Supérieur de Gestion et d'Ingénierie</h1>
-                    <p>Création de compte utilisateur</p>
+
+    <!-- Header Navigation -->
+    <nav class="navbar-custom">
+        <div class="container-fluid px-4">
+            <div class="d-flex justify-content-between align-items-center w-100">
+                <a class="navbar-brand" href="#">
+                    <div class="logo-badge">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <div>ISGI SYSTEM</div>
+                        <div style="font-size: 0.72rem; font-weight: 500; color: #93c5fd; letter-spacing: 0;">Portail Central de Création & Gestion des Comptes</div>
+                    </div>
+                </a>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="status-pill" id="supabase-status">
+                        <div class="status-dot"></div>
+                        <span>Supabase Auth & DB Connecté</span>
+                    </div>
                 </div>
             </div>
-        </header>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container-fluid px-4 mt-4">
         
-        <!-- Main Content -->
-        <main class="auth-main-container">
-            <!-- Left Information Panel -->
-            <aside class="info-panel">
-                <div class="panel-header">
-                    <h2>Création de Compte</h2>
-                    <p>Créez votre compte personnel pour accéder à la plateforme ISGI</p>
-                </div>
-                
-                <div class="security-features">
-                    <div class="security-feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-user-shield"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h4>Sécurité des Données</h4>
-                            <p>Vos informations personnelles sont cryptées et protégées</p>
-                        </div>
+        <!-- KPI Stats Bar -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card shadow-sm">
+                    <div class="stat-icon bg-primary-subtle text-primary">
+                        <i class="fa-solid fa-users"></i>
                     </div>
-                    
-                    <div class="security-feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-user-check"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h4>Rôles Personnalisés</h4>
-                            <p>10 rôles différents avec des permissions adaptées</p>
-                        </div>
-                    </div>
-                    
-                    <div class="security-feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-graduation-cap"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h4>Multi-Sites</h4>
-                            <p>Accès aux sites de Brazzaville, Pointe-Noire et Ouesso</p>
-                        </div>
-                    </div>
-                    
-                    <div class="security-feature">
-                        <div class="feature-icon">
-                            <i class="fas fa-headset"></i>
-                        </div>
-                        <div class="feature-text">
-                            <h4>Support Technique</h4>
-                            <p>Assistance disponible pour toute question</p>
-                        </div>
+                    <div>
+                        <div class="stat-value" id="stat-total">0</div>
+                        <div class="stat-label">Total Utilisateurs</div>
                     </div>
                 </div>
-                
-                <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--medium-gray);">
-                    <div class="alert alert-info" style="margin: 0; padding: 15px;">
-                        <i class="fas fa-info-circle"></i>
-                        <div>
-                            <strong>Information :</strong> Votre compte doit être validé par un administrateur avant activation.
-                        </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card shadow-sm">
+                    <div class="stat-icon bg-danger-subtle text-danger">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value" id="stat-admin">0</div>
+                        <div class="stat-label">Direction & Admin</div>
                     </div>
                 </div>
-            </aside>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card shadow-sm">
+                    <div class="stat-icon bg-success-subtle text-success">
+                        <i class="fa-solid fa-briefcase"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value" id="stat-gestion">0</div>
+                        <div class="stat-label">Gestionnaires & Pédagogie</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="stat-card shadow-sm">
+                    <div class="stat-icon bg-info-subtle text-info" style="background: #e0f2fe; color: #0284c7;">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <div class="stat-value" id="stat-etudiants">0</div>
+                        <div class="stat-label">Étudiants & Tuteurs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Astuce Pro Supabase -->
+        <div class="info-callout">
+            <i class="fa-solid fa-circle-check"></i>
+            <div class="text-sm">
+                <strong class="text-success d-block mb-0.5">Synchronisation Automatique Directe :</strong>
+                Chaque utilisateur créé est simultanément inscrit dans <strong>Supabase Auth</strong> (pour pouvoir se connecter avec son mot de passe) et dans la table <strong><code>utilisateurs</code></strong> (avec son rôle et ses accès), ainsi que dans <strong><code>user_presences</code></strong> pour être immédiatement visible dans l'annuaire et le Messenger.
+            </div>
+        </div>
+
+        <div class="row g-4">
             
-            <!-- Right Form Panel -->
-            <section class="form-panel">
-                <div class="form-container">
-                    <!-- Step Indicator -->
-                    <div class="step-indicator" id="stepIndicator">
-                        <div class="step active" id="step1">1</div>
-                        <div class="step" id="step2">2</div>
+            <!-- LEFT COLUMN: Formulaire de Création -->
+            <div class="col-lg-5">
+                <div class="glass-card shadow-sm">
+                    <div class="card-header-custom">
+                        <h2>
+                            <i class="fa-solid fa-user-plus text-primary"></i>
+                            Créer un Compte Utilisateur
+                        </h2>
                     </div>
-                    
-                    <!-- Alerts Container -->
-                    <div class="alert-container" id="alertContainer"></div>
-                    
-                    <!-- Dynamic Content -->
-                    <div id="contentContainer">
-                        <!-- Content will be loaded here -->
-                    </div>
-                    
-                    <!-- Footer -->
-                    <div class="form-footer" id="formFooter">
-                        <!-- Footer links will be loaded here -->
+
+                    <div class="card-body-custom">
+                        
+                        <div id="alert-box" class="d-none alert mb-3" role="alert"></div>
+
+                        <form id="create-user-form">
+                            
+                            <!-- Sélecteur de Rôle (Les 10 Rôles Utilisateurs) -->
+                            <label class="form-label-custom">1. Sélectionner le Rôle / Fonction (10 Rôles)</label>
+                            <div class="role-grid">
+                                <!-- 1. Admin Principal -->
+                                <div class="role-card active" data-role="admin_principal" onclick="selectRole('admin_principal')">
+                                    <div class="role-icon" style="background: #fee2e2; color: #b91c1c;">
+                                        <i class="fa-solid fa-shield-halved"></i>
+                                    </div>
+                                    <div class="role-title">Admin Principal</div>
+                                    <div class="role-subtitle">Direction</div>
+                                </div>
+
+                                <!-- 2. DAC -->
+                                <div class="role-card" data-role="dac" onclick="selectRole('dac')">
+                                    <div class="role-icon" style="background: #e0f2fe; color: #0284c7;">
+                                        <i class="fa-solid fa-graduation-cap"></i>
+                                    </div>
+                                    <div class="role-title">DAC</div>
+                                    <div class="role-subtitle">Académique</div>
+                                </div>
+
+                                <!-- 3. Comptable -->
+                                <div class="role-card" data-role="comptable" onclick="selectRole('comptable')">
+                                    <div class="role-icon" style="background: #dcfce7; color: #15803d;">
+                                        <i class="fa-solid fa-calculator"></i>
+                                    </div>
+                                    <div class="role-title">Comptable</div>
+                                    <div class="role-subtitle">Finances</div>
+                                </div>
+
+                                <!-- 4. Secrétariat -->
+                                <div class="role-card" data-role="secretariat" onclick="selectRole('secretariat')">
+                                    <div class="role-icon" style="background: #f3e8ff; color: #7e22ce;">
+                                        <i class="fa-solid fa-folder-open"></i>
+                                    </div>
+                                    <div class="role-title">Secrétariat</div>
+                                    <div class="role-subtitle">Scolarité</div>
+                                </div>
+
+                                <!-- 5. Secrétaire du DAC -->
+                                <div class="role-card" data-role="secretaire_dac" onclick="selectRole('secretaire_dac')">
+                                    <div class="role-icon" style="background: #cffafe; color: #0891b2;">
+                                        <i class="fa-solid fa-file-signature"></i>
+                                    </div>
+                                    <div class="role-title">Secrétaire DAC</div>
+                                    <div class="role-subtitle">Assistance DAC</div>
+                                </div>
+
+                                <!-- 6. Surveillant -->
+                                <div class="role-card" data-role="surveillant" onclick="selectRole('surveillant')">
+                                    <div class="role-icon" style="background: #dbeafe; color: #1d4ed8;">
+                                        <i class="fa-solid fa-clipboard-check"></i>
+                                    </div>
+                                    <div class="role-title">Surveillant</div>
+                                    <div class="role-subtitle">Discipline</div>
+                                </div>
+
+                                <!-- 7. Informaticiens -->
+                                <div class="role-card" data-role="informaticien" onclick="selectRole('informaticien')">
+                                    <div class="role-icon" style="background: #e0e7ff; color: #4338ca;">
+                                        <i class="fa-solid fa-laptop-code"></i>
+                                    </div>
+                                    <div class="role-title">Informaticien</div>
+                                    <div class="role-subtitle">Support SI</div>
+                                </div>
+
+                                <!-- 8. Professeur -->
+                                <div class="role-card" data-role="professeur" onclick="selectRole('professeur')">
+                                    <div class="role-icon" style="background: #fef3c7; color: #b45309;">
+                                        <i class="fa-solid fa-chalkboard-user"></i>
+                                    </div>
+                                    <div class="role-title">Professeur</div>
+                                    <div class="role-subtitle">Enseignant</div>
+                                </div>
+
+                                <!-- 9. Étudiants -->
+                                <div class="role-card" data-role="etudiant" onclick="selectRole('etudiant')">
+                                    <div class="role-icon" style="background: #f1f5f9; color: #334155;">
+                                        <i class="fa-solid fa-user-graduate"></i>
+                                    </div>
+                                    <div class="role-title">Étudiant</div>
+                                    <div class="role-subtitle">Apprenant</div>
+                                </div>
+
+                                <!-- 10. Tuteur -->
+                                <div class="role-card" data-role="tuteur" onclick="selectRole('tuteur')">
+                                    <div class="role-icon" style="background: #fef9c3; color: #854d0e;">
+                                        <i class="fa-solid fa-hands-holding-child"></i>
+                                    </div>
+                                    <div class="role-title">Tuteur</div>
+                                    <div class="role-subtitle">Parent d'élève</div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="selected-role" value="admin_principal">
+
+                            <!-- Nom Complet -->
+                            <div class="mb-3">
+                                <label class="form-label-custom">Nom et Prénom(s)</label>
+                                <div class="input-group-custom">
+                                    <i class="fa-solid fa-user input-icon"></i>
+                                    <input type="text" id="nom_complet" required class="form-control-custom" placeholder="ex: Dr. Alexandre KOUAME">
+                                </div>
+                            </div>
+
+                            <!-- Adresse Email -->
+                            <div class="mb-3">
+                                <label class="form-label-custom">Adresse Email</label>
+                                <div class="input-group-custom">
+                                    <i class="fa-solid fa-envelope input-icon"></i>
+                                    <input type="email" id="email" required class="form-control-custom" placeholder="ex: secretariat@isgi-edu.org">
+                                </div>
+                            </div>
+
+                            <!-- Mot de passe -->
+                            <div class="row g-2 mb-4">
+                                <div class="col-sm-6">
+                                    <label class="form-label-custom">Mot de Passe</label>
+                                    <div class="input-group-custom">
+                                        <i class="fa-solid fa-lock input-icon"></i>
+                                        <input type="password" id="password" required minlength="6" class="form-control-custom" placeholder="Min. 6 car." style="padding-right: 36px;">
+                                        <button type="button" class="btn-toggle-pwd" onclick="togglePassword('password')">
+                                            <i class="fa-regular fa-eye"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <label class="form-label-custom">Confirmation</label>
+                                    <div class="input-group-custom">
+                                        <i class="fa-solid fa-lock input-icon"></i>
+                                        <input type="password" id="confirm_password" required minlength="6" class="form-control-custom" placeholder="Confirmer">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Submit Button -->
+                            <button type="submit" id="btn-submit" class="btn-submit-custom">
+                                <i class="fa-solid fa-bolt"></i>
+                                <span>Créer et Synchroniser dans Supabase</span>
+                            </button>
+                        </form>
                     </div>
                 </div>
-            </section>
-        </main>
+            </div>
+
+            <!-- RIGHT COLUMN: Liste et Annuaire des Utilisateurs -->
+            <div class="col-lg-7">
+                <div class="glass-card shadow-sm">
+                    <div class="card-header-custom d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <h2>
+                            <i class="fa-solid fa-address-book text-primary"></i>
+                            Utilisateurs Enregistrés
+                        </h2>
+                        <div class="d-flex align-items-center gap-2">
+                            <button onclick="loadUsers()" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                <i class="fa-solid fa-rotate-right me-1"></i> Actualiser
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Search Filter Bar -->
+                    <div class="px-4 pt-3 pb-2 border-bottom bg-light d-flex gap-2 flex-wrap">
+                        <div class="flex-grow-1 position-relative">
+                            <input type="text" id="search-input" onkeyup="filterUsers()" class="form-control form-control-sm rounded-pill ps-4" placeholder="Rechercher par nom, email ou rôle...">
+                            <i class="fa-solid fa-magnifying-glass position-absolute text-muted" style="left: 14px; top: 9px; font-size: 0.8rem;"></i>
+                        </div>
+                        <select id="role-filter" onchange="filterUsers()" class="form-select form-select-sm rounded-pill w-auto">
+                            <option value="all">Tous les rôles (10 rôles)</option>
+                            <option value="admin_principal">1. Admin Principal</option>
+                            <option value="dac">2. DAC</option>
+                            <option value="comptable">3. Comptable</option>
+                            <option value="secretariat">4. Secrétariat</option>
+                            <option value="secretaire_dac">5. Secrétaire du DAC</option>
+                            <option value="surveillant">6. Surveillant</option>
+                            <option value="informaticien">7. Informaticien</option>
+                            <option value="professeur">8. Professeur</option>
+                            <option value="etudiant">9. Étudiant</option>
+                            <option value="tuteur">10. Tuteur</option>
+                        </select>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
+                        <table class="table-custom">
+                            <thead>
+                                <tr>
+                                    <th>Utilisateur</th>
+                                    <th>Rôle</th>
+                                    <th>Statut</th>
+                                    <th>Création</th>
+                                    <th class="text-end">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-table-body">
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">
+                                        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+                                        <div>Chargement des utilisateurs depuis Supabase...</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Application JavaScript -->
+    <!-- Scripts Logic -->
     <script>
-        // ==================== APPLICATION CONFIGURATION ====================
-        const APP_CONFIG = {
-            name: "ISGI",
-            baseUrl: window.location.origin + window.location.pathname.replace(/\/[^\/]*$/, '')
-        };
-        
-        // Rôles Configuration basée sur votre base de données
-        const ROLES = {
-            1: {
-                label: "Administrateur Principal",
-                description: "Accès complet à tous les sites et toutes les fonctionnalités",
-                icon: "fa-user-shield",
-                color: "#8e44ad",
-                requiresApproval: true
-            },
-            2: {
-                label: "Administrateur Site",
-                description: "Gestion complète d'un site spécifique",
-                icon: "fa-user-tie",
-                color: "#16a085",
-                requiresApproval: true
-            },
-            3: {
-                label: "Gestionnaire Principal",
-                description: "Gestion financière et inscriptions - Principal",
-                icon: "fa-chart-line",
-                color: "#3498db",
-                requiresApproval: true
-            },
-            4: {
-                label: "Gestionnaire Secondaire",
-                description: "Gestion financière et inscriptions - Secondaire",
-                icon: "fa-chart-bar",
-                color: "#95a5a6",
-                requiresApproval: true
-            },
-            5: {
-                label: "DAC",
-                description: "Directeur des Affaires Académiques",
-                icon: "fa-chalkboard-teacher",
-                color: "#e67e22",
-                requiresApproval: true
-            },
-            6: {
-                label: "Surveillant Général",
-                description: "Gestion des présences et discipline",
-                icon: "fa-clipboard-check",
-                color: "#2980b9",
-                requiresApproval: true
-            },
-            7: {
-                label: "Professeur",
-                description: "Enseignant - Saisie notes et présences",
-                icon: "fa-chalkboard",
-                color: "#27ae60",
-                requiresApproval: true
-            },
-            8: {
-                label: "Étudiant",
-                description: "Accès étudiant - Consultation",
-                icon: "fa-user-graduate",
-                color: "#2c3e50",
-                requiresApproval: false
-            },
-            9: {
-                label: "Tuteur",
-                description: "Parent/Tuteur - Suivi étudiant",
-                icon: "fa-hands-helping",
-                color: "#f1c40f",
-                requiresApproval: false
+        // Configuration Client Supabase
+        const SUPABASE_URL = 'https://vbdhmgrysrerlmgumafx.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_sqJUSK-p5mF2Acy_bhxhAQ_nt_t6Fax';
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false
             }
-        };
-        
-        // Sites Configuration basée sur votre base de données
-        const SITES = {
-            1: {
-                nom: "ISGI Brazzaville",
-                ville: "Brazzaville"
-            },
-            2: {
-                nom: "ISGI Pointe-Noire",
-                ville: "Pointe-Noire"
-            },
-            3: {
-                nom: "ISGI Ouesso",
-                ville: "Ouesso"
-            }
-        };
-        
-        // ==================== APPLICATION STATE ====================
-        let appState = {
-            currentStep: "step1",
-            formData: {
-                role_id: "",
-                site_id: "",
-                email: "",
-                mot_de_passe: "",
-                confirm_password: "",
-                nom: "",
-                prenom: "",
-                telephone: ""
-            }
-        };
-        
-        // ==================== INITIALIZATION ====================
-        document.addEventListener("DOMContentLoaded", function() {
-            showStep1();
         });
-        
-        // ==================== UI UTILITIES ====================
-        function showAlert(message, type = "info") {
-            const alertContainer = document.getElementById("alertContainer");
-            const icons = {
-                success: "fa-check-circle",
-                danger: "fa-exclamation-circle",
-                warning: "fa-exclamation-triangle",
-                info: "fa-info-circle"
-            };
-            
-            const alertHTML = `
-                <div class="alert alert-${type}">
-                    <i class="fas ${icons[type] || icons.info}"></i>
-                    <div>${message}</div>
-                </div>
-            `;
-            
-            alertContainer.innerHTML = alertHTML;
-            
-            // Auto remove after 5 seconds
-            setTimeout(() => {
-                if (alertContainer.firstChild) {
-                    alertContainer.firstChild.remove();
-                }
-            }, 5000);
+
+        let allUsers = [];
+
+        // Dictionnaire exact des 10 rôles définis par l'utilisateur
+        const ROLE_CONFIG = {
+            // 1. Admin Principal
+            admin_principal: { label: 'Admin Principal', badge: 'badge-admin', color: '#b91c1c' },
+            admin: { label: 'Admin Principal', badge: 'badge-admin', color: '#b91c1c' },
+
+            // 2. DAC
+            dac: { label: 'DAC', badge: 'badge-dac', color: '#0284c7' },
+
+            // 3. Comptable
+            comptable: { label: 'Comptable', badge: 'badge-comptable', color: '#15803d' },
+
+            // 4. Secrétariat
+            secretariat: { label: 'Secrétariat', badge: 'badge-secretariat', color: '#7e22ce' },
+
+            // 5. Secrétaire du DAC
+            secretaire_dac: { label: 'Secrétaire du DAC', badge: 'badge-secretaire-dac', color: '#0891b2' },
+            'secretaire du dac': { label: 'Secrétaire du DAC', badge: 'badge-secretaire-dac', color: '#0891b2' },
+
+            // 6. Surveillant
+            surveillant: { label: 'Surveillant', badge: 'badge-surveillant', color: '#1d4ed8' },
+
+            // 7. Informaticiens
+            informaticien: { label: 'Informaticien', badge: 'badge-informaticien', color: '#4338ca' },
+            informaticiens: { label: 'Informaticien', badge: 'badge-informaticien', color: '#4338ca' },
+
+            // 8. Professeur
+            professeur: { label: 'Professeur', badge: 'badge-professeur', color: '#b45309' },
+            enseignant: { label: 'Professeur', badge: 'badge-professeur', color: '#b45309' },
+
+            // 9. Étudiants
+            etudiant: { label: 'Étudiant', badge: 'badge-etudiant', color: '#334155' },
+            etudiants: { label: 'Étudiant', badge: 'badge-etudiant', color: '#334155' },
+
+            // 10. Tuteur
+            tuteur: { label: 'Tuteur', badge: 'badge-tuteur', color: '#854d0e' }
+        };
+
+        // Sélection visuelle de rôle
+        function selectRole(role) {
+            document.querySelectorAll('.role-card').forEach(c => c.classList.remove('active'));
+            const target = document.querySelector(`.role-card[data-role="${role}"]`);
+            if (target) target.classList.add('active');
+            document.getElementById('selected-role').value = role;
         }
-        
-        function clearAlerts() {
-            document.getElementById("alertContainer").innerHTML = "";
-        }
-        
-        // ==================== FORM VALIDATION ====================
-        function validateEmail(email) {
-            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return re.test(email);
-        }
-        
-        function validatePhone(phone) {
-            // Validation simple pour les numéros de téléphone
-            const re = /^[+\d\s\-\(\)]{8,20}$/;
-            return re.test(phone);
-        }
-        
-        function validatePassword(password) {
-            // Au moins 8 caractères, une majuscule, une minuscule, un chiffre
-            const re = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-            return re.test(password);
-        }
-        
-        // ==================== STEP MANAGEMENT ====================
-        function showStep1() {
-            appState.currentStep = "step1";
-            clearAlerts();
-            
-            // Mettre à jour l'indicateur d'étape
-            document.getElementById("step1").className = "step active";
-            document.getElementById("step2").className = "step";
-            
-            // Générer les options de rôle
-            const roleOptions = Object.entries(ROLES).map(([id, role]) => 
-                `<option value="${id}">${role.label}</option>`
-            ).join("");
-            
-            // Générer les options de site
-            const siteOptions = Object.entries(SITES).map(([id, site]) => 
-                `<option value="${id}">${site.nom} (${site.ville})</option>`
-            ).join("");
-            
-            document.getElementById("contentContainer").innerHTML = `
-                <div class="form-title">
-                    <h2><i class="fas fa-user-plus"></i> Informations Personnelles</h2>
-                    <p>Étape 1 : Rôle et informations de base</p>
-                </div>
-                
-                <div class="form-card">
-                    <form id="step1Form" onsubmit="handleStep1(event)">
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-user-tag"></i> Type de compte
-                            </label>
-                            <div class="role-select-container">
-                                <div class="role-select-wrapper">
-                                    <select class="role-select" id="role_id" onchange="updateRolePreview(this.value)" required>
-                                        <option value="">-- Choisissez votre rôle --</option>
-                                        ${roleOptions}
-                                    </select>
-                                    <div class="role-select-arrow">
-                                        <i class="fas fa-chevron-down"></i>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="role-preview" id="rolePreview"></div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-map-marker-alt"></i> Site d'affectation
-                            </label>
-                            <div class="site-select-container">
-                                <div class="site-select-wrapper">
-                                    <select class="site-select" id="site_id" required>
-                                        <option value="">-- Choisissez un site --</option>
-                                        ${siteOptions}
-                                    </select>
-                                    <div class="role-select-arrow">
-                                        <i class="fas fa-chevron-down"></i>
-                                    </div>
-                                </div>
-                            </div>
-                            <small class="text-muted" style="display: block; margin-top: 5px;">
-                                Sélectionnez le site où vous serez affecté
-                            </small>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="fas fa-user"></i> Nom
-                                    </label>
-                                    <input type="text" class="form-control" id="nom" 
-                                           placeholder="Votre nom de famille" required>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="fas fa-user"></i> Prénom
-                                    </label>
-                                    <input type="text" class="form-control" id="prenom" 
-                                           placeholder="Votre prénom" required>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fas fa-envelope"></i> Adresse email
-                            </label>
-                            <input type="email" class="form-control" id="email" 
-                                   placeholder="votre.email@exemple.com" required>
-                            <small class="text-muted" style="display: block; margin-top: 5px;">
-                                Cette adresse servira pour la connexion
-                            </small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="fas fa-arrow-right"></i> Suivant
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            `;
-            
-            document.getElementById("formFooter").innerHTML = `
-                <div class="form-footer-links">
-                    <a href="#" onclick="window.history.back()">
-                        <i class="fas fa-arrow-left"></i> Retour
-                    </a>
-                    <a href="#" onclick="showAlert('Pour toute assistance, contactez le support technique.', 'info')">
-                        <i class="fas fa-question-circle"></i> Aide
-                    </a>
-                </div>
-            `;
-            
-            // Initialiser la prévisualisation du rôle si déjà sélectionné
-            if (appState.formData.role_id) {
-                updateRolePreview(appState.formData.role_id);
-            }
-            
-            // Remplir les champs avec les données existantes
-            if (appState.formData.site_id) {
-                document.getElementById('site_id').value = appState.formData.site_id;
-            }
-            if (appState.formData.nom) {
-                document.getElementById('nom').value = appState.formData.nom;
-            }
-            if (appState.formData.prenom) {
-                document.getElementById('prenom').value = appState.formData.prenom;
-            }
-            if (appState.formData.email) {
-                document.getElementById('email').value = appState.formData.email;
-            }
-        }
-        
-        function updateRolePreview(roleId) {
-            const rolePreview = document.getElementById("rolePreview");
-            
-            if (!roleId || !ROLES[roleId]) {
-                rolePreview.classList.remove("show");
-                return;
-            }
-            
-            const role = ROLES[roleId];
-            appState.formData.role_id = roleId;
-            
-            rolePreview.innerHTML = `
-                <div class="role-preview-header">
-                    <i class="fas ${role.icon} role-icon-preview"></i>
-                    <h5>${role.label}</h5>
-                </div>
-                <p class="role-description">${role.description}</p>
-                ${role.requiresApproval ? 
-                    '<div class="alert alert-warning" style="margin-top: 10px; padding: 8px 12px; font-size: 12px;">' +
-                    '<i class="fas fa-exclamation-triangle"></i> ' +
-                    'Ce rôle nécessite une validation par un administrateur' +
-                    '</div>' : 
-                    ''
-                }
-            `;
-            
-            rolePreview.style.borderLeftColor = role.color;
-            rolePreview.classList.add("show");
-        }
-        
-        function showStep2() {
-            appState.currentStep = "step2";
-            clearAlerts();
-            
-            // Mettre à jour l'indicateur d'étape
-            document.getElementById("step1").className = "step completed";
-            document.getElementById("step2").className = "step active";
-            
-            document.getElementById("contentContainer").innerHTML = `
-                <div class="form-title">
-                    <h2><i class="fas fa-lock"></i> Sécurité du compte</h2>
-                    <p>Étape 2 : Créez votre mot de passe sécurisé</p>
-                </div>
-                
-                <div class="form-card">
-                    <form id="step2Form" onsubmit="handleStep2(event)">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="fas fa-phone"></i> Téléphone
-                                    </label>
-                                    <input type="tel" class="form-control" id="telephone" 
-                                           placeholder="+242 XX XXX XXX" value="${appState.formData.telephone || ''}">
-                                    <small class="text-muted" style="display: block; margin-top: 5px;">
-                                        Facultatif mais recommandé
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="fas fa-lock"></i> Mot de passe
-                                    </label>
-                                    <div class="password-input-group">
-                                        <input type="password" class="form-control" id="mot_de_passe" 
-                                               placeholder="Minimum 8 caractères" required>
-                                        <button type="button" class="password-toggle" onclick="togglePassword('mot_de_passe')">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    <small class="text-muted" style="display: block; margin-top: 5px;">
-                                        Doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre
-                                    </small>
-                                </div>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label class="form-label">
-                                        <i class="fas fa-lock"></i> Confirmer le mot de passe
-                                    </label>
-                                    <div class="password-input-group">
-                                        <input type="password" class="form-control" id="confirm_password" 
-                                               placeholder="Répétez votre mot de passe" required>
-                                        <button type="button" class="password-toggle" onclick="togglePassword('confirm_password')">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="alert alert-info" style="margin: 20px 0;">
-                            <i class="fas fa-shield-alt"></i>
-                            <div>
-                                <strong>Sécurité :</strong> Votre mot de passe sera crypté de manière sécurisée. 
-                                Nous ne stockons jamais les mots de passe en clair.
-                            </div>
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-6">
-                                <button type="button" class="btn btn-outline" onclick="showStep1()">
-                                    <i class="fas fa-arrow-left"></i> Retour
-                                </button>
-                            </div>
-                            <div class="col-6">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-user-plus"></i> Créer le compte
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            `;
-            
-            document.getElementById("formFooter").innerHTML = `
-                <div class="form-footer-links">
-                    <a href="#" onclick="showStep1()">
-                        <i class="fas fa-edit"></i> Modifier les informations
-                    </a>
-                </div>
-            `;
-        }
-        
-        function showSuccessScreen() {
-            clearAlerts();
-            
-            const role = ROLES[appState.formData.role_id];
-            
-            document.getElementById("contentContainer").innerHTML = `
-                <div class="form-title">
-                    <h2><i class="fas fa-check-circle" style="color: var(--success-green);"></i> Compte créé avec succès !</h2>
-                    <p>Votre demande a été enregistrée</p>
-                </div>
-                
-                <div class="form-card">
-                    <div style="text-align: center; padding: 20px;">
-                        <div style="font-size: 64px; color: var(--success-green); margin-bottom: 20px;">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        
-                        <h4 style="margin-bottom: 15px;">Félicitations !</h4>
-                        <p style="color: #666; margin-bottom: 25px;">
-                            Votre demande de création de compte a été enregistrée avec succès.
-                        </p>
-                        
-                        <div class="alert alert-info" style="text-align: left; margin: 25px 0;">
-                            <i class="fas fa-info-circle"></i>
-                            <div>
-                                <strong>Récapitulatif :</strong><br>
-                                <strong>Nom :</strong> ${appState.formData.nom} ${appState.formData.prenom}<br>
-                                <strong>Email :</strong> ${appState.formData.email}<br>
-                                <strong>Rôle :</strong> ${role.label}<br>
-                                <strong>Site :</strong> ${SITES[appState.formData.site_id].nom}
-                            </div>
-                        </div>
-                        
-                        ${role.requiresApproval ? 
-                            `<div class="alert alert-warning" style="text-align: left;">
-                                <i class="fas fa-clock"></i>
-                                <div>
-                                    <strong>En attente de validation :</strong><br>
-                                    Votre compte nécessite une validation par un administrateur. 
-                                    Vous recevrez un email de confirmation une fois votre compte activé.
-                                </div>
-                            </div>` : 
-                            `<div class="alert alert-success" style="text-align: left;">
-                                <i class="fas fa-envelope"></i>
-                                <div>
-                                    <strong>Compte activé :</strong><br>
-                                    Votre compte a été créé avec succès. Vous pouvez maintenant vous connecter.
-                                </div>
-                            </div>`
-                        }
-                        
-                        <div style="margin-top: 30px;">
-                            <button type="button" class="btn btn-primary" onclick="resetForm()" style="width: auto; padding: 12px 30px;">
-                                <i class="fas fa-user-plus"></i> Créer un autre compte
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            document.getElementById("formFooter").innerHTML = `
-                <div class="form-footer-links">
-                    <a href="login.html">
-                        <i class="fas fa-sign-in-alt"></i> Page de connexion
-                    </a>
-                    <a href="#" onclick="window.history.back()">
-                        <i class="fas fa-home"></i> Page d'accueil
-                    </a>
-                </div>
-            `;
-        }
-        
-        // ==================== FORM HANDLERS ====================
-        function handleStep1(event) {
-            event.preventDefault();
-            
-            const role_id = document.getElementById("role_id").value;
-            const site_id = document.getElementById("site_id").value;
-            const nom = document.getElementById("nom").value.trim();
-            const prenom = document.getElementById("prenom").value.trim();
-            const email = document.getElementById("email").value.trim();
-            
-            // Validation
-            if (!role_id || !site_id || !nom || !prenom || !email) {
-                showAlert("Veuillez remplir tous les champs obligatoires", "danger");
-                return;
-            }
-            
-            if (!validateEmail(email)) {
-                showAlert("Adresse email invalide", "danger");
-                return;
-            }
-            
-            // Stocker les données
-            appState.formData.role_id = role_id;
-            appState.formData.site_id = site_id;
-            appState.formData.nom = nom;
-            appState.formData.prenom = prenom;
-            appState.formData.email = email;
-            
-            // Aller à l'étape 2
-            showStep2();
-        }
-        
-        function handleStep2(event) {
-            event.preventDefault();
-            
-            const telephone = document.getElementById("telephone").value.trim();
-            const mot_de_passe = document.getElementById("mot_de_passe").value;
-            const confirm_password = document.getElementById("confirm_password").value;
-            
-            // Validation
-            if (telephone && !validatePhone(telephone)) {
-                showAlert("Numéro de téléphone invalide", "danger");
-                return;
-            }
-            
-            if (!validatePassword(mot_de_passe)) {
-                showAlert("Le mot de passe doit contenir au moins 8 caractères, une majuscule, une minuscule et un chiffre", "danger");
-                return;
-            }
-            
-            if (mot_de_passe !== confirm_password) {
-                showAlert("Les mots de passe ne correspondent pas", "danger");
-                return;
-            }
-            
-            // Stocker les données restantes
-            appState.formData.telephone = telephone;
-            appState.formData.mot_de_passe = mot_de_passe;
-            
-            // Envoyer les données au serveur
-            createAccount();
-        }
-        
-        // ==================== API FUNCTIONS ====================
-        async function createAccount() {
-            try {
-                // Afficher un indicateur de chargement
-                showAlert("Création du compte en cours...", "info");
-                
-                // Préparer les données pour l'envoi
-                const formData = new FormData();
-                Object.keys(appState.formData).forEach(key => {
-                    formData.append(key, appState.formData[key]);
-                });
-                
-                // Envoyer la requête POST
-                const response = await fetch('create_account_api.php', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showSuccessScreen();
-                    
-                    // Enregistrer dans le localStorage pour référence
-                    localStorage.setItem('last_created_account', JSON.stringify({
-                        email: appState.formData.email,
-                        role: ROLES[appState.formData.role_id].label,
-                        timestamp: new Date().toISOString()
-                    }));
-                    
-                } else {
-                    showAlert(result.message || "Erreur lors de la création du compte", "danger");
-                }
-                
-            } catch (error) {
-                console.error('Erreur:', error);
-                showAlert("Erreur de connexion au serveur", "danger");
-                
-                // Pour le développement : simuler un succès
-                // showSuccessScreen();
-            }
-        }
-        
-        // ==================== UTILITY FUNCTIONS ====================
+
+        // Bascule mot de passe visible/masqué
         function togglePassword(inputId) {
             const input = document.getElementById(inputId);
-            const button = input.nextElementSibling;
-            const icon = button.querySelector("i");
-            
-            if (input.type === "password") {
-                input.type = "text";
-                icon.className = "fas fa-eye-slash";
+            const icon = input.parentElement.querySelector('.btn-toggle-pwd i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.className = 'fa-regular fa-eye-slash';
             } else {
-                input.type = "password";
-                icon.className = "fas fa-eye";
+                input.type = 'password';
+                icon.className = 'fa-regular fa-eye';
             }
         }
-        
-        function resetForm() {
-            appState = {
-                currentStep: "step1",
-                formData: {
-                    role_id: "",
-                    site_id: "",
-                    email: "",
-                    mot_de_passe: "",
-                    confirm_password: "",
-                    nom: "",
-                    prenom: "",
-                    telephone: ""
-                }
-            };
-            
-            showStep1();
+
+        // Afficher une alerte
+        function showAlert(msg, type = 'danger') {
+            const box = document.getElementById('alert-box');
+            box.className = `alert alert-${type} mb-3 py-2 px-3 text-sm`;
+            box.innerHTML = `<i class="fa-solid fa-${type === 'success' ? 'circle-check' : 'circle-exclamation'} me-2"></i>${msg}`;
+            box.classList.remove('d-none');
         }
+
+        function hideAlert() {
+            document.getElementById('alert-box').classList.add('d-none');
+        }
+
+        // Initiales pour avatar
+        function getInitials(name) {
+            if (!name) return 'U';
+            const parts = name.trim().split(' ');
+            if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+            return name.substring(0, 2).toUpperCase();
+        }
+
+        // Couleur d'avatar
+        function getAvatarColor(role) {
+            return ROLE_CONFIG[role]?.color || '#1e40af';
+        }
+
+        // Charger les utilisateurs depuis Supabase
+        async function loadUsers() {
+            try {
+                const { data, error } = await supabaseClient
+                    .from('utilisateurs')
+                    .select('*')
+                    .order('date_creation', { ascending: false });
+
+                if (error) {
+                    console.error('Erreur Supabase:', error);
+                    document.getElementById('users-table-body').innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-danger">
+                                <i class="fa-solid fa-triangle-exclamation mb-1"></i>
+                                <div>Erreur de lecture de la table utilisateurs</div>
+                                <div class="text-xs text-muted">${error.message}</div>
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                allUsers = data || [];
+                updateStats();
+                renderUsersTable(allUsers);
+
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Mettre à jour les compteurs
+        function updateStats() {
+            document.getElementById('stat-total').innerText = allUsers.length;
+            
+            // Direction & DAC (admin_principal, admin, dac, secretaire_dac)
+            const adminRoles = ['admin_principal', 'admin', 'dac', 'secretaire_dac', 'secretaire du dac'];
+            document.getElementById('stat-admin').innerText = allUsers.filter(u => adminRoles.includes(u.role)).length;
+
+            // Gestionnaires & Technique (comptable, secretariat, informaticien, informaticiens, surveillant)
+            const gestionRoles = ['comptable', 'secretariat', 'informaticien', 'informaticiens', 'surveillant'];
+            document.getElementById('stat-gestion').innerText = allUsers.filter(u => gestionRoles.includes(u.role)).length;
+
+            // Pédagogie & Apprenants (professeur, enseignant, etudiant, etudiants, tuteur)
+            const etudRoles = ['professeur', 'enseignant', 'etudiant', 'etudiants', 'tuteur'];
+            document.getElementById('stat-etudiants').innerText = allUsers.filter(u => etudRoles.includes(u.role)).length;
+        }
+
+        // Filtrer les utilisateurs
+        function filterUsers() {
+            const query = document.getElementById('search-input').value.toLowerCase().trim();
+            const role = document.getElementById('role-filter').value;
+
+            const filtered = allUsers.filter(u => {
+                const matchQuery = !query || 
+                    (u.nom_complet && u.nom_complet.toLowerCase().includes(query)) ||
+                    (u.email && u.email.toLowerCase().includes(query)) ||
+                    (u.role && u.role.toLowerCase().includes(query));
+                
+                const matchRole = (role === 'all') || 
+                    (u.role === role) ||
+                    (role === 'admin_principal' && (u.role === 'admin' || u.role === 'admin_principal')) ||
+                    (role === 'secretaire_dac' && (u.role === 'secretaire du dac' || u.role === 'secretaire_dac')) ||
+                    (role === 'informaticien' && (u.role === 'informaticiens' || u.role === 'informaticien')) ||
+                    (role === 'professeur' && (u.role === 'enseignant' || u.role === 'professeur')) ||
+                    (role === 'etudiant' && (u.role === 'etudiants' || u.role === 'etudiant'));
+
+                return matchQuery && matchRole;
+            });
+
+            renderUsersTable(filtered);
+        }
+
+        // Rendu du tableau
+        function renderUsersTable(users) {
+            const tbody = document.getElementById('users-table-body');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-5 text-muted">
+                            <i class="fa-solid fa-users-slash fa-2x mb-2 text-secondary opacity-50"></i>
+                            <div>Aucun utilisateur trouvé</div>
+                            <div class="text-xs">Remplissez le formulaire de gauche pour créer le premier utilisateur.</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = users.map(u => {
+                const conf = ROLE_CONFIG[u.role] || { label: u.role, badge: 'badge-secondary', color: '#64748b' };
+                const dateStr = u.date_creation ? new Date(u.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-';
+                
+                return `
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center gap-2.5">
+                                <div class="user-avatar" style="background: ${conf.color};">
+                                    ${getInitials(u.nom_complet)}
+                                </div>
+                                <div>
+                                    <div class="fw-bold text-dark">${u.nom_complet || 'Sans nom'}</div>
+                                    <div class="text-muted" style="font-size: 0.78rem;">${u.email}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge-role ${conf.badge}">
+                                ${conf.label}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge ${u.statut === 'bloque' ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'} rounded-pill px-2.5 py-1 text-xs">
+                                <i class="fa-solid fa-${u.statut === 'bloque' ? 'lock' : 'circle-check'} me-1"></i>
+                                ${u.statut === 'bloque' ? 'Bloqué' : 'Actif'}
+                            </span>
+                        </td>
+                        <td class="text-muted text-xs">
+                            ${dateStr}
+                        </td>
+                        <td class="text-end">
+                            <button onclick="copyCredentials('${u.email}')" class="btn btn-sm btn-light rounded-pill px-2.5 py-1 text-xs" title="Copier Email">
+                                <i class="fa-regular fa-copy"></i>
+                            </button>
+                            <button onclick="toggleUserStatus('${u.id}', '${u.statut === 'bloque' ? 'actif' : 'bloque'}')" class="btn btn-sm btn-light rounded-pill px-2.5 py-1 text-xs ms-1" title="${u.statut === 'bloque' ? 'Débloquer' : 'Bloquer'}">
+                                <i class="fa-solid fa-${u.statut === 'bloque' ? 'unlock text-success' : 'ban text-warning'}"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Copier l'email
+        function copyCredentials(email) {
+            navigator.clipboard.writeText(email).then(() => {
+                alert(`Adresse email copiée : ${email}`);
+            });
+        }
+
+        // Basculer statut
+        async function toggleUserStatus(id, newStatus) {
+            try {
+                const { error } = await supabaseClient
+                    .from('utilisateurs')
+                    .update({ statut: newStatus })
+                    .eq('id', id);
+
+                if (!error) {
+                    await loadUsers();
+                } else {
+                    alert('Erreur de mise à jour: ' + error.message);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Soumission du Formulaire de Création
+        document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert();
+
+            const nomComplet = document.getElementById('nom_complet').value.trim();
+            const email = document.getElementById('email').value.trim().toLowerCase();
+            const role = document.getElementById('selected-role').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            const btnSubmit = document.getElementById('btn-submit');
+
+            if (!nomComplet) {
+                showAlert('Veuillez renseigner le nom complet de l’utilisateur.');
+                return;
+            }
+
+            if (password.length < 6) {
+                showAlert('Le mot de passe doit comporter au moins 6 caractères.');
+                return;
+            }
+
+            if (password !== confirmPassword) {
+                showAlert('Les mots de passe ne correspondent pas.');
+                return;
+            }
+
+            // Désactiver le bouton pendant le traitement
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Inscription & Synchronisation Supabase...`;
+
+            try {
+                // 1. Inscription dans Supabase Auth
+                const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            nom_complet: nomComplet,
+                            role: role
+                        }
+                    }
+                });
+
+                if (authError) {
+                    console.error('Erreur Supabase Auth:', authError);
+                    const errorMsg = (authError.message || '').toLowerCase();
+                    
+                    if (errorMsg.includes('rate limit')) {
+                        showAlert(`
+                            <strong>Limite d'envoi d'emails Supabase atteinte :</strong><br>
+                            Pour créer tous vos utilisateurs sans restriction d'email : dans votre console Supabase &rarr; <em>Authentication &rarr; Providers &rarr; Email</em> &rarr; <strong>Désactivez "Confirm email"</strong>. Les comptes seront alors créés instantanément sans attente.
+                        `, 'warning');
+                    } else if (errorMsg.includes('already registered') || errorMsg.includes('already exists')) {
+                        showAlert(`Cette adresse email (${email}) est déjà enregistrée dans Supabase Auth.`, 'danger');
+                    } else if (errorMsg.includes('invalid format') || errorMsg.includes('validate email')) {
+                        showAlert(`Adresse email invalide : veuillez vérifier le format de l'adresse email (${email}).`, 'danger');
+                    } else if (errorMsg.includes('password') || errorMsg.includes('weak')) {
+                        showAlert(`Mot de passe insuffisant : ${authError.message}`, 'danger');
+                    } else {
+                        showAlert(`Erreur Supabase (${authError.status || 400}) : ${authError.message}`, 'danger');
+                    }
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = `<i class="fa-solid fa-bolt"></i> Créer et Synchroniser dans Supabase`;
+                    return;
+                }
+
+                // Vérifier si l'utilisateur existait déjà (identities vide sous Supabase)
+                if (authData?.user?.identities && authData.user.identities.length === 0) {
+                    showAlert(`Cette adresse email (${email}) est déjà enregistrée dans Supabase. Veuillez en choisir une autre ou utiliser ce compte existant.`, 'warning');
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = `<i class="fa-solid fa-bolt"></i> Créer et Synchroniser dans Supabase`;
+                    return;
+                }
+
+                const userId = authData?.user?.id;
+
+                if (!userId) {
+                    showAlert("L'inscription n'a pas pu renvoyer d'identifiant Supabase valide.", 'danger');
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = `<i class="fa-solid fa-bolt"></i> Créer et Synchroniser dans Supabase`;
+                    return;
+                }
+
+                // 2. Synchronisation dans la table 'utilisateurs'
+                const { error: dbError } = await supabaseClient
+                    .from('utilisateurs')
+                    .upsert([{
+                        id: userId,
+                        email: email,
+                        nom_complet: nomComplet,
+                        role: role,
+                        statut: 'actif',
+                        date_creation: new Date().toISOString(),
+                        derniere_connexion: new Date().toISOString()
+                    }]);
+
+                if (dbError) {
+                    console.error('Erreur table utilisateurs:', dbError);
+                }
+
+                // 3. Synchronisation dans la table 'user_presences' pour le Messenger
+                const roleLibelle = ROLE_CONFIG[role]?.label || role;
+                await supabaseClient
+                    .from('user_presences')
+                    .upsert([{
+                        user_id: userId,
+                        nom_complet: nomComplet,
+                        role: roleLibelle,
+                        en_ligne: false,
+                        derniere_connexion: new Date().toISOString(),
+                        statut_perso: 'Compte initialisé'
+                    }]).then(() => {}, () => {});
+
+                // 4. Log dans le journal d'activités
+                await supabaseClient
+                    .from('journal_activites')
+                    .insert([{
+                        utilisateur_id: userId,
+                        utilisateur_nom: nomComplet,
+                        type_action: 'CREATION_UTILISATEUR',
+                        description: `Création du compte ${nomComplet} (${roleLibelle}) synchronisé avec Auth et Base de données`
+                    }]).then(() => {}, () => {});
+
+                // Succès !
+                showAlert(`✅ Le compte pour <strong>${nomComplet}</strong> (${roleLibelle}) a été créé avec succès et synchronisé dans Supabase !`, 'success');
+                
+                // Réinitialiser le formulaire
+                document.getElementById('nom_complet').value = '';
+                document.getElementById('email').value = '';
+                document.getElementById('password').value = '';
+                document.getElementById('confirm_password').value = '';
+
+                // Recharger la liste
+                await loadUsers();
+
+            } catch (error) {
+                console.error('Erreur générale:', error);
+                showAlert(`Erreur inattendue : ${error?.message || error}`, 'danger');
+            } finally {
+                btnSubmit.disabled = false;
+                btnSubmit.innerHTML = `<i class="fa-solid fa-bolt"></i> Créer et Synchroniser dans Supabase`;
+            }
+        });
+
+        // Chargement initial
+        window.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+        });
     </script>
 </body>
 </html>

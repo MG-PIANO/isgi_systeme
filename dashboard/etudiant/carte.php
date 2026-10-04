@@ -38,6 +38,11 @@ try {
     // Définir le titre de la page
     $pageTitle = "Carte Étudiante";
     
+    // Inclure la bibliothèque QR Code
+    error_reporting(E_ALL & ~E_DEPRECATED);
+    require_once ROOT_PATH . '/libs/phpqrcode/qrlib.php';
+    error_reporting(E_ALL);
+    
     // Fonctions utilitaires avec validation
     function formatDateFr($date, $format = 'd/m/Y') {
         if (empty($date) || $date == '0000-00-00' || $date == '0000-00-00 00:00:00') return '';
@@ -74,36 +79,12 @@ try {
     
     // Initialiser les variables
     $info_etudiant = array();
-    $info_qr_code = array();
-    $historique_cartes = array();
+    $qr_code_path = '';
+    $qr_code_data = '';
     $error = null;
     
-    // Fonction pour exécuter les requêtes en toute sécurité
-    function executeSingleQuery($db, $query, $params = array()) {
-        try {
-            $stmt = $db->prepare($query);
-            $stmt->execute($params);
-            $result = $stmt->fetch(PDO::FETCH_ASSOC);
-            return $result ?: array();
-        } catch (Exception $e) {
-            error_log("Single query error: " . $e->getMessage());
-            return array();
-        }
-    }
-    
-    function executeQuery($db, $query, $params = array()) {
-        try {
-            $stmt = $db->prepare($query);
-            $stmt->execute($params);
-            return $stmt->fetchAll(PDO::FETCH_ASSOC);
-        } catch (Exception $e) {
-            error_log("Query error: " . $e->getMessage());
-            return array();
-        }
-    }
-    
-    // Récupérer les informations de l'étudiant pour la carte
-    $info_etudiant = executeSingleQuery($db, 
+    // Récupérer les informations de l'étudiant
+    $stmt = $db->prepare(
         "SELECT e.*, s.nom as site_nom, s.ville as site_ville, s.adresse as site_adresse,
                 s.telephone as site_telephone, c.nom as classe_nom, 
                 f.nom as filiere_nom, n.libelle as niveau_libelle,
@@ -114,53 +95,112 @@ try {
          LEFT JOIN filieres f ON c.filiere_id = f.id
          LEFT JOIN niveaux n ON c.niveau_id = n.id
          LEFT JOIN annees_academiques aa ON c.annee_academique_id = aa.id
-         WHERE e.utilisateur_id = ?", 
-        [$user_id]);
+         WHERE e.utilisateur_id = ?"
+    );
+    $stmt->execute([$user_id]);
+    $info_etudiant = $stmt->fetch(PDO::FETCH_ASSOC);
     
-    // Générer ou récupérer le QR Code
-    if ($info_etudiant && !empty($info_etudiant['id'])) {
+    if (!$info_etudiant || empty($info_etudiant['id'])) {
+        $error = "Aucune information d'étudiant trouvée.";
+    } else {
         $etudiant_id = intval($info_etudiant['id']);
         
-        // Vérifier si un QR Code existe déjà dans la base
-        $info_qr_code = executeSingleQuery($db,
-            "SELECT qr_code_data FROM etudiants WHERE id = ?",
-            [$etudiant_id]);
-            
-        // Si pas de QR Code, en générer un nouveau
-        if (empty($info_qr_code['qr_code_data']) || $info_qr_code['qr_code_data'] === null) {
-            $qr_data = "ETUDIANT:" . ($info_etudiant['matricule'] ?? '') . "|" .
-                      "NOM:" . ($info_etudiant['nom'] ?? '') . "|" .
-                      "PRENOM:" . ($info_etudiant['prenom'] ?? '') . "|" .
-                      "SITE:" . ($info_etudiant['site_id'] ?? '') . "|" .
-                      "TYPE:etudiant|" .
-                      "DATE:" . date('YmdHis');
-            
-            // Sauvegarder dans la base
-            $stmt = $db->prepare("UPDATE etudiants SET qr_code_data = ? WHERE id = ?");
-            $stmt->execute([$qr_data, $etudiant_id]);
-            
-            $info_qr_code['qr_code_data'] = $qr_data;
+        // Vérifier si le QR code existe déjà dans la base
+        $stmt_qr = $db->prepare("SELECT qr_code_data FROM etudiants WHERE id = ?");
+        $stmt_qr->execute([$etudiant_id]);
+        $qr_info = $stmt_qr->fetch(PDO::FETCH_ASSOC);
+        
+        // Chemin du dossier des QR codes
+        $qr_dir = ROOT_PATH . '/uploads/qrcodes/etudiants/';
+        
+        // Créer le dossier s'il n'existe pas
+        if (!file_exists($qr_dir)) {
+            mkdir($qr_dir, 0777, true);
         }
         
-        // Récupérer l'historique des cartes (si table existe)
-        try {
-            $historique_cartes = executeQuery($db,
-                "SELECT date_creation, statut, raison_annulation 
-                 FROM historique_cartes_etudiants 
-                 WHERE etudiant_id = ? 
-                 ORDER BY date_creation DESC 
-                 LIMIT 5",
-                [$etudiant_id]);
-        } catch (Exception $e) {
-            // La table n'existe pas, on continue sans historique
-            $historique_cartes = array();
+        // Nom du fichier QR code
+        $qr_filename = 'etudiant_' . $etudiant_id . '_' . $info_etudiant['matricule'] . '.png';
+        $qr_filepath = $qr_dir . $qr_filename;
+        
+        // CORRECTION IMPORTANTE : Même logique que votre fichier bulletins
+        $qr_relative_path = '/uploads/qrcodes/etudiants/' . $qr_filename;
+        $qr_web_path = $qr_relative_path; // Par défaut
+        
+        // Corriger le chemin pour WAMP avec sous-dossier
+        if (strpos($qr_relative_path, '/isgi_system/') !== false) {
+            // Le chemin contient déjà /isgi_system/
+            $qr_final_path = $qr_relative_path;
+        } else {
+            // Ajouter /isgi_system/ au début si nécessaire
+            $qr_final_path = '/isgi_system' . $qr_relative_path;
+        }
+        
+        // Vérifier si le fichier physique existe
+        if (!file_exists($qr_filepath)) {
+            // Données pour le QR code (format identique à celui du surveillant)
+            $qr_data = "ETUDIANT:" . $info_etudiant['matricule'] . "|" .
+                      "NOM:" . $info_etudiant['nom'] . "|" .
+                      "PRENOM:" . $info_etudiant['prenom'] . "|" .
+                      "SITE:" . $info_etudiant['site_id'] . "|" .
+                      "TYPE:etudiant|" .
+                      "DATE:" . date('YmdHis') . "|" .
+                      "HASH:" . md5($info_etudiant['matricule'] . date('Ymd'));
+            
+            // Générer le QR code
+            QRcode::png($qr_data, $qr_filepath, QR_ECLEVEL_H, 10, 2);
+            
+            // Mettre à jour la base de données avec le chemin relatif
+            $stmt = $db->prepare("UPDATE etudiants SET qr_code_data = ? WHERE id = ?");
+            $stmt->execute([$qr_relative_path, $etudiant_id]);
+            
+            $qr_code_data = $qr_data;
+        } else {
+            // Lire les données du QR code existant si disponible
+            if ($qr_info && !empty($qr_info['qr_code_data'])) {
+                $qr_code_data = $qr_info['qr_code_data'];
+            } else {
+                $qr_code_data = "ETUDIANT:" . $info_etudiant['matricule'] . "|" .
+                              "NOM:" . $info_etudiant['nom'] . "|" .
+                              "PRENOM:" . $info_etudiant['prenom'] . "|" .
+                              "DATE:" . date('YmdHis', filemtime($qr_filepath));
+            }
+        }
+        
+        // Vérifier l'existence du fichier physique
+        $physical_path = ROOT_PATH . $qr_relative_path;
+        if (!file_exists($physical_path)) {
+            $physical_path = str_replace('\\', '/', ROOT_PATH) . $qr_relative_path;
+            if (!file_exists($physical_path)) {
+                // Essayer sans le sous-dossier isgi_system
+                $alt_path = str_replace('/isgi_system', '', $qr_final_path);
+                $physical_path = ROOT_PATH . $alt_path;
+            }
+        }
+        
+        // Définir le chemin final pour l'affichage
+        if (file_exists($physical_path)) {
+            $qr_code_path = $qr_final_path;
+        } else {
+            // Si le fichier n'existe toujours pas, on va le régénérer
+            $qr_data = "ETUDIANT:" . $info_etudiant['matricule'] . "|" .
+                      "NOM:" . $info_etudiant['nom'] . "|" .
+                      "PRENOM:" . $info_etudiant['prenom'] . "|" .
+                      "DATE:" . date('YmdHis');
+            
+            QRcode::png($qr_data, $qr_filepath, QR_ECLEVEL_H, 10, 2);
+            $qr_code_path = $qr_final_path;
+            $qr_code_data = $qr_data;
         }
     }
     
 } catch (Exception $e) {
     $error = "Erreur lors de la récupération des données: " . safeHtml($e->getMessage());
 }
+
+// Définir le chemin du logo (relatif depuis le dossier actuel)
+$logo_path = '../../image/logo isgi.jpg';
 ?>
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -173,9 +213,6 @@ try {
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- QR Code library -->
-    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
     
     <style>
     :root {
@@ -192,6 +229,10 @@ try {
         --sidebar-bg: #2c3e50;
         --sidebar-text: #ffffff;
         --border-color: #dee2e6;
+        --gold-color: #d4af37;
+        --navy-color: #001f3f;
+        --light-gold: #f0e6d2;
+        --dark-navy: #001529;
     }
     
     [data-theme="dark"] {
@@ -208,6 +249,10 @@ try {
         --sidebar-bg: #1a1a1a;
         --sidebar-text: #ffffff;
         --border-color: #333333;
+        --gold-color: #d4af37;
+        --navy-color: #001a35;
+        --light-gold: #2a2400;
+        --dark-navy: #000814;
     }
     
     body {
@@ -224,7 +269,7 @@ try {
         min-height: 100vh;
     }
     
-    /* Sidebar (identique au dashboard) */
+    /* Sidebar */
     .sidebar {
         width: 250px;
         background-color: var(--sidebar-bg);
@@ -267,7 +312,7 @@ try {
         margin-top: 5px;
     }
     
-    /* Navigation (identique) */
+    /* Navigation */
     .sidebar-nav {
         padding: 15px;
     }
@@ -315,157 +360,473 @@ try {
         min-height: 100vh;
     }
     
-    /* Carte étudiante principale */
+    /* =========================================== */
+    /* NOUVEAU DESIGN DE LA CARTE ÉTUDIANTE EN PAYSAGE */
+    /* =========================================== */
+    
+    .carte-etudiante-container {
+        max-width: 900px;
+        margin: 0 auto 30px;
+    }
+    
     .carte-etudiante {
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        background: linear-gradient(135deg, var(--dark-navy), var(--navy-color));
         color: white;
         border-radius: 20px;
         padding: 30px;
         position: relative;
         overflow: hidden;
-        min-height: 400px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-        margin-bottom: 30px;
+        width: 100%;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        margin-bottom: 20px;
+        border: 15px solid white;
+        min-height: 350px;
+        display: flex;
+        flex-direction: column;
     }
     
+    /* Mode paysage pour l'impression */
+    @media print {
+        .carte-etudiante {
+            width: 85.6mm;
+            height: 54mm;
+            min-height: 54mm;
+            padding: 8px;
+            border: 2px solid #000;
+            border-radius: 10px;
+            transform: rotate(0deg);
+            margin: 0;
+            box-shadow: none;
+        }
+        
+        .carte-etudiante-paysage {
+            flex-direction: row !important;
+        }
+        
+        .carte-header {
+            margin-bottom: 10px !important;
+        }
+        
+        .carte-content {
+            gap: 10px !important;
+        }
+        
+        .carte-photo-frame {
+            width: 45mm !important;
+            height: 60mm !important;
+        }
+        
+        .qr-code-img {
+            width: 70px !important;
+            height: 70px !important;
+        }
+        
+        .carte-nom {
+            font-size: 0.9rem !important;
+        }
+        
+        .detail-value {
+            font-size: 0.8rem !important;
+        }
+    }
+    
+    /* Bords décoratifs dorés */
     .carte-etudiante::before {
         content: '';
         position: absolute;
-        top: -50%;
-        right: -50%;
-        width: 200%;
-        height: 200%;
-        background: rgba(255, 255, 255, 0.05);
-        transform: rotate(30deg);
-    }
-    
-    .carte-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 30px;
-        position: relative;
+        top: 5px;
+        left: 5px;
+        right: 5px;
+        bottom: 5px;
+        border: 2px solid var(--gold-color);
+        border-radius: 15px;
+        pointer-events: none;
         z-index: 1;
     }
     
-    .carte-logo {
-        text-align: center;
-    }
-    
-    .carte-logo-icon {
-        font-size: 3rem;
-        margin-bottom: 10px;
-    }
-    
-    .carte-logo-text {
-        font-size: 1.5rem;
-        font-weight: bold;
-        letter-spacing: 2px;
-    }
-    
-    .carte-statut {
-        background: rgba(255, 255, 255, 0.2);
-        padding: 8px 15px;
-        border-radius: 20px;
-        font-size: 0.9rem;
-        font-weight: 500;
-    }
-    
-    .carte-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        position: relative;
+    .carte-etudiante::after {
+        content: '';
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        border: 1px solid rgba(11, 25, 71, 0.3);
+        border-radius: 12px;
+        pointer-events: none;
         z-index: 1;
     }
     
-    .carte-info {
-        flex: 1;
+    /* Logo ISGI intégré */
+    .logo-isgi-container {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        z-index: 2;
     }
     
-    .carte-photo {
-        width: 180px;
-        height: 220px;
+    .logo-isgi {
+        width: 80px;
+        height: 80px;
         border-radius: 10px;
-        border: 3px solid white;
-        object-fit: cover;
-        margin-left: 30px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-    }
-    
-    .carte-photo-placeholder {
-        width: 180px;
-        height: 220px;
-        border-radius: 10px;
-        border: 3px solid white;
-        margin-left: 30px;
+        overflow: hidden;
+        border: 2px solid var(--gold-color);
+        background: white;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: rgba(255, 255, 255, 0.1);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    .logo-isgi img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    /* En-tête de la carte */
+    .carte-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        position: relative;
+        z-index: 2;
+        padding-right: 100px;
+    }
+    
+    .carte-titre {
+        flex: 1;
+    }
+    
+    .carte-titre h1 {
+        font-size: 1.8rem;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: var(--gold-color);
+        text-transform: uppercase;
+        margin: 0;
+        text-align: left;
+    }
+    
+    .carte-titre .sous-titre {
+        font-size: 0.9rem;
+        color: var(--light-gold);
+        text-align: left;
+        letter-spacing: 1px;
+    }
+    
+    .carte-statut {
+        background: rgba(212, 175, 55, 0.2);
+        padding: 8px 15px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 2px solid var(--gold-color);
+        color: var(--gold-color);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    /* Contenu principal de la carte en mode paysage */
+    .carte-content {
+        display: flex;
+        flex-direction: row;
+        gap: 30px;
+        position: relative;
+        z-index: 2;
+        flex: 1;
+    }
+    
+    /* Section gauche - Photo et informations principales */
+    .carte-section-gauche {
+        flex: 0 0 300px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Section photo */
+    .carte-photo-container {
+        flex-shrink: 0;
+        position: relative;
+    }
+    
+    .carte-photo-frame {
+        width: 180px;
+        height: 220px;
+        border-radius: 12px;
+        border: 4px solid var(--gold-color);
+        overflow: hidden;
+        background: var(--light-gold);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.4);
+        position: relative;
+        margin: 0 auto;
+    }
+    
+    .carte-photo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .photo-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(212, 175, 55, 0.1);
+    }
+    
+    .photo-placeholder i {
+        font-size: 3.5rem;
+        color: var(--gold-color);
+        opacity: 0.7;
+    }
+    
+    .photo-label {
+        position: absolute;
+        bottom: -5px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--navy-color);
+        color: var(--gold-color);
+        padding: 5px 15px;
+        border-radius: 15px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border: 1px solid var(--gold-color);
+        white-space: nowrap;
+    }
+    
+    /* Informations étudiantes principales */
+    .info-principales {
+        text-align: center;
+        padding: 15px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        border: 2px solid rgba(212, 175, 55, 0.2);
+    }
+    
+    .carte-nom-section {
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid rgba(212, 175, 55, 0.3);
     }
     
     .carte-nom {
-        font-size: 2.2rem;
-        font-weight: bold;
+        font-size: 1.4rem;
+        font-weight: 800;
         margin-bottom: 5px;
+        color: var(--gold-color);
+        text-transform: uppercase;
         letter-spacing: 1px;
     }
     
     .carte-matricule {
-        font-size: 1.3rem;
-        margin-bottom: 20px;
-        opacity: 0.9;
+        font-size: 1rem;
+        background: rgba(212, 175, 55, 0.15);
+        padding: 8px 15px;
+        border-radius: 20px;
+        display: inline-block;
+        font-weight: 600;
+        border: 1px solid rgba(212, 175, 55, 0.5);
     }
     
-    .carte-details {
+    /* Section droite - Détails et QR Code */
+    .carte-section-droite {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Détails étudiants en grille */
+    .carte-details-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
         gap: 15px;
-        margin-top: 25px;
+        margin-bottom: 15px;
     }
     
-    .carte-detail-item {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 12px 15px;
+    .detail-item {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 12px;
         border-radius: 10px;
+        border-left: 3px solid var(--gold-color);
+        backdrop-filter: blur(5px);
     }
     
-    .carte-detail-label {
-        font-size: 0.85rem;
-        opacity: 0.8;
+    .detail-label {
+        font-size: 0.75rem;
+        color: var(--light-gold);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
         margin-bottom: 5px;
+        font-weight: 600;
     }
     
-    .carte-detail-value {
+    .detail-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: white;
+    }
+    
+    /* Section QR Code intégrée */
+    .carte-qr-section {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 20px;
+        border: 2px solid rgba(212, 175, 55, 0.2);
+        margin-top: auto;
+    }
+    
+    .qr-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid rgba(212, 175, 55, 0.3);
+    }
+    
+    .qr-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--gold-color);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .qr-title i {
         font-size: 1.1rem;
-        font-weight: 500;
     }
     
-    .carte-qr {
-        position: absolute;
-        bottom: 20px;
-        right: 20px;
+    .qr-expiry {
+        font-size: 0.8rem;
+        color: var(--light-gold);
+        background: rgba(0, 0, 0, 0.3);
+        padding: 5px 10px;
+        border-radius: 12px;
+    }
+    
+    .qr-container {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+    }
+    
+    .qr-code-box {
         background: white;
-        padding: 8px;
-        border-radius: 8px;
-        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        padding: 12px;
+        border-radius: 10px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        flex-shrink: 0;
     }
     
-    #qrcode {
-        width: 100px;
-        height: 100px;
+    .qr-code-img {
+        width: 120px;
+        height: 120px;
+        object-fit: contain;
+        display: block;
     }
     
+    .qr-info {
+        flex: 1;
+    }
+    
+    .qr-instructions {
+        font-size: 0.85rem;
+        color: var(--light-gold);
+        margin-bottom: 10px;
+        line-height: 1.5;
+    }
+    
+    .qr-hint {
+        font-size: 0.75rem;
+        color: var(--gold-color);
+        font-style: italic;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 12px;
+    }
+    
+    /* Pied de carte */
     .carte-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px solid rgba(212, 175, 55, 0.2);
+        font-size: 0.8rem;
+        color: var(--light-gold);
+        position: relative;
+        z-index: 2;
+    }
+    
+    .footer-date {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .footer-id {
+        background: rgba(212, 175, 55, 0.1);
+        padding: 8px 15px;
+        border-radius: 15px;
+        border: 1px solid rgba(212, 175, 55, 0.3);
+        font-weight: 600;
+    }
+    
+    /* Effets de brillance */
+    .shine-effect {
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(
+            45deg,
+            transparent 30%,
+            rgba(255, 255, 255, 0.03) 50%,
+            transparent 70%
+        );
+        transform: rotate(30deg);
+        z-index: 1;
+        pointer-events: none;
+    }
+    
+    /* Indicateur de validité */
+    .validity-stamp {
         position: absolute;
         bottom: 20px;
-        left: 30px;
-        font-size: 0.85rem;
-        opacity: 0.8;
+        left: 20px;
+        width: 60px;
+        height: 60px;
+        background: var(--gold-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: rotate(15deg);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        z-index: 2;
     }
     
-    /* Section téléchargement */
+    .validity-stamp i {
+        color: var(--navy-color);
+        font-size: 1.5rem;
+    }
+    
+    /* =========================================== */
+    /* STYLES EXISTANTS POUR LE RESTE DE LA PAGE */
+    /* =========================================== */
+    
     .telechargement-section {
         background: var(--card-bg);
         border-radius: 15px;
@@ -514,54 +875,36 @@ try {
         color: var(--text-muted);
     }
     
-    /* Historique */
-    .historique-section {
-        background: var(--card-bg);
-        border-radius: 15px;
-        padding: 25px;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        border: 1px solid var(--border-color);
-    }
-    
-    .historique-list {
-        margin-top: 20px;
-    }
-    
-    .historique-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 15px;
-        border-bottom: 1px solid var(--border-color);
-    }
-    
-    .historique-item:last-child {
-        border-bottom: none;
-    }
-    
-    /* Badges */
-    .badge {
-        font-size: 0.75em;
-        padding: 5px 10px;
-        border-radius: 20px;
-    }
-    
-    .badge-valide {
-        background: rgba(39, 174, 96, 0.2);
-        color: var(--success-color);
-    }
-    
-    .badge-invalide {
-        background: rgba(231, 76, 60, 0.2);
-        color: var(--accent-color);
-    }
-    
-    .badge-attente {
-        background: rgba(243, 156, 18, 0.2);
-        color: var(--warning-color);
-    }
-    
     /* Responsive */
+    @media (max-width: 992px) {
+        .carte-content {
+            flex-direction: column;
+        }
+        
+        .carte-section-gauche {
+            flex: 1;
+        }
+        
+        .carte-photo-frame {
+            width: 150px;
+            height: 180px;
+        }
+        
+        .logo-isgi-container {
+            position: relative;
+            top: 0;
+            right: 0;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .carte-header {
+            padding-right: 0;
+            flex-direction: column;
+            gap: 15px;
+        }
+    }
+    
     @media (max-width: 768px) {
         .sidebar {
             width: 70px;
@@ -589,44 +932,44 @@ try {
         
         .carte-etudiante {
             padding: 20px;
+            min-height: auto;
         }
         
-        .carte-content {
+        .carte-details-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .qr-container {
             flex-direction: column;
             text-align: center;
         }
         
-        .carte-photo, .carte-photo-placeholder {
-            margin: 20px auto 0;
-            order: -1;
-        }
-        
-        .carte-details {
-            grid-template-columns: 1fr;
+        .carte-footer {
+            flex-direction: column;
+            gap: 10px;
+            text-align: center;
         }
         
         .telechargement-options {
             grid-template-columns: 1fr;
         }
-    }
-    
-    @media print {
-        .sidebar, .no-print {
-            display: none !important;
+        
+        .logo-isgi-container {
+            position: relative;
+            top: 0;
+            right: 0;
+            margin-bottom: 15px;
+            text-align: center;
         }
         
-        .main-content {
-            margin-left: 0 !important;
-            padding: 0 !important;
+        .logo-isgi {
+            margin: 0 auto;
         }
         
-        .carte-etudiante {
-            box-shadow: none !important;
-            border: 2px solid #000 !important;
-        }
-        
-        .telechargement-section, .historique-section {
-            display: none !important;
+        .carte-header {
+            padding-right: 0;
+            flex-direction: column;
+            gap: 15px;
         }
     }
     
@@ -657,11 +1000,50 @@ try {
         background-color: var(--sidebar-text);
         color: var(--sidebar-bg);
     }
-</style>
+    
+    /* Debug pour les images */
+    .debug-info {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 12px;
+        margin-bottom: 10px;
+        display: none;
+    }
+    
+    /* Options d'orientation */
+    .orientation-options {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .orientation-btn {
+        padding: 8px 20px;
+        border: 2px solid var(--secondary-color);
+        background: transparent;
+        color: var(--secondary-color);
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .orientation-btn.active {
+        background: var(--secondary-color);
+        color: white;
+    }
+    
+    .orientation-btn:hover {
+        background: var(--secondary-color);
+        color: white;
+    }
+    </style>
 </head>
 <body>
     <div class="app-container">
-        <!-- Sidebar (identique au dashboard) -->
+        <!-- Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
@@ -745,11 +1127,18 @@ try {
                         <button class="btn btn-success" onclick="telechargerCarte()">
                             <i class="fas fa-download"></i> Télécharger
                         </button>
-                        <button class="btn btn-info" onclick="actualiserQRCode()">
-                            <i class="fas fa-sync-alt"></i> Actualiser QR
-                        </button>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Options d'orientation -->
+            <div class="orientation-options">
+                <button class="orientation-btn active" onclick="setOrientation('paysage')">
+                    <i class="fas fa-arrows-alt-h me-2"></i>Mode Paysage
+                </button>
+                <button class="orientation-btn" onclick="setOrientation('portrait')">
+                    <i class="fas fa-arrows-alt-v me-2"></i>Mode Portrait
+                </button>
             </div>
             
             <?php if(isset($error)): ?>
@@ -758,79 +1147,196 @@ try {
             </div>
             <?php endif; ?>
             
+            <!-- DEBUG -->
+            <div class="debug-info">
+                <strong>Debug Info:</strong><br>
+                QR Code Path: <?php echo safeHtml($qr_code_path ?? 'N/A'); ?><br>
+                Logo Path: <?php echo safeHtml($logo_path); ?><br>
+                File Exists: <?php echo file_exists($logo_path) ? 'OUI' : 'NON'; ?>
+            </div>
+            
             <!-- Section d'information importante -->
             <div class="warning-card">
                 <h5><i class="fas fa-exclamation-triangle me-2"></i> Information importante</h5>
                 <p class="mb-0">Cette carte est votre pièce d'identité officielle au sein de l'ISGI. Elle doit être présentée à chaque entrée et sortie de l'établissement, ainsi que pour tous les examens et services administratifs.</p>
             </div>
             
-            <!-- Carte étudiante principale -->
-            <div class="carte-etudiante" id="cartePrincipale">
-                <div class="carte-header">
-                    <div class="carte-logo">
-                        <div class="carte-logo-icon">
-                            <i class="fas fa-graduation-cap"></i>
+            <!-- Conteneur pour la carte -->
+            <div class="carte-etudiante-container">
+                <!-- Carte étudiante principale en mode paysage -->
+                <div class="carte-etudiante carte-etudiante-paysage" id="cartePrincipale">
+                    <!-- Logo ISGI -->
+                    <div class="logo-isgi-container">
+                        <div class="logo-isgi">
+                            <img src="<?php echo safeHtml($logo_path); ?>" 
+                                 alt="Logo ISGI" 
+                                 onerror="this.onerror=null; this.style.display='none'; this.parentNode.innerHTML='<div style=\'font-size:2.5rem;color:#1e3a5f;font-weight:bold;\'>ISGI</div>';">
                         </div>
-                        <div class="carte-logo-text">ISGI</div>
                     </div>
-                    <div class="carte-statut">
-                        <i class="fas fa-check-circle me-1"></i> VALIDE
-                    </div>
-                </div>
-                
-                <div class="carte-content">
-                    <div class="carte-info">
-                        <div class="carte-nom">
-                            <?php echo strtoupper(safeHtml($info_etudiant['nom'] ?? '')); ?> <?php echo safeHtml($info_etudiant['prenom'] ?? ''); ?>
+                    
+                    <!-- Effet de brillance -->
+                    <div class="shine-effect"></div>
+                    
+                    <!-- En-tête -->
+                    <div class="carte-header">
+                        <div class="carte-titre">
+                            <h1>CARTE ÉTUDIANTE</h1>
+                            <div class="sous-titre">INSTITUT SUPÉRIEUR DE GESTION INGENIERIE</div>
                         </div>
-                        <div class="carte-matricule">
-                            <?php echo safeHtml($info_etudiant['matricule'] ?? ''); ?>
+                        <div class="carte-statut">
+                            <i class="fas fa-check-circle"></i> VALIDE
+                        </div>
+                    </div>
+                    
+                    <!-- Contenu -->
+                    <div class="carte-content">
+                        <!-- Section gauche -->
+                        <div class="carte-section-gauche">
+                            <!-- Photo -->
+                            <div class="carte-photo-container">
+                                <div class="carte-photo-frame">
+                                    <?php if(isset($info_etudiant['photo_identite']) && !empty($info_etudiant['photo_identite'])): ?>
+                                    <?php 
+                                    $photo_path = $info_etudiant['photo_identite'];
+                                    if (strpos($photo_path, '/isgi_system/') !== false) {
+                                        $photo_final = $photo_path;
+                                    } else {
+                                        $photo_final = '/isgi_system' . $photo_path;
+                                    }
+                                    ?>
+                                    <img src="<?php echo safeHtml($photo_final); ?>" 
+                                         alt="Photo étudiant" class="carte-photo"
+                                         onerror="this.onerror=null; this.style.display='none'; this.parentNode.innerHTML='<div class=\"photo-placeholder\"><i class=\"fas fa-user\"></i></div>';">
+                                    <?php else: ?>
+                                    <div class="photo-placeholder">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="photo-label">INFO PERSO</div>
+                            </div>
+                            
+                            <!-- Informations principales -->
+                            <div class="info-principales">
+                                <div class="carte-nom-section">
+                                    <div class="carte-nom">
+                                        <?php echo strtoupper(safeHtml($info_etudiant['nom'] ?? '')); ?> <?php echo safeHtml($info_etudiant['prenom'] ?? ''); ?>
+                                    </div>
+                                    <div class="carte-matricule">
+                                        <i class="fas fa-id-badge me-2"></i>
+                                        <?php echo safeHtml($info_etudiant['matricule'] ?? ''); ?>
+                                    </div>
+                                </div>
+                                
+                                <div class="carte-details-grid">
+                                    <div class="detail-item">
+                                        <div class="detail-label">Filière</div>
+                                        <div class="detail-value"><?php echo safeHtml($info_etudiant['filiere_nom'] ?? 'Non spécifiée'); ?></div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Niveau</div>
+                                        <div class="detail-value"><?php echo safeHtml($info_etudiant['niveau_libelle'] ?? 'Non spécifié'); ?></div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Année Académique</div>
+                                        <div class="detail-value"><?php echo safeHtml($info_etudiant['annee_academique'] ?? date('Y') . '-' . (date('Y') + 1)); ?></div>
+                                    </div>
+                                    <div class="detail-item">
+                                        <div class="detail-label">Date de Naissance</div>
+                                        <div class="detail-value"><?php echo formatDateFr($info_etudiant['date_naissance'] ?? ''); ?></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         
-                        <div class="carte-details">
-                            <div class="carte-detail-item">
-                                <div class="carte-detail-label">Filière</div>
-                                <div class="carte-detail-value"><?php echo safeHtml($info_etudiant['filiere_nom'] ?? 'Non spécifiée'); ?></div>
+                        <!-- Section droite -->
+                        <div class="carte-section-droite">
+                            <div class="carte-details-grid">
+                                <div class="detail-item">
+                                    <div class="detail-label">Site</div>
+                                    <div class="detail-value"><?php echo safeHtml($info_etudiant['site_nom'] ?? ''); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Classe</div>
+                                    <div class="detail-value"><?php echo safeHtml($info_etudiant['classe_nom'] ?? 'Non spécifiée'); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Adresse</div>
+                                    <div class="detail-value"><?php echo safeHtml($info_etudiant['site_ville'] ?? ''); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Téléphone</div>
+                                    <div class="detail-value"><?php echo safeHtml($info_etudiant['site_telephone'] ?? 'Non spécifié'); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Date d'inscription</div>
+                                    <div class="detail-value"><?php echo formatDateFr($info_etudiant['date_inscription'] ?? ''); ?></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-label">Statut</div>
+                                    <div class="detail-value"><?php echo ($info_etudiant['statut'] ?? 'Actif') == 'actif' ? 'ACTIF' : 'INACTIF'; ?></div>
+                                </div>
                             </div>
-                            <div class="carte-detail-item">
-                                <div class="carte-detail-label">Niveau</div>
-                                <div class="carte-detail-value"><?php echo safeHtml($info_etudiant['niveau_libelle'] ?? 'Non spécifié'); ?></div>
-                            </div>
-                            <div class="carte-detail-item">
-                                <div class="carte-detail-label">Année Académique</div>
-                                <div class="carte-detail-value"><?php echo safeHtml($info_etudiant['annee_academique'] ?? date('Y') . '-' . (date('Y') + 1)); ?></div>
-                            </div>
-                            <div class="carte-detail-item">
-                                <div class="carte-detail-label">Date de Naissance</div>
-                                <div class="carte-detail-value"><?php echo formatDateFr($info_etudiant['date_naissance'] ?? ''); ?></div>
-                            </div>
-                            <div class="carte-detail-item">
-                                <div class="carte-detail-label">Site</div>
-                                <div class="carte-detail-value"><?php echo safeHtml($info_etudiant['site_nom'] ?? ''); ?></div>
-                            </div>
-                            <div class="carte-detail-item">
-                                <div class="carte-detail-label">Date d'expiration</div>
-                                <div class="carte-detail-value"><?php echo date('m/Y', strtotime('+1 year')); ?></div>
+                            
+                            <!-- Section QR Code intégrée -->
+                            <div class="carte-qr-section">
+                                <div class="qr-header">
+                                    <div class="qr-title">
+                                        <i class="fas fa-qrcode"></i> CODE DE VÉRIFICATION NUMÉRIQUE
+                                    </div>
+                                    <div class="qr-expiry">
+                                        Valide jusqu'au: <?php echo date('m/Y', strtotime('+1 year')); ?>
+                                    </div>
+                                </div>
+                                
+                                <div class="qr-container">
+                                    <div class="qr-code-box">
+                                        <?php if(!empty($qr_code_path)): ?>
+                                        <img src="<?php echo safeHtml($qr_code_path); ?>" 
+                                             alt="QR Code étudiant" class="qr-code-img"
+                                             onerror="this.onerror=null; this.src=''; this.style.display='none'; this.parentNode.innerHTML='<div style=\"width:120px;height:120px;display:flex;align-items:center;justify-content:center;color:var(--gold-color);\"><i class=\"fas fa-exclamation-triangle fa-2x\"></i></div>';">
+                                        <?php else: ?>
+                                        <div style="width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; background: #f0f0f0; border-radius: 6px;">
+                                            <i class="fas fa-exclamation-triangle text-warning fa-2x"></i>
+                                        </div>
+                                        <?php endif; ?>
+                                    </div>
+                                    
+                                    <div class="qr-info">
+                                        <p class="qr-instructions">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Scannez ce code QR avec l'application mobile ISGI ou un lecteur QR standard pour vérifier l'authenticité de cette carte étudiante. Le code contient toutes les informations d'identification officielles et sécurisées.
+                                        </p>
+                                        <div class="qr-hint">
+                                            <i class="fas fa-mobile-alt"></i>
+                                            Compatible avec toutes les applications de lecture QR
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                     
-                    <?php if(isset($info_etudiant['photo_identite']) && !empty($info_etudiant['photo_identite'])): ?>
-                    <img src="<?php echo safeHtml($info_etudiant['photo_identite']); ?>" 
-                         alt="Photo étudiant" class="carte-photo">
-                    <?php else: ?>
-                    <div class="carte-photo-placeholder">
-                        <i class="fas fa-user fa-5x text-white"></i>
+                    <!-- Pied de carte -->
+                    <div class="carte-footer">
+                        <div class="footer-date">
+                            <i class="fas fa-calendar-alt"></i>
+                            Délivrée le: <?php echo date('d/m/Y'); ?>
+                        </div>
+                        <div class="footer-id">
+                            <i class="fas fa-fingerprint me-2"></i>
+                            ID: <?php echo substr(md5($info_etudiant['matricule'] ?? '' . time()), 0, 12); ?>
+                        </div>
+                        <div class="footer-signature">
+                            <i class="fas fa-stamp me-2"></i>
+                            Cachet officiel ISGI
+                        </div>
                     </div>
-                    <?php endif; ?>
-                </div>
-                
-                <div class="carte-qr" id="qrcodeContainer">
-                    <div id="qrcode"></div>
-                </div>
-                
-                <div class="carte-footer">
-                    Carte délivrée le: <?php echo date('d/m/Y'); ?>
+                    
+                    <!-- Timbre de validité -->
+                    <div class="validity-stamp">
+                        <i class="fas fa-check"></i>
+                    </div>
                 </div>
             </div>
             
@@ -843,11 +1349,7 @@ try {
                 <p class="text-muted mb-4">Téléchargez votre carte étudiante dans différents formats pour l'utiliser selon vos besoins.</p>
                 
                 <div class="telechargement-options">
-                    <div class="telechargement-option" onclick="telechargerPDF()">
-                        <i class="fas fa-file-pdf"></i>
-                        <div class="title">Format PDF</div>
-                        <div class="description">Haute qualité pour impression</div>
-                    </div>
+                   
                     
                     <div class="telechargement-option" onclick="telechargerImage()">
                         <i class="fas fa-image"></i>
@@ -861,16 +1363,12 @@ try {
                         <div class="description">QR Code individuel</div>
                     </div>
                     
-                    <div class="telechargement-option" onclick="partagerCarte()">
-                        <i class="fas fa-share-alt"></i>
-                        <div class="title">Partager</div>
-                        <div class="description">Partager par email/WhatsApp</div>
-                    </div>
+                    
                 </div>
                 
                 <div class="info-card mt-4">
                     <h6><i class="fas fa-info-circle me-2"></i> Conseils d'impression</h6>
-                    <p class="mb-0 small">Pour une impression optimale, utilisez du papier cartonné de qualité et imprimez en haute résolution. Laminez votre carte pour plus de durabilité.</p>
+                    <p class="mb-0 small">Pour une impression optimale, utilisez du papier cartonné de qualité (300g) et imprimez en haute résolution. Laminez votre carte pour plus de durabilité. Le format paysage est recommandé pour une meilleure lisibilité.</p>
                 </div>
             </div>
             
@@ -910,54 +1408,10 @@ try {
                             </p>
                             <p class="mb-0">
                                 <i class="fas fa-qrcode me-2"></i>
-                                <strong>QR Code unique:</strong> <?php echo substr(md5($info_etudiant['matricule'] ?? '' . time()), 0, 8); ?>
+                                <strong>QR Code unique:</strong> <?php echo substr(md5($info_etudiant['matricule'] ?? '' . time()), 0, 12); ?>
                             </p>
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Section historique (si disponible) -->
-            <?php if(!empty($historique_cartes)): ?>
-            <div class="historique-section mt-4">
-                <h4 class="mb-4">
-                    <i class="fas fa-history me-2"></i>
-                    Historique des cartes
-                </h4>
-                <div class="historique-list">
-                    <?php foreach($historique_cartes as $historique): ?>
-                    <div class="historique-item">
-                        <div>
-                            <h6 class="mb-1">Carte délivrée le <?php echo formatDateFr($historique['date_creation']); ?></h6>
-                            <?php if(!empty($historique['raison_annulation'])): ?>
-                            <p class="mb-0 small text-muted">Raison: <?php echo safeHtml($historique['raison_annulation']); ?></p>
-                            <?php endif; ?>
-                        </div>
-                        <div>
-                            <?php if(($historique['statut'] ?? '') == 'valide'): ?>
-                            <span class="badge badge-valide">Valide</span>
-                            <?php elseif(($historique['statut'] ?? '') == 'invalide'): ?>
-                            <span class="badge badge-invalide">Invalide</span>
-                            <?php else: ?>
-                            <span class="badge badge-attente">En attente</span>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Section demande de renouvellement -->
-            <div class="warning-card mt-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="mb-1"><i class="fas fa-redo-alt me-2"></i> Demande de renouvellement</h5>
-                        <p class="mb-0">Votre carte expire dans moins de 30 jours. Demandez son renouvellement dès maintenant.</p>
-                    </div>
-                    <button class="btn btn-warning" onclick="demanderRenouvellement()">
-                        <i class="fas fa-paper-plane me-2"></i> Demander le renouvellement
-                    </button>
                 </div>
             </div>
         </div>
@@ -973,26 +1427,6 @@ try {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
     <script>
-    // Générer le QR Code
-    document.addEventListener('DOMContentLoaded', function() {
-        // Données pour le QR Code
-        const qrData = `<?php echo safeHtml($info_qr_code['qr_code_data'] ?? 'ETUDIANT:TEST'); ?>`;
-        
-        // Générer le QR Code
-        new QRCode(document.getElementById("qrcode"), {
-            text: qrData,
-            width: 100,
-            height: 100,
-            colorDark: "#000000",
-            colorLight: "#ffffff",
-            correctLevel: QRCode.CorrectLevel.H
-        });
-        
-        // Initialiser le thème
-        const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-    });
-    
     // Fonction pour basculer entre mode sombre et clair
     function toggleTheme() {
         const html = document.documentElement;
@@ -1002,6 +1436,7 @@ try {
         html.setAttribute('data-theme', newTheme);
         document.cookie = `isgi_theme=${newTheme}; max-age=${30*24*60*60}; path=/`;
         
+        // Mettre à jour le bouton
         const button = event.target.closest('button');
         if (button) {
             if (newTheme === 'dark') {
@@ -1009,6 +1444,33 @@ try {
             } else {
                 button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
             }
+        }
+    }
+    
+    // Initialiser le thème au chargement
+    document.addEventListener('DOMContentLoaded', function() {
+        const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+    });
+    
+    // Fonction pour changer l'orientation
+    function setOrientation(orientation) {
+        const carte = document.getElementById('cartePrincipale');
+        const buttons = document.querySelectorAll('.orientation-btn');
+        
+        // Mettre à jour les boutons actifs
+        buttons.forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.target.classList.add('active');
+        
+        // Changer l'orientation
+        if (orientation === 'paysage') {
+            carte.classList.add('carte-etudiante-paysage');
+            carte.classList.remove('carte-etudiante-portrait');
+        } else {
+            carte.classList.add('carte-etudiante-portrait');
+            carte.classList.remove('carte-etudiante-paysage');
         }
     }
     
@@ -1020,15 +1482,55 @@ try {
         // Forcer le mode clair pour l'impression
         document.documentElement.setAttribute('data-theme', 'light');
         
-        // Attendre un peu pour que le DOM se mette à jour
+        // Créer une fenêtre d'impression spéciale pour la carte
+        const printContent = document.getElementById('cartePrincipale').outerHTML;
+        const printWindow = window.open('', '_blank', 'width=900,height=600');
+        
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Carte Étudiante - ISGI</title>
+                <style>
+                    body { 
+                        margin: 0; 
+                        padding: 20px; 
+                        display: flex; 
+                        justify-content: center; 
+                        align-items: center; 
+                        min-height: 100vh;
+                        background: #f0f0f0;
+                    }
+                    @media print {
+                        body { background: none; }
+                    }
+                    .carte-etudiante { 
+                        margin: 0 auto;
+                        transform: scale(1.2);
+                        transform-origin: top center;
+                    }
+                </style>
+            </head>
+            <body>
+                ${printContent}
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        setTimeout(function() {
+                            window.close();
+                        }, 500);
+                    };
+                <\/script>
+            </body>
+            </html>
+        `);
+        
+        printWindow.document.close();
+        
+        // Restaurer le thème original après l'impression
         setTimeout(() => {
-            window.print();
-            
-            // Restaurer le thème original
-            setTimeout(() => {
-                document.documentElement.setAttribute('data-theme', originalTheme);
-            }, 500);
-        }, 100);
+            document.documentElement.setAttribute('data-theme', originalTheme);
+        }, 1000);
     }
     
     // Fonction pour télécharger la carte en PDF
@@ -1036,24 +1538,43 @@ try {
         const { jsPDF } = window.jspdf;
         
         html2canvas(document.getElementById('cartePrincipale'), {
-            scale: 2,
-            backgroundColor: '#3498db',
-            useCORS: true
+            scale: 3,
+            backgroundColor: '#001f3f',
+            useCORS: true,
+            logging: false
         }).then(canvas => {
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF({
                 orientation: 'landscape',
                 unit: 'mm',
-                format: [85.6, 54] // Format carte de crédit
+                format: 'a4'
             });
             
-            const imgWidth = 85.6;
-            const imgHeight = 54;
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
             
-            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-            pdf.save('carte-etudiante-isgi.pdf');
+            // Ajouter la carte centrée
+            const imgWidth = 180;
+            const imgHeight = 115;
+            const x = (pageWidth - imgWidth) / 2;
+            const y = (pageHeight - imgHeight) / 2;
+            
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
+            
+            // Ajouter des informations supplémentaires
+            pdf.setFontSize(12);
+            pdf.setTextColor(40, 40, 40);
+            pdf.text('Carte Étudiante ISGI - Format Paysage', pageWidth / 2, y - 15, { align: 'center' });
+            pdf.setFontSize(10);
+            pdf.text('Date d\'impression: ' + new Date().toLocaleDateString(), pageWidth / 2, y + imgHeight + 15, { align: 'center' });
+            pdf.text('Matricule: <?php echo safeHtml($info_etudiant['matricule'] ?? ''); ?>', pageWidth / 2, y + imgHeight + 25, { align: 'center' });
+            
+            pdf.save('carte-etudiante-isgi-paysage.pdf');
             
             showNotification('PDF téléchargé avec succès', 'success');
+        }).catch(error => {
+            console.error('Erreur lors de la génération PDF:', error);
+            showNotification('Erreur lors du téléchargement PDF', 'error');
         });
     }
     
@@ -1061,124 +1582,91 @@ try {
     function telechargerImage() {
         html2canvas(document.getElementById('cartePrincipale'), {
             scale: 2,
-            backgroundColor: '#3498db',
-            useCORS: true
+            backgroundColor: '#001f3f',
+            useCORS: true,
+            logging: false
         }).then(canvas => {
             const link = document.createElement('a');
-            link.download = 'carte-etudiante-isgi.png';
+            link.download = 'carte-etudiante-isgi-paysage.png';
             link.href = canvas.toDataURL('image/png');
             link.click();
             
             showNotification('Image téléchargée avec succès', 'success');
+        }).catch(error => {
+            console.error('Erreur lors de la génération d\'image:', error);
+            showNotification('Erreur lors du téléchargement de l\'image', 'error');
         });
     }
     
     // Fonction pour télécharger le QR Code seul
     function telechargerQR() {
-        const qrCanvas = document.querySelector('#qrcode canvas');
-        if (qrCanvas) {
-            const link = document.createElement('a');
-            link.download = 'qr-code-etudiant.png';
-            link.href = qrCanvas.toDataURL('image/png');
-            link.click();
-            
+        <?php if(!empty($qr_code_path)): ?>
+        // Essayer plusieurs chemins possibles
+        const qrUrl = '<?php echo safeHtml($qr_code_path); ?>';
+        const qrUrl2 = qrUrl.replace('/isgi_system', '');
+        const qrUrl3 = '/isgi_system' + qrUrl2;
+        
+        // Télécharger en essayant les différentes URLs
+        downloadImage(qrUrl, 'qr-code-etudiant-<?php echo safeHtml($info_etudiant['matricule'] ?? ''); ?>.png');
+        
+        <?php else: ?>
+        showNotification('QR Code non disponible', 'error');
+        <?php endif; ?>
+    }
+    
+    // Fonction utilitaire pour télécharger une image
+    function downloadImage(url, filename) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Vérifier si le téléchargement a réussi
+        setTimeout(() => {
             showNotification('QR Code téléchargé', 'success');
-        }
+        }, 1000);
     }
     
-    // Fonction pour partager la carte
-    function partagerCarte() {
-        if (navigator.share) {
-            html2canvas(document.getElementById('cartePrincipale'), {
-                scale: 2,
-                backgroundColor: '#3498db',
-                useCORS: true
-            }).then(canvas => {
-                canvas.toBlob(blob => {
-                    const file = new File([blob], 'carte-etudiante.png', { type: 'image/png' });
-                    
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                        navigator.share({
-                            files: [file],
-                            title: 'Ma carte étudiante ISGI',
-                            text: 'Voici ma carte étudiante ISGI'
-                        });
-                    }
-                });
+    // Fonction pour télécharger au format carte de crédit (format paysage optimisé)
+    function telechargerFormatCarte() {
+        const { jsPDF } = window.jspdf;
+        
+        html2canvas(document.getElementById('cartePrincipale'), {
+            scale: 4,
+            backgroundColor: '#001f3f',
+            useCORS: true,
+            logging: false
+        }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF({
+                orientation: 'landscape',
+                unit: 'mm',
+                format: [85.6, 54] // Format carte de crédit standard
             });
+            
+            // Pour le format paysage, on ajuste la position
+            const imgWidth = 85.6;
+            const imgHeight = 54;
+            
+            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+            pdf.save('carte-etudiante-isgi-format-carte-paysage.pdf');
+            
+            showNotification('Carte au format standard (paysage) téléchargée', 'success');
+        }).catch(error => {
+            console.error('Erreur lors de la génération de la carte format:', error);
+            showNotification('Erreur lors du téléchargement', 'error');
+        });
+    }
+    
+    // Fonction pour télécharger la carte (bouton principal)
+    function telechargerCarte() {
+        // Proposer différents formats
+        if (confirm('Télécharger la carte en format paysage:\nOK = PDF (A4 paysage)\nAnnuler = Image PNG')) {
+            telechargerPDF();
         } else {
-            // Fallback pour les navigateurs qui ne supportent pas l'API Share
-            alert('Pour partager votre carte, téléchargez-la d\'abord puis partagez le fichier.');
-        }
-    }
-    
-    // Fonction pour actualiser le QR Code
-    function actualiserQRCode() {
-        if (confirm('Voulez-vous générer un nouveau QR Code ? L\'ancien deviendra invalide.')) {
-            // Simuler une requête AJAX pour générer un nouveau QR Code
-            fetch('actualiser_qrcode.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    etudiant_id: <?php echo $etudiant_id ?? 0; ?>
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Vider le conteneur QR
-                    document.getElementById('qrcode').innerHTML = '';
-                    
-                    // Générer le nouveau QR Code
-                    new QRCode(document.getElementById("qrcode"), {
-                        text: data.qr_data,
-                        width: 100,
-                        height: 100,
-                        colorDark: "#000000",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                    
-                    showNotification('QR Code actualisé avec succès', 'success');
-                } else {
-                    showNotification('Erreur lors de l\'actualisation', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                showNotification('Erreur réseau', 'error');
-            });
-        }
-    }
-    
-    // Fonction pour demander un renouvellement
-    function demanderRenouvellement() {
-        if (confirm('Souhaitez-vous demander le renouvellement de votre carte étudiante ?')) {
-            // Simuler une requête AJAX
-            fetch('demande_renouvellement.php', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    etudiant_id: <?php echo $etudiant_id ?? 0; ?>,
-                    raison: 'Expiration prochaine'
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('Demande de renouvellement envoyée', 'success');
-                } else {
-                    showNotification('Erreur lors de la demande', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Erreur:', error);
-                showNotification('Erreur réseau', 'error');
-            });
+            telechargerImage();
         }
     }
     
@@ -1215,22 +1703,6 @@ try {
             }
         }, 5000);
     }
-    
-    // Gestion de l'expiration de la carte
-    function verifierExpiration() {
-        const dateExpiration = new Date('<?php echo date('Y-m-d', strtotime('+1 year')); ?>');
-        const aujourdhui = new Date();
-        const diffJours = Math.ceil((dateExpiration - aujourdhui) / (1000 * 60 * 60 * 24));
-        
-        if (diffJours <= 30 && diffJours > 0) {
-            showNotification(`Votre carte expire dans ${diffJours} jours`, 'warning');
-        } else if (diffJours <= 0) {
-            showNotification('Votre carte est expirée', 'error');
-        }
-    }
-    
-    // Vérifier l'expiration au chargement
-    document.addEventListener('DOMContentLoaded', verifierExpiration);
     </script>
 </body>
 </html>

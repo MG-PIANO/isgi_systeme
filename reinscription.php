@@ -707,13 +707,13 @@ if ($mois_courant >= 9) { // Si on est après septembre, année suivante
                 <a href="index.php">Accueil</a>
                 <a href="inscription.php">Inscription</a>
                 <a href="reinscription.php" class="active">Réinscription</a>
-                <a href="contacter.php">Nous Contacter</a>
+                <a href="contact.php">Nous Contacter</a>
                 <a href="apropos.php">A propos de nous</a>
             </nav>
             
             <div class="auth-buttons">
-                <button class="btn btn-secondary" onclick="window.location.href='admin/login.php'">Se connecter</button>
-                <button class="btn btn-primary" onclick="window.location.href='inscription.php'">S'inscrire</button>
+                <button class="btn btn-secondary" onclick="window.location.href='auth/login.php'">Se connecter</button>
+                <button class="btn btn-primary" onclick="window.location.href='register_student_tutor.php'">Créer un compte</button>
             </div>
         </div>
     </header>
@@ -808,7 +808,7 @@ if ($mois_courant >= 9) { // Si on est après septembre, année suivante
                 <p>Procédure de réinscription pour l'année académique suivante</p>
                 <p style="margin-top: 10px; font-size: 0.9rem;">
                     <i class="fas fa-info-circle"></i> Frais de réinscription : 
-                    <strong><?php echo number_format($configs['frais_reinscription'] ?? 25000, 0, ',', ' '); ?> FCFA</strong>
+                    <strong><?php echo number_format($configs['frais_reinscription'] ?? 20000, 0, ',', ' '); ?> FCFA</strong>
                 </p>
             </div>
             

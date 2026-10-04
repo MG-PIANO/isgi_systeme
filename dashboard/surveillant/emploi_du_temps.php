@@ -1,5 +1,5 @@
 <?php
-// dashboard/surveillant/emploi_du_temps.php
+// dashboard/surveillant/emploi_du_temps_complet.php
 
 // Définir le chemin absolu
 define('ROOT_PATH', dirname(dirname(dirname(__FILE__))));
@@ -30,13 +30,13 @@ require_once ROOT_PATH . '/config/database.php';
 $db = Database::getInstance()->getConnection();
 
 // Définir le titre de la page
-$pageTitle = "Surveillant Général - Emploi du Temps";
+$pageTitle = "Surveillant Général - Emploi du Temps Complet";
 
 // Récupérer l'ID du site du surveillant
 $site_id = $_SESSION['site_id'];
 $surveillant_id = $_SESSION['user_id'];
 
-// Fonctions utilitaires
+// Fonction pour formater la date
 function formatDateFr($date, $format = 'd/m/Y H:i') {
     if (empty($date) || $date == '0000-00-00 00:00:00') return 'Non renseigné';
     $timestamp = strtotime($date);
@@ -44,48 +44,56 @@ function formatDateFr($date, $format = 'd/m/Y H:i') {
     return date($format, $timestamp);
 }
 
+// Fonction pour obtenir le jour de la semaine
 function getJourSemaine($date) {
     $jours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
     $timestamp = strtotime($date);
     return $jours[date('w', $timestamp)];
 }
 
-// Initialiser les variables
-$emploi_du_temps = [];
-$classes = [];
-$matieres = [];
-$enseignants = [];
-$salles = [];
-$statistiques = [
-    'total_cours' => 0,
-    'cours_aujourdhui' => 0,
-    'classes_actives' => 0
-];
-$cours_aujourdhui = [];
-$cours_semaine = [];
-
 // Date d'aujourd'hui
 $aujourdhui = date('Y-m-d');
 $jour_semaine_aujourdhui = getJourSemaine($aujourdhui);
-$debut_semaine = date('Y-m-d', strtotime('monday this week'));
-$fin_semaine = date('Y-m-d', strtotime('sunday this week'));
 
 // Gérer les paramètres de filtrage
 $filtre_classe = isset($_GET['classe']) ? intval($_GET['classe']) : 0;
 $filtre_enseignant = isset($_GET['enseignant']) ? intval($_GET['enseignant']) : 0;
 $filtre_jour = isset($_GET['jour']) ? $_GET['jour'] : '';
+$filtre_matiere = isset($_GET['matiere']) ? intval($_GET['matiere']) : 0;
+$filtre_salle = isset($_GET['salle']) ? $_GET['salle'] : '';
+
+// Variables pour stocker les données
+$emploi_du_temps = [];
+$classes = [];
+$enseignants = [];
+$matieres = [];
+$salles = [];
+$statistiques = [
+    'total_cours' => 0,
+    'cours_aujourdhui' => 0,
+    'classes_actives' => 0,
+    'enseignants_actifs' => 0
+];
 
 try {
-    // 1. Récupérer l'emploi du temps
+    // 1. Récupérer l'emploi du temps avec filtres
     $query = "SELECT 
                 edt.*,
+                c.id as classe_id,
                 c.nom as classe_nom,
+                f.nom as filiere_nom,
+                n.libelle as niveau_libelle,
+                m.id as matiere_id,
                 m.nom as matiere_nom,
                 m.code as matiere_code,
+                e.id as enseignant_id,
                 CONCAT(u.nom, ' ', u.prenom) as enseignant_nom,
-                e.matricule as enseignant_matricule
+                e.matricule as enseignant_matricule,
+                edt.salle
               FROM emploi_du_temps edt
               LEFT JOIN classes c ON edt.classe_id = c.id
+              LEFT JOIN filieres f ON c.filiere_id = f.id
+              LEFT JOIN niveaux n ON c.niveau_id = n.id
               LEFT JOIN matieres m ON edt.matiere_id = m.id
               LEFT JOIN enseignants e ON edt.enseignant_id = e.id
               LEFT JOIN utilisateurs u ON e.utilisateur_id = u.id
@@ -96,6 +104,7 @@ try {
     
     $params = [':site_id' => $site_id];
     
+    // Appliquer les filtres
     if ($filtre_classe > 0) {
         $query .= " AND edt.classe_id = :classe_id";
         $params[':classe_id'] = $filtre_classe;
@@ -106,9 +115,19 @@ try {
         $params[':enseignant_id'] = $filtre_enseignant;
     }
     
+    if ($filtre_matiere > 0) {
+        $query .= " AND edt.matiere_id = :matiere_id";
+        $params[':matiere_id'] = $filtre_matiere;
+    }
+    
     if (!empty($filtre_jour)) {
         $query .= " AND edt.jour_semaine = :jour_semaine";
         $params[':jour_semaine'] = $filtre_jour;
+    }
+    
+    if (!empty($filtre_salle)) {
+        $query .= " AND edt.salle LIKE :salle";
+        $params[':salle'] = '%' . $filtre_salle . '%';
     }
     
     $query .= " ORDER BY 
@@ -129,6 +148,7 @@ try {
     $emploi_du_temps = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // 2. Récupérer les statistiques
+    // Total des cours
     $query = "SELECT COUNT(*) as total FROM emploi_du_temps 
               WHERE site_id = :site_id 
                 AND annee_academique_id IN (
@@ -165,62 +185,13 @@ try {
     $result = $stmt->fetch(PDO::FETCH_ASSOC);
     $statistiques['classes_actives'] = $result['total'] ?? 0;
     
-    // 3. Récupérer les cours d'aujourd'hui
-    $query = "SELECT 
-                edt.*,
-                c.nom as classe_nom,
-                m.nom as matiere_nom,
-                CONCAT(u.nom, ' ', u.prenom) as enseignant_nom
-              FROM emploi_du_temps edt
-              LEFT JOIN classes c ON edt.classe_id = c.id
-              LEFT JOIN matieres m ON edt.matiere_id = m.id
-              LEFT JOIN enseignants e ON edt.enseignant_id = e.id
-              LEFT JOIN utilisateurs u ON e.utilisateur_id = u.id
-              WHERE edt.site_id = :site_id 
-                AND edt.jour_semaine = :jour_semaine
-                AND edt.annee_academique_id IN (
-                  SELECT id FROM annees_academiques WHERE statut = 'active'
-                )
-              ORDER BY edt.heure_debut";
-    $stmt = $db->prepare($query);
-    $stmt->execute([
-        ':site_id' => $site_id,
-        ':jour_semaine' => $jour_semaine_aujourdhui
-    ]);
-    $cours_aujourdhui = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // 4. Récupérer les cours de la semaine
-    $query = "SELECT 
-                edt.jour_semaine,
-                COUNT(*) as nombre_cours,
-                GROUP_CONCAT(DISTINCT c.nom SEPARATOR ', ') as classes
-              FROM emploi_du_temps edt
-              LEFT JOIN classes c ON edt.classe_id = c.id
-              WHERE edt.site_id = :site_id 
-                AND edt.annee_academique_id IN (
-                  SELECT id FROM annees_academiques WHERE statut = 'active'
-                )
-              GROUP BY edt.jour_semaine
-              ORDER BY 
-                CASE edt.jour_semaine 
-                    WHEN 'Lundi' THEN 1
-                    WHEN 'Mardi' THEN 2
-                    WHEN 'Mercredi' THEN 3
-                    WHEN 'Jeudi' THEN 4
-                    WHEN 'Vendredi' THEN 5
-                    WHEN 'Samedi' THEN 6
-                    ELSE 7
-                END";
-    $stmt = $db->prepare($query);
-    $stmt->execute([':site_id' => $site_id]);
-    $cours_semaine = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // 5. Récupérer les classes pour le filtre
+    // 3. Récupérer les classes pour le filtre
     $query = "SELECT DISTINCT 
                 c.id,
                 c.nom,
                 f.nom as filiere_nom,
-                n.libelle as niveau_libelle
+                n.libelle as niveau_libelle,
+                COUNT(edt.id) as nombre_cours
               FROM emploi_du_temps edt
               LEFT JOIN classes c ON edt.classe_id = c.id
               LEFT JOIN filieres f ON c.filiere_id = f.id
@@ -229,16 +200,18 @@ try {
                 AND edt.annee_academique_id IN (
                   SELECT id FROM annees_academiques WHERE statut = 'active'
                 )
+              GROUP BY c.id, c.nom, f.nom, n.libelle
               ORDER BY c.nom";
     $stmt = $db->prepare($query);
     $stmt->execute([':site_id' => $site_id]);
     $classes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 6. Récupérer les enseignants pour le filtre
+    // 4. Récupérer les enseignants pour le filtre
     $query = "SELECT DISTINCT 
                 e.id,
                 CONCAT(u.nom, ' ', u.prenom) as nom_complet,
-                e.matricule
+                e.matricule,
+                COUNT(edt.id) as nombre_cours
               FROM emploi_du_temps edt
               LEFT JOIN enseignants e ON edt.enseignant_id = e.id
               LEFT JOIN utilisateurs u ON e.utilisateur_id = u.id
@@ -247,29 +220,35 @@ try {
                 AND edt.annee_academique_id IN (
                   SELECT id FROM annees_academiques WHERE statut = 'active'
                 )
+              GROUP BY e.id, u.nom, u.prenom, e.matricule
               ORDER BY u.nom, u.prenom";
     $stmt = $db->prepare($query);
     $stmt->execute([':site_id' => $site_id]);
     $enseignants = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $statistiques['enseignants_actifs'] = count($enseignants);
     
-    // 7. Récupérer les matières
+    // 5. Récupérer les matières pour le filtre
     $query = "SELECT DISTINCT 
                 m.id,
                 m.nom,
-                m.code
+                m.code,
+                COUNT(edt.id) as nombre_cours
               FROM emploi_du_temps edt
               LEFT JOIN matieres m ON edt.matiere_id = m.id
               WHERE edt.site_id = :site_id 
                 AND edt.annee_academique_id IN (
                   SELECT id FROM annees_academiques WHERE statut = 'active'
                 )
+              GROUP BY m.id, m.nom, m.code
               ORDER BY m.nom";
     $stmt = $db->prepare($query);
     $stmt->execute([':site_id' => $site_id]);
     $matieres = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // 8. Récupérer les salles utilisées
-    $query = "SELECT DISTINCT salle 
+    // 6. Récupérer les salles utilisées
+    $query = "SELECT DISTINCT 
+                salle,
+                COUNT(*) as nombre_cours
               FROM emploi_du_temps 
               WHERE site_id = :site_id 
                 AND salle IS NOT NULL 
@@ -277,20 +256,22 @@ try {
                 AND annee_academique_id IN (
                   SELECT id FROM annees_academiques WHERE statut = 'active'
                 )
+              GROUP BY salle
               ORDER BY salle";
     $stmt = $db->prepare($query);
     $stmt->execute([':site_id' => $site_id]);
     $salles = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
+    
 } catch (Exception $e) {
     $error = "Erreur lors de la récupération des données: " . $e->getMessage();
+    error_log("Erreur emploi_du_temps_complet: " . $e->getMessage());
 }
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title><?php echo htmlspecialchars($pageTitle); ?></title>
     
     <!-- Bootstrap 5 -->
@@ -298,9 +279,6 @@ try {
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- FullCalendar -->
-    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
     
     <style>
     :root {
@@ -342,23 +320,108 @@ try {
         margin: 0;
         padding: 0;
         min-height: 100vh;
+        overflow-x: hidden;
     }
     
-    .app-container {
-        display: flex;
-        min-height: 100vh;
+    /* Sidebar pour desktop */
+    @media (min-width: 992px) {
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            width: 250px;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 1000;
+            transform: translateX(0);
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        .main-content {
+            flex: 1;
+            margin-left: 250px;
+            padding: 20px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease-in-out;
+        }
+        
+        .mobile-header {
+            display: none;
+        }
     }
     
-    /* Sidebar */
-    .sidebar {
-        width: 250px;
-        background-color: var(--sidebar-bg);
-        color: var(--sidebar-text);
-        position: fixed;
-        height: 100vh;
-        overflow-y: auto;
+    /* Sidebar pour mobile */
+    @media (max-width: 991px) {
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 280px;
+            height: 100vh;
+            background-color: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 1050;
+            overflow-y: auto;
+        }
+        
+        .sidebar.show {
+            transform: translateX(0);
+        }
+        
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1040;
+            display: none;
+        }
+        
+        .sidebar-overlay.show {
+            display: block;
+        }
+        
+        .main-content {
+            width: 100%;
+            padding: 15px;
+            min-height: 100vh;
+            transition: margin-left 0.3s ease-in-out;
+        }
+        
+        .mobile-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: var(--sidebar-bg);
+            color: white;
+            padding: 15px;
+            margin: -15px -15px 15px -15px;
+            position: sticky;
+            top: 0;
+            z-index: 1030;
+        }
+        
+        .mobile-header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+        
+        .mobile-header-buttons {
+            display: flex;
+            gap: 10px;
+        }
     }
     
+    /* Sidebar commun */
     .sidebar-header {
         padding: 20px 15px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -432,12 +495,14 @@ try {
         text-align: center;
     }
     
-    /* Contenu principal */
-    .main-content {
-        flex: 1;
-        margin-left: 250px;
-        padding: 20px;
-        min-height: 100vh;
+    /* Bouton hamburger */
+    .hamburger-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 1.5rem;
+        padding: 5px;
+        cursor: pointer;
     }
     
     /* Cartes */
@@ -464,19 +529,20 @@ try {
         padding: 20px;
     }
     
-    /* Stat cards */
+    /* Stat cards responsive */
     .stat-card {
         text-align: center;
-        padding: 20px;
+        padding: 15px;
+        height: 100%;
     }
     
     .stat-icon {
-        font-size: 2.5rem;
-        margin-bottom: 15px;
+        font-size: 2rem;
+        margin-bottom: 10px;
     }
     
     .stat-value {
-        font-size: 2rem;
+        font-size: 1.5rem;
         font-weight: bold;
         margin-bottom: 5px;
         color: var(--text-color);
@@ -484,24 +550,31 @@ try {
     
     .stat-label {
         color: var(--text-muted);
-        font-size: 0.9rem;
+        font-size: 0.8rem;
     }
     
-    /* Tableaux */
+    /* Tableaux responsive */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
     .table {
         color: var(--text-color);
+        min-width: 650px;
     }
     
     .table thead th {
         background-color: var(--primary-color);
         color: white;
         border: none;
-        padding: 15px;
+        padding: 12px;
+        white-space: nowrap;
     }
     
     .table tbody td {
         border-color: var(--border-color);
-        padding: 15px;
+        padding: 12px;
         color: var(--text-color);
     }
     
@@ -513,41 +586,46 @@ try {
         background-color: rgba(255, 255, 255, 0.05);
     }
     
-    /* Responsive */
-    @media (max-width: 768px) {
-        .sidebar {
-            width: 70px;
-            overflow-x: hidden;
-        }
-        
-        .sidebar-header, .user-info, .nav-section-title, .nav-link span {
-            display: none;
-        }
-        
-        .nav-link {
-            justify-content: center;
-            padding: 15px;
-        }
-        
-        .nav-link i {
-            margin-right: 0;
-            font-size: 18px;
-        }
-        
-        .main-content {
-            margin-left: 70px;
-            padding: 15px;
-        }
-        
-        .stat-value {
-            font-size: 1.5rem;
-        }
+    /* Boutons responsive */
+    .btn-group {
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .btn-group .btn {
+        margin-bottom: 5px;
+    }
+    
+    /* Filtres responsive */
+    .filter-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 20px;
     }
     
     /* Badges */
-    .badge {
-        font-size: 0.75em;
-        padding: 4px 8px;
+    .badge-jour {
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-weight: 500;
+    }
+    
+    .badge-lundi { background-color: #3498db; color: white; }
+    .badge-mardi { background-color: #2ecc71; color: white; }
+    .badge-mercredi { background-color: #9b59b6; color: white; }
+    .badge-jeudi { background-color: #f39c12; color: white; }
+    .badge-vendredi { background-color: #e74c3c; color: white; }
+    .badge-samedi { background-color: #34495e; color: white; }
+    
+    .badge-salle {
+        background-color: var(--info-color);
+        color: white;
+        font-size: 0.75rem;
+        padding: 3px 8px;
+        border-radius: 4px;
     }
     
     /* Alertes */
@@ -563,128 +641,69 @@ try {
         border-left: 4px solid var(--info-color);
     }
     
-    /* Emploi du temps spécifique */
-    .cours-card {
-        border-left: 4px solid var(--primary-color);
-        margin-bottom: 10px;
-        transition: all 0.3s;
+    /* Améliorations pour très petits écrans */
+    @media (max-width: 576px) {
+        .content-header {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+        
+        .content-header .btn-group {
+            margin-top: 10px;
+            width: 100%;
+        }
+        
+        .content-header .btn-group .btn {
+            flex: 1;
+        }
+        
+        .stat-card {
+            padding: 10px;
+        }
+        
+        .stat-icon {
+            font-size: 1.5rem;
+        }
+        
+        .stat-value {
+            font-size: 1.2rem;
+        }
+        
+        .card-header h5 {
+            font-size: 1rem;
+        }
+        
+        .filter-card .col-md-3 {
+            margin-bottom: 10px;
+        }
     }
     
-    .cours-card:hover {
-        transform: translateX(5px);
-        box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    /* Scrollbar personnalisée */
+    .sidebar::-webkit-scrollbar {
+        width: 5px;
     }
     
-    .cours-heure {
-        font-weight: bold;
-        color: var(--primary-color);
+    .sidebar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
     }
     
-    .cours-salle {
-        color: var(--success-color);
-        font-weight: 500;
-    }
-    
-    .jour-table {
-        background: var(--card-bg);
-        border-radius: 8px;
-        overflow: hidden;
-    }
-    
-    .jour-header {
-        background-color: var(--primary-color);
-        color: white;
-        padding: 15px;
-        font-weight: bold;
-        text-align: center;
-    }
-    
-    .cours-list {
-        padding: 15px;
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    
-    /* Calendar */
-    .fc {
-        background-color: var(--card-bg);
+    .sidebar::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
         border-radius: 10px;
-        padding: 15px;
     }
     
-    .fc-toolbar-title {
-        color: var(--text-color) !important;
-    }
-    
-    .fc-col-header-cell-cushion {
-        color: var(--text-color) !important;
-    }
-    
-    .fc-daygrid-day-number {
-        color: var(--text-color) !important;
-    }
-    
-    .fc-daygrid-day.fc-day-today {
-        background-color: rgba(52, 152, 219, 0.1) !important;
-    }
-    
-    /* Filtres */
-    .filter-card {
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 20px;
-    }
-    
-    /* Timeline */
-    .timeline {
-        position: relative;
-        padding: 20px 0;
-    }
-    
-    .timeline::before {
-        content: '';
-        position: absolute;
-        left: 50%;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: var(--primary-color);
-        transform: translateX(-50%);
-    }
-    
-    .timeline-item {
-        position: relative;
-        margin-bottom: 30px;
-    }
-    
-    .timeline-item:nth-child(odd) {
-        padding-right: calc(50% + 20px);
-        text-align: right;
-    }
-    
-    .timeline-item:nth-child(even) {
-        padding-left: calc(50% + 20px);
-        text-align: left;
-    }
-    
-    .timeline-dot {
-        position: absolute;
-        top: 0;
-        width: 20px;
-        height: 20px;
-        background: var(--primary-color);
-        border-radius: 50%;
-        left: 50%;
-        transform: translateX(-50%);
+    .sidebar::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
     }
     </style>
 </head>
 <body>
+    <!-- Overlay pour mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
     <div class="app-container">
         <!-- Sidebar -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
                     <i class="fas fa-user-shield"></i>
@@ -695,7 +714,7 @@ try {
             
             <div class="user-info">
                 <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Surveillant'); ?></p>
-                <small>Emploi du Temps</small>
+                <small>Emploi du Temps Complet</small>
             </div>
             
             <div class="sidebar-nav">
@@ -737,9 +756,13 @@ try {
                         <i class="fas fa-door-open"></i>
                         <span>Salles de Classe</span>
                     </a>
-                    <a href="emploi_du_temps.php" class="nav-link active">
+                    <a href="emploi_du_temps.php" class="nav-link">
                         <i class="fas fa-calendar-alt"></i>
                         <span>Emploi du Temps</span>
+                    </a>
+                    <a href="emploi_du_temps_complet.php" class="nav-link active">
+                        <i class="fas fa-calendar-week"></i>
+                        <span>Emploi du Temps Complet</span>
                     </a>
                 </div>
                 
@@ -765,31 +788,53 @@ try {
         </div>
         
         <!-- Contenu Principal -->
-        <div class="main-content">
-            <!-- En-tête -->
-            <div class="content-header mb-4">
+        <div class="main-content" id="mainContent">
+            <!-- En-tête mobile -->
+            <div class="mobile-header d-lg-none">
+                <button class="hamburger-btn" id="hamburgerBtn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1>
+                    <i class="fas fa-calendar-week me-2"></i>
+                    Emploi du Temps Complet
+                </h1>
+                <div class="mobile-header-buttons">
+                    <button class="btn btn-sm btn-light" onclick="location.reload()">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- En-tête desktop -->
+            <div class="content-header mb-4 d-none d-lg-block">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <h2 class="mb-0">
-                            <i class="fas fa-calendar-alt me-2"></i>
-                            Emploi du Temps
+                            <i class="fas fa-calendar-week me-2"></i>
+                            Emploi du Temps Complet
                         </h2>
                         <p class="text-muted mb-0">
                             <i class="fas fa-building"></i> 
-                            Site: <?php echo $_SESSION['site_name'] ?? 'Non spécifié'; ?> - 
+                            Site: <?php echo htmlspecialchars($_SESSION['site_name'] ?? 'Non spécifié'); ?> - 
                             <i class="fas fa-calendar-day"></i> 
-                            Semaine du <?php echo date('d/m/Y', strtotime('monday this week')); ?> au <?php echo date('d/m/Y', strtotime('sunday this week')); ?>
+                            <?php echo date('d/m/Y'); ?>
                         </p>
                     </div>
                     <div class="btn-group">
                         <button class="btn btn-primary" onclick="imprimerEmploi()">
-                            <i class="fas fa-print"></i> Imprimer
+                            <i class="fas fa-print d-none d-md-inline"></i> 
+                            <span class="d-inline d-md-none"><i class="fas fa-print"></i></span>
+                            <span class="d-none d-md-inline">Imprimer</span>
                         </button>
-                        <button class="btn btn-success" onclick="exporterEmploi()">
-                            <i class="fas fa-file-export"></i> Exporter
+                        <button class="btn btn-success" onclick="exporterExcel()">
+                            <i class="fas fa-file-excel d-none d-md-inline"></i> 
+                            <span class="d-inline d-md-none"><i class="fas fa-file-excel"></i></span>
+                            <span class="d-none d-md-inline">Excel</span>
                         </button>
-                        <button class="btn btn-secondary" onclick="location.reload()">
-                            <i class="fas fa-sync-alt"></i> Actualiser
+                        <button class="btn btn-secondary" onclick="window.location.href='emploi_du_temps.php'">
+                            <i class="fas fa-arrow-left d-none d-md-inline"></i> 
+                            <span class="d-inline d-md-none"><i class="fas fa-arrow-left"></i></span>
+                            <span class="d-none d-md-inline">Retour</span>
                         </button>
                     </div>
                 </div>
@@ -803,7 +848,7 @@ try {
             
             <!-- Section 1: Statistiques -->
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-6 col-md-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-primary stat-icon">
                             <i class="fas fa-calendar-check"></i>
@@ -813,7 +858,7 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-6 col-md-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-info stat-icon">
                             <i class="fas fa-calendar-day"></i>
@@ -823,7 +868,7 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-6 col-md-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-success stat-icon">
                             <i class="fas fa-users"></i>
@@ -833,13 +878,13 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-6 col-md-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-warning stat-icon">
                             <i class="fas fa-chalkboard-teacher"></i>
                         </div>
-                        <div class="stat-value"><?php echo count($enseignants); ?></div>
-                        <div class="stat-label">Enseignants</div>
+                        <div class="stat-value"><?php echo $statistiques['enseignants_actifs']; ?></div>
+                        <div class="stat-label">Enseignants Actifs</div>
                     </div>
                 </div>
             </div>
@@ -850,34 +895,9 @@ try {
                     <i class="fas fa-filter me-2"></i>
                     Filtres
                 </h5>
-                <form method="GET" action="" class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Classe</label>
-                        <select class="form-select" name="classe">
-                            <option value="">Toutes les classes</option>
-                            <?php foreach($classes as $classe): ?>
-                            <option value="<?php echo $classe['id']; ?>" <?php echo $filtre_classe == $classe['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($classe['nom']); ?> 
-                                (<?php echo htmlspecialchars($classe['niveau_libelle']); ?>)
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label class="form-label">Enseignant</label>
-                        <select class="form-select" name="enseignant">
-                            <option value="">Tous les enseignants</option>
-                            <?php foreach($enseignants as $enseignant): ?>
-                            <option value="<?php echo $enseignant['id']; ?>" <?php echo $filtre_enseignant == $enseignant['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($enseignant['nom_complet']); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label class="form-label">Jour</label>
+                <form method="GET" action="" class="row g-2">
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Jour de la semaine</label>
                         <select class="form-select" name="jour">
                             <option value="">Tous les jours</option>
                             <option value="Lundi" <?php echo $filtre_jour == 'Lundi' ? 'selected' : ''; ?>>Lundi</option>
@@ -889,161 +909,84 @@ try {
                         </select>
                     </div>
                     
-                    <div class="col-md-3 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-search me-2"></i>Filtrer
-                        </button>
-                        <a href="emploi_du_temps.php" class="btn btn-outline-secondary ms-2">
-                            <i class="fas fa-times"></i>
-                        </a>
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Classe</label>
+                        <select class="form-select" name="classe">
+                            <option value="">Toutes les classes</option>
+                            <?php foreach($classes as $classe): ?>
+                            <option value="<?php echo $classe['id']; ?>" <?php echo $filtre_classe == $classe['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($classe['nom']); ?> 
+                                (<?php echo $classe['nombre_cours']; ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Enseignant</label>
+                        <select class="form-select" name="enseignant">
+                            <option value="">Tous les enseignants</option>
+                            <?php foreach($enseignants as $enseignant): ?>
+                            <option value="<?php echo $enseignant['id']; ?>" <?php echo $filtre_enseignant == $enseignant['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($enseignant['nom_complet']); ?>
+                                (<?php echo $enseignant['nombre_cours']; ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Matière</label>
+                        <select class="form-select" name="matiere">
+                            <option value="">Toutes les matières</option>
+                            <?php foreach($matieres as $matiere): ?>
+                            <option value="<?php echo $matiere['id']; ?>" <?php echo $filtre_matiere == $matiere['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($matiere['nom']); ?>
+                                (<?php echo $matiere['nombre_cours']; ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="col-12 col-md-6 col-lg-4">
+                        <label class="form-label">Salle</label>
+                        <select class="form-select" name="salle">
+                            <option value="">Toutes les salles</option>
+                            <?php foreach($salles as $salle): ?>
+                            <option value="<?php echo htmlspecialchars($salle['salle']); ?>" <?php echo $filtre_salle == $salle['salle'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($salle['salle']); ?>
+                                (<?php echo $salle['nombre_cours']; ?>)
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="col-12 col-md-6 col-lg-4 d-flex align-items-end">
+                        <div class="w-100">
+                            <button type="submit" class="btn btn-primary w-100 mb-2">
+                                <i class="fas fa-search me-1"></i>Filtrer
+                            </button>
+                            <a href="emploi_du_temps_complet.php" class="btn btn-outline-secondary w-100">
+                                <i class="fas fa-times me-1"></i>Réinitialiser
+                            </a>
+                        </div>
                     </div>
                 </form>
             </div>
             
-            <!-- Section 3: Cours d'Aujourd'hui -->
-            <div class="row mb-4">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">
-                                <i class="fas fa-calendar-day me-2"></i>
-                                Cours d'Aujourd'hui (<?php echo $jour_semaine_aujourdhui . ' ' . date('d/m/Y'); ?>)
-                            </h5>
-                            <span class="badge bg-primary">
-                                <?php echo count($cours_aujourdhui); ?> cours
-                            </span>
-                        </div>
-                        <div class="card-body">
-                            <?php if(empty($cours_aujourdhui)): ?>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> 
-                                Aucun cours programmé pour aujourd'hui.
-                            </div>
-                            <?php else: ?>
-                            <div class="row">
-                                <?php 
-                                $cours_par_heure = [];
-                                foreach($cours_aujourdhui as $cours) {
-                                    $heure = date('H:i', strtotime($cours['heure_debut']));
-                                    $cours_par_heure[$heure][] = $cours;
-                                }
-                                ksort($cours_par_heure);
-                                ?>
-                                
-                                <?php foreach($cours_par_heure as $heure => $cours_list): ?>
-                                <div class="col-md-6 mb-3">
-                                    <div class="cours-card card">
-                                        <div class="card-body">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <h6 class="cours-heure mb-0">
-                                                    <i class="fas fa-clock me-2"></i>
-                                                    <?php echo $heure; ?> - 
-                                                    <?php echo date('H:i', strtotime($cours_list[0]['heure_fin'])); ?>
-                                                </h6>
-                                                <span class="cours-salle">
-                                                    <i class="fas fa-door-open"></i>
-                                                    <?php echo htmlspecialchars($cours_list[0]['salle'] ?? 'Non spécifié'); ?>
-                                                </span>
-                                            </div>
-                                            
-                                            <?php foreach($cours_list as $cours): ?>
-                                            <div class="mb-2">
-                                                <strong><?php echo htmlspecialchars($cours['classe_nom']); ?></strong>
-                                                <div class="text-muted small">
-                                                    <i class="fas fa-book me-1"></i>
-                                                    <?php echo htmlspecialchars($cours['matiere_nom']); ?>
-                                                </div>
-                                                <div class="text-muted small">
-                                                    <i class="fas fa-user-tie me-1"></i>
-                                                    <?php echo htmlspecialchars($cours['enseignant_nom'] ?? 'Non assigné'); ?>
-                                                </div>
-                                            </div>
-                                            <?php endforeach; ?>
-                                            
-                                            <div class="mt-3">
-                                                <button class="btn btn-sm btn-outline-primary" 
-                                                        onclick="voirPresencesClasse(<?php echo $cours_list[0]['classe_id']; ?>, '<?php echo $cours_list[0]['matiere_id']; ?>')">
-                                                    <i class="fas fa-clipboard-check"></i> Vérifier présence
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-bar me-2"></i>
-                                Répartition Hebdomadaire
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="list-group">
-                                <?php 
-                                $jours_ordre = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-                                $cours_semaine_assoc = [];
-                                foreach($cours_semaine as $cs) {
-                                    $cours_semaine_assoc[$cs['jour_semaine']] = $cs;
-                                }
-                                ?>
-                                
-                                <?php foreach($jours_ordre as $jour): ?>
-                                <?php $cours = $cours_semaine_assoc[$jour] ?? null; ?>
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <strong><?php echo $jour; ?></strong>
-                                        <?php if($cours): ?>
-                                        <br>
-                                        <small class="text-muted">
-                                            <?php echo $cours['classes']; ?>
-                                        </small>
-                                        <?php endif; ?>
-                                    </div>
-                                    <span class="badge bg-primary rounded-pill">
-                                        <?php echo $cours ? $cours['nombre_cours'] : 0; ?>
-                                    </span>
-                                </div>
-                                <?php endforeach; ?>
-                            </div>
-                            
-                            <div class="mt-3">
-                                <div class="progress" style="height: 20px;">
-                                    <?php 
-                                    $total_cours_semaine = array_sum(array_column($cours_semaine, 'nombre_cours'));
-                                    $max_cours = $total_cours_semaine > 0 ? max(array_column($cours_semaine, 'nombre_cours')) : 0;
-                                    
-                                    foreach($jours_ordre as $jour):
-                                        $nb_cours = $cours_semaine_assoc[$jour]['nombre_cours'] ?? 0;
-                                        $pourcentage = $max_cours > 0 ? ($nb_cours / $max_cours) * 100 : 0;
-                                    ?>
-                                    <div class="progress-bar" style="width: <?php echo $pourcentage; ?>%;" 
-                                         title="<?php echo $jour; ?>: <?php echo $nb_cours; ?> cours">
-                                    </div>
-                                    <?php endforeach; ?>
-                                </div>
-                                <small class="text-muted d-block mt-2 text-center">
-                                    Distribution des cours sur la semaine
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Section 4: Emploi du Temps Complet -->
-            <div class="card mb-4">
-                <div class="card-header">
+            <!-- Section 3: Emploi du Temps Complet -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-calendar-week me-2"></i>
+                        <i class="fas fa-calendar-alt me-2"></i>
                         Emploi du Temps Complet
+                        <?php if($filtre_jour): ?>
+                        <span class="badge bg-primary ms-2"><?php echo htmlspecialchars($filtre_jour); ?></span>
+                        <?php endif; ?>
                     </h5>
+                    <span class="badge bg-primary">
+                        <?php echo count($emploi_du_temps); ?> cours
+                    </span>
                 </div>
                 <div class="card-body">
                     <?php if(empty($emploi_du_temps)): ?>
@@ -1052,136 +995,165 @@ try {
                         Aucun cours programmé avec les filtres actuels.
                     </div>
                     <?php else: ?>
-                    <!-- Onglets par jour -->
-                    <ul class="nav nav-tabs mb-3" id="jourTabs" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="lundi-tab" data-bs-toggle="tab" data-bs-target="#lundi">
-                                Lundi
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="mardi-tab" data-bs-toggle="tab" data-bs-target="#mardi">
-                                Mardi
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="mercredi-tab" data-bs-toggle="tab" data-bs-target="#mercredi">
-                                Mercredi
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="jeudi-tab" data-bs-toggle="tab" data-bs-target="#jeudi">
-                                Jeudi
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="vendredi-tab" data-bs-toggle="tab" data-bs-target="#vendredi">
-                                Vendredi
-                            </button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="samedi-tab" data-bs-toggle="tab" data-bs-target="#samedi">
-                                Samedi
-                            </button>
-                        </li>
-                    </ul>
-                    
-                    <div class="tab-content" id="jourTabsContent">
-                        <?php 
-                        $jours = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-                        foreach($jours as $index => $jour):
-                            $cours_du_jour = array_filter($emploi_du_temps, function($c) use ($jour) {
-                                return $c['jour_semaine'] == $jour;
-                            });
-                        ?>
-                        <div class="tab-pane fade <?php echo $index == 0 ? 'show active' : ''; ?>" id="<?php echo strtolower($jour); ?>">
-                            <?php if(empty($cours_du_jour)): ?>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> 
-                                Aucun cours programmé le <?php echo $jour; ?>.
-                            </div>
-                            <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Horaire</th>
-                                            <th>Classe</th>
-                                            <th>Matière</th>
-                                            <th>Enseignant</th>
-                                            <th>Salle</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php 
-                                        // Trier par heure
-                                        usort($cours_du_jour, function($a, $b) {
-                                            return strtotime($a['heure_debut']) - strtotime($b['heure_debut']);
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Jour</th>
+                                    <th>Horaire</th>
+                                    <th>Classe</th>
+                                    <th>Matière</th>
+                                    <th>Enseignant</th>
+                                    <th>Salle</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                // Grouper par jour pour un meilleur affichage
+                                $cours_par_jour = [];
+                                foreach($emploi_du_temps as $cours) {
+                                    $jour = $cours['jour_semaine'];
+                                    if (!isset($cours_par_jour[$jour])) {
+                                        $cours_par_jour[$jour] = [];
+                                    }
+                                    $cours_par_jour[$jour][] = $cours;
+                                }
+                                
+                                // Trier les jours dans l'ordre
+                                $jours_ordre = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+                                
+                                foreach($jours_ordre as $jour):
+                                    if (isset($cours_par_jour[$jour])):
+                                        // Trier les cours de ce jour par heure
+                                        usort($cours_par_jour[$jour], function($a, $b) {
+                                            return strcmp($a['heure_debut'], $b['heure_debut']);
                                         });
                                         
-                                        foreach($cours_du_jour as $cours): 
-                                        ?>
-                                        <tr>
-                                            <td>
-                                                <strong>
-                                                    <?php echo date('H:i', strtotime($cours['heure_debut'])); ?> - 
-                                                    <?php echo date('H:i', strtotime($cours['heure_fin'])); ?>
-                                                </strong>
-                                            </td>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($cours['classe_nom']); ?></strong>
-                                            </td>
-                                            <td>
-                                                <?php echo htmlspecialchars($cours['matiere_nom']); ?>
-                                                <br>
-                                                <small class="text-muted"><?php echo htmlspecialchars($cours['matiere_code']); ?></small>
-                                            </td>
-                                            <td><?php echo htmlspecialchars($cours['enseignant_nom'] ?? 'Non assigné'); ?></td>
-                                            <td>
-                                                <span class="badge bg-info">
-                                                    <?php echo htmlspecialchars($cours['salle'] ?? 'Non spécifié'); ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary" 
-                                                        onclick="voirDetailsCours(<?php echo $cours['id']; ?>)">
-                                                    <i class="fas fa-eye"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-success" 
-                                                        onclick="voirPresencesCours(<?php echo $cours['id']; ?>)">
-                                                    <i class="fas fa-clipboard-check"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <?php endif; ?>
-                        </div>
-                        <?php endforeach; ?>
+                                        foreach($cours_par_jour[$jour] as $cours): 
+                                ?>
+                                <tr>
+                                    <td>
+                                        <span class="badge-jour badge-<?php echo strtolower($jour); ?>">
+                                            <?php echo $jour; ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <strong><?php echo date('H:i', strtotime($cours['heure_debut'])); ?></strong> - 
+                                        <?php echo date('H:i', strtotime($cours['heure_fin'])); ?>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold"><?php echo htmlspecialchars($cours['classe_nom']); ?></div>
+                                        <small class="text-muted">
+                                            <?php echo htmlspecialchars($cours['filiere_nom'] ?? ''); ?> - 
+                                            <?php echo htmlspecialchars($cours['niveau_libelle'] ?? ''); ?>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <div><?php echo htmlspecialchars($cours['matiere_nom']); ?></div>
+                                        <small class="text-muted"><?php echo htmlspecialchars($cours['matiere_code']); ?></small>
+                                    </td>
+                                    <td>
+                                        <?php if($cours['enseignant_nom']): ?>
+                                        <div><?php echo htmlspecialchars($cours['enseignant_nom']); ?></div>
+                                        <small class="text-muted"><?php echo htmlspecialchars($cours['enseignant_matricule'] ?? ''); ?></small>
+                                        <?php else: ?>
+                                        <span class="text-muted">Non assigné</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if($cours['salle']): ?>
+                                        <span class="badge-salle"><?php echo htmlspecialchars($cours['salle']); ?></span>
+                                        <?php else: ?>
+                                        <span class="text-muted">Non spécifié</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" 
+                                                    onclick="voirDetailsCours(<?php echo $cours['id']; ?>)" 
+                                                    title="Voir détails">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-success" 
+                                                    onclick="verifierPresences(<?php echo $cours['classe_id']; ?>, <?php echo $cours['matiere_id']; ?>)" 
+                                                    title="Vérifier présences">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <?php 
+                                        endforeach;
+                                    endif;
+                                endforeach; 
+                                ?>
+                            </tbody>
+                        </table>
                     </div>
                     <?php endif; ?>
                 </div>
             </div>
             
-            <!-- Section 5: Calendrier des Cours -->
-            <div class="card">
+            <!-- Statistiques par jour -->
+            <?php if(isset($cours_par_jour) && !empty($cours_par_jour)): ?>
+            <div class="card mt-4">
                 <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-calendar-alt me-2"></i>
-                        Calendrier des Cours
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Répartition par jour
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div id="calendar"></div>
+                    <div class="row">
+                        <?php 
+                        $jours_ordre = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+                        $total_cours = $statistiques['total_cours'];
+                        ?>
+                        
+                        <?php foreach($jours_ordre as $jour): ?>
+                        <?php 
+                        $nombre_cours = isset($cours_par_jour[$jour]) ? count($cours_par_jour[$jour]) : 0;
+                        $pourcentage = $total_cours > 0 ? ($nombre_cours / $total_cours) * 100 : 0;
+                        ?>
+                        <div class="col-4 col-md-2 mb-3">
+                            <div class="text-center">
+                                <div class="mb-2">
+                                    <span class="badge-jour badge-<?php echo strtolower($jour); ?>">
+                                        <?php echo $jour; ?>
+                                    </span>
+                                </div>
+                                <div class="stat-value"><?php echo $nombre_cours; ?></div>
+                                <div class="stat-label mb-2">cours</div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar" 
+                                         style="width: <?php echo $pourcentage; ?>%;"
+                                         role="progressbar"
+                                         aria-valuenow="<?php echo $pourcentage; ?>"
+                                         aria-valuemin="0"
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-1"><?php echo round($pourcentage, 1); ?>%</small>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
                 </div>
+            </div>
+            <?php endif; ?>
+            
+            <!-- Pied de page -->
+            <div class="text-center text-muted mt-4">
+                <small>
+                    <i class="fas fa-clock me-1"></i>
+                    Dernière mise à jour : <?php echo date('d/m/Y H:i:s'); ?>
+                </small>
             </div>
         </div>
     </div>
     
-    <!-- Modal pour détails de cours -->
+    <!-- Modal pour détails du cours -->
     <div class="modal fade" id="coursDetailModal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -1201,10 +1173,11 @@ try {
     
     <!-- Scripts JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js"></script>
     
     <script>
+    // Variables globales pour le menu mobile
+    let sidebarOpen = false;
+    
     // Fonction pour basculer entre mode sombre et clair
     function toggleTheme() {
         const html = document.documentElement;
@@ -1229,13 +1202,70 @@ try {
         }
     }
     
-    // Initialiser le thème
+    // Fonction pour ouvrir/fermer le sidebar mobile
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const mainContent = document.getElementById('mainContent');
+        
+        if (!sidebarOpen) {
+            // Ouvrir le sidebar
+            sidebar.classList.add('show');
+            overlay.classList.add('show');
+            document.body.style.overflow = 'hidden'; // Empêcher le scroll
+            sidebarOpen = true;
+        } else {
+            // Fermer le sidebar
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+            document.body.style.overflow = ''; // Réactiver le scroll
+            sidebarOpen = false;
+        }
+    }
+    
+    // Fermer le sidebar lors du clic sur l'overlay
+    document.getElementById('sidebarOverlay').addEventListener('click', function() {
+        toggleSidebar();
+    });
+    
+    // Fermer le sidebar lors du clic sur un lien (pour mobile)
+    document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+        link.addEventListener('click', function() {
+            if (window.innerWidth < 992) {
+                toggleSidebar();
+            }
+        });
+    });
+    
+    // Gérer le redimensionnement de la fenêtre
+    window.addEventListener('resize', function() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        
+        if (window.innerWidth >= 992) {
+            // Desktop: toujours afficher le sidebar
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+            document.body.style.overflow = '';
+            sidebarOpen = false;
+        } else {
+            // Mobile: s'assurer que le sidebar est fermé par défaut
+            if (sidebarOpen) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+                sidebarOpen = false;
+            }
+        }
+    });
+    
+    // Initialiser le thème et les événements
     document.addEventListener('DOMContentLoaded', function() {
         // Récupérer le thème sauvegardé ou utiliser 'light' par défaut
         const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
         document.documentElement.setAttribute('data-theme', theme);
         
-        // Mettre à jour le bouton
+        // Mettre à jour le bouton de thème
         const themeButton = document.querySelector('button[onclick="toggleTheme()"]');
         if (themeButton) {
             if (theme === 'dark') {
@@ -1245,55 +1275,24 @@ try {
             }
         }
         
-        // Initialiser le calendrier
-        initializeCalendar();
+        // Initialiser le bouton hamburger
+        document.getElementById('hamburgerBtn').addEventListener('click', toggleSidebar);
         
-        // Initialiser les onglets
-        initializeTabs();
-    });
-    
-    // Initialiser le calendrier FullCalendar
-    function initializeCalendar() {
-        const calendarEl = document.getElementById('calendar');
-        if (!calendarEl) return;
-        
-        const calendar = new FullCalendar.Calendar(calendarEl, {
-            initialView: 'dayGridMonth',
-            locale: 'fr',
-            headerToolbar: {
-                left: 'prev,next today',
-                center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay'
-            },
-            events: 'ajax/get_cours_calendar.php?site_id=<?php echo $site_id; ?>',
-            eventClick: function(info) {
-                voirDetailsCours(info.event.id);
-            },
-            eventColor: '#3498db',
-            eventTextColor: '#ffffff',
-            height: 500,
-            businessHours: {
-                daysOfWeek: [1, 2, 3, 4, 5, 6], // Lundi à Samedi
-                startTime: '08:00',
-                endTime: '20:00'
+        // Ajouter un listener pour les touches ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && sidebarOpen) {
+                toggleSidebar();
             }
         });
-        
-        calendar.render();
-    }
-    
-    // Initialiser les onglets
-    function initializeTabs() {
-        // Activer l'onglet du jour actuel
-        const aujourdhui = '<?php echo strtolower($jour_semaine_aujourdhui); ?>';
-        const tabAujourdhui = document.getElementById(aujourdhui + '-tab');
-        if (tabAujourdhui) {
-            tabAujourdhui.click();
-        }
-    }
+    });
     
     // Voir les détails d'un cours
     function voirDetailsCours(coursId) {
+        // Pour l'instant, affichons une alerte
+        alert('Détails du cours ID: ' + coursId + '\nCette fonctionnalité sera implémentée bientôt.');
+        
+        // Version future avec AJAX:
+        /*
         fetch('ajax/get_cours_detail.php?id=' + coursId)
             .then(response => response.text())
             .then(html => {
@@ -1305,54 +1304,90 @@ try {
                 alert('Erreur de chargement des détails');
                 console.error('Erreur:', error);
             });
+        */
     }
     
     // Vérifier les présences pour un cours
-    function voirPresencesCours(coursId) {
-        window.location.href = 'classe_presence.php?cours_id=' + coursId;
-    }
-    
-    // Vérifier les présences pour une classe et une matière
-    function voirPresencesClasse(classeId, matiereId) {
+    function verifierPresences(classeId, matiereId) {
         window.location.href = 'classe_presence.php?classe_id=' + classeId + '&matiere_id=' + matiereId;
     }
     
     // Imprimer l'emploi du temps
     function imprimerEmploi() {
-        const filtreClasse = <?php echo $filtre_classe; ?>;
-        const filtreEnseignant = <?php echo $filtre_enseignant; ?>;
-        const filtreJour = '<?php echo $filtre_jour; ?>';
+        const filtreClasse = <?php echo json_encode($filtre_classe); ?>;
+        const filtreEnseignant = <?php echo json_encode($filtre_enseignant); ?>;
+        const filtreJour = <?php echo json_encode($filtre_jour); ?>;
+        const filtreMatiere = <?php echo json_encode($filtre_matiere); ?>;
+        const filtreSalle = <?php echo json_encode($filtre_salle); ?>;
         
-        let url = 'ajax/imprimer_emploi.php?site_id=<?php echo $site_id; ?>';
+        let url = 'ajax/imprimer_emploi_complet.php?site_id=<?php echo $site_id; ?>';
         
         if (filtreClasse > 0) url += '&classe=' + filtreClasse;
         if (filtreEnseignant > 0) url += '&enseignant=' + filtreEnseignant;
+        if (filtreMatiere > 0) url += '&matiere=' + filtreMatiere;
         if (filtreJour) url += '&jour=' + encodeURIComponent(filtreJour);
+        if (filtreSalle) url += '&salle=' + encodeURIComponent(filtreSalle);
         
         window.open(url, '_blank');
     }
     
-    // Exporter l'emploi du temps
-    function exporterEmploi() {
-        const filtreClasse = <?php echo $filtre_classe; ?>;
-        const filtreEnseignant = <?php echo $filtre_enseignant; ?>;
-        const filtreJour = '<?php echo $filtre_jour; ?>';
+    // Exporter en Excel
+    function exporterExcel() {
+        const filtreClasse = <?php echo json_encode($filtre_classe); ?>;
+        const filtreEnseignant = <?php echo json_encode($filtre_enseignant); ?>;
+        const filtreJour = <?php echo json_encode($filtre_jour); ?>;
+        const filtreMatiere = <?php echo json_encode($filtre_matiere); ?>;
+        const filtreSalle = <?php echo json_encode($filtre_salle); ?>;
         
-        let url = 'ajax/exporter_emploi.php?site_id=<?php echo $site_id; ?>&format=excel';
+        let url = 'ajax/exporter_emploi_complet.php?site_id=<?php echo $site_id; ?>&format=excel';
         
         if (filtreClasse > 0) url += '&classe=' + filtreClasse;
         if (filtreEnseignant > 0) url += '&enseignant=' + filtreEnseignant;
+        if (filtreMatiere > 0) url += '&matiere=' + filtreMatiere;
         if (filtreJour) url += '&jour=' + encodeURIComponent(filtreJour);
+        if (filtreSalle) url += '&salle=' + encodeURIComponent(filtreSalle);
         
         window.location.href = url;
     }
     
-    // Auto-refresh pour vérifier les changements
-    setInterval(function() {
-        // Vous pourriez ajouter ici une vérification périodique
-        // pour les changements dans l'emploi du temps
-        console.log('Vérification des mises à jour de l\'emploi du temps');
-    }, 60000); // Toutes les minutes
+    // Recherche rapide dans la page
+    function rechercherDansPage() {
+        const terme = prompt('Rechercher (classe, matière, enseignant, salle):');
+        if (terme) {
+            const lignes = document.querySelectorAll('.table tbody tr');
+            let trouves = 0;
+            
+            lignes.forEach(ligne => {
+                const texte = ligne.textContent.toLowerCase();
+                if (texte.includes(terme.toLowerCase())) {
+                    ligne.style.backgroundColor = '#fff3cd';
+                    ligne.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    trouves++;
+                } else {
+                    ligne.style.backgroundColor = '';
+                }
+            });
+            
+            if (trouves > 0) {
+                alert(trouves + ' résultat(s) trouvé(s)');
+            } else {
+                alert('Aucun résultat trouvé');
+            }
+        }
+    }
+    
+    // Rafraîchir la page
+    function rafraichirPage() {
+        location.reload();
+    }
+    
+    // Touche F5 pour rafraîchir
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'F5') {
+            e.preventDefault();
+            rafraichirPage();
+        }
+    });
     </script>
 </body>
 </html>

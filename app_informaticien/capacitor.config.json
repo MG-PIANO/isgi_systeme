@@ -1,0 +1,8 @@
+{
+  "appId": "cg.isgi.informaticien",
+  "appName": "ISGI Informaticien",
+  "webDir": "android-web",
+  "android": {
+    "allowMixedContent": false
+  }
+}

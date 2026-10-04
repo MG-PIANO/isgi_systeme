@@ -1,542 +1,573 @@
 <?php
 // dashboard/dac/saisie_notes.php
 
-// Activer l'affichage des erreurs pour le débogage
+// ============================================
+// 1. INITIALISATION
+// ============================================
+session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Démarrer la session
-session_start();
-
-// Définir le chemin vers la racine
-define('ROOT_PATH', dirname(dirname(__DIR__)));
-
-// Vérifier si l'utilisateur est connecté
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ' . ROOT_PATH . '/auth/login.php');
+// Vérifier que l'utilisateur est connecté et est un DAC (role_id = 5)
+if (!isset($_SESSION['user_id']) || ($_SESSION['role_id'] ?? 0) != 5) {
+    $root_path = dirname(dirname(dirname(__DIR__)));
+    header("Location: $root_path/auth/login.php");
     exit();
 }
 
-// Vérifier si l'utilisateur a le rôle DAC (ID 5)
-if ($_SESSION['role_id'] != 5) {
-    echo "<!DOCTYPE html>
-    <html>
-    <head>
-        <title>Accès Refusé</title>
-        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-    </head>
-    <body style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center;'>
-        <div class='card shadow-lg' style='width: 100%; max-width: 500px;'>
-            <div class='card-header bg-danger text-white'>
-                <h4 class='mb-0'><i class='fas fa-ban'></i> Accès Refusé</h4>
-            </div>
-            <div class='card-body text-center'>
-                <div class='alert alert-warning'>
-                    <h5>Vous n'avez pas les droits nécessaires !</h5>
-                    <p class='mb-0'>Cette page est réservée au Directeur des Affaires Académiques (DAC).</p>
-                </div>
-                <p><strong>Votre rôle :</strong> " . ($_SESSION['role_nom'] ?? 'Non défini') . "</p>
-                <p><strong>Rôle requis :</strong> Directeur des Affaires Académiques</p>
-                <div class='mt-4'>
-                    <a href='" . ROOT_PATH . "/dashboard/' class='btn btn-primary'>
-                        <i class='fas fa-tachometer-alt'></i> Retour au Dashboard
-                    </a>
-                    <a href='" . ROOT_PATH . "/auth/logout.php' class='btn btn-outline-secondary'>
-                        <i class='fas fa-sign-out-alt'></i> Se déconnecter
-                    </a>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>";
-    exit();
+// ============================================
+// 2. CONFIGURATION BASE DE DONNÉES
+// ============================================
+$database_found = false;
+$db = null;
+
+$possible_paths = [
+    dirname(dirname(dirname(__DIR__))) . '/config/database.php',
+    dirname(dirname(dirname(dirname(__FILE__)))) . '/config/database.php',
+    '../../../../config/database.php',
+    '../../../config/database.php',
+    '../config/database.php',
+    'config/database.php'
+];
+
+foreach ($possible_paths as $path) {
+    if (file_exists($path)) {
+        require_once $path;
+        $database_found = true;
+        break;
+    }
 }
 
-// Inclure la configuration de la base de données
-try {
-    // Chemin vers database.php
-    $config_path = ROOT_PATH . '/config/database.php';
-    
-    // Vérifier si le fichier existe
-    if (!file_exists($config_path)) {
-        throw new Exception("Fichier de configuration introuvable: " . $config_path);
+if (!$database_found) {
+    try {
+        $db = new PDO(
+            'mysql:host=localhost;dbname=isgi_systeme;charset=utf8mb4',
+            'root',
+            'admin1234',
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false
+            ]
+        );
+    } catch (PDOException $e) {
+        die("<div style='padding:20px;background:#f8d7da;color:#721c24;border-radius:5px;'>
+            <h3>Erreur de connexion à la base de données</h3>
+            <p>" . htmlspecialchars($e->getMessage()) . "</p>
+        </div>");
     }
-    
-    // Inclure le fichier
-    require_once $config_path;
-    
-    // Vérifier si la classe Database existe
-    if (!class_exists('Database')) {
-        throw new Exception("La classe Database n'est pas définie dans database.php");
+} else {
+    if (class_exists('Database')) {
+        $db = Database::getInstance()->getConnection();
     }
-    
-    // Obtenir l'instance de la base de données
-    $db = Database::getInstance()->getConnection();
-    
-    if (!$db) {
-        throw new Exception("La connexion à la base de données est nulle");
-    }
-    
-    // Tester la connexion
-    $test_query = $db->query("SELECT 1");
-    if (!$test_query) {
-        throw new Exception("Échec du test de connexion à la base de données");
-    }
-    
-} catch (Exception $e) {
-    // Afficher un message d'erreur clair
-    $error_message = htmlspecialchars($e->getMessage());
-    
-    echo "<!DOCTYPE html>
-    <html>
-    <head>
-        <title>Erreur de Configuration</title>
-        <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css' rel='stylesheet'>
-        <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'>
-        <style>
-            body { 
-                background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                min-height: 100vh;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-            }
-            .error-container {
-                max-width: 800px;
-                width: 100%;
-            }
-            .debug-info {
-                background: #f8f9fa;
-                border-left: 4px solid #dc3545;
-                padding: 15px;
-                margin-top: 20px;
-                font-family: monospace;
-                font-size: 14px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class='error-container'>
-            <div class='card shadow-lg'>
-                <div class='card-header bg-danger text-white'>
-                    <h4 class='mb-0'><i class='fas fa-exclamation-triangle'></i> Erreur de Configuration</h4>
-                </div>
-                <div class='card-body'>
-                    <div class='alert alert-danger'>
-                        <h5><i class='fas fa-database'></i> Problème de Connexion à la Base de Données</h5>
-                        <p class='mb-0'>$error_message</p>
-                    </div>
-                    
-                    <div class='debug-info'>
-                        <strong>Informations de débogage :</strong><br>
-                        ROOT_PATH : " . ROOT_PATH . "<br>
-                        Chemin config : " . $config_path . "<br>
-                        Fichier existe : " . (file_exists($config_path) ? 'OUI' : 'NON') . "<br>
-                        Session user_id : " . ($_SESSION['user_id'] ?? 'NON') . "<br>
-                        Session role_id : " . ($_SESSION['role_id'] ?? 'NON') . "
-                    </div>
-                    
-                    <div class='mt-4'>
-                        <h5>Solutions possibles :</h5>
-                        <ol>
-                            <li>Vérifiez que le fichier <code>config/database.php</code> existe</li>
-                            <li>Vérifiez les identifiants MySQL dans <code>database.php</code></li>
-                            <li>Assurez-vous que le service MySQL est démarré (WAMP/MAMP/XAMPP)</li>
-                            <li>Vérifiez que la base de données 'isgi_systeme' existe</li>
-                        </ol>
-                        
-                        <div class='d-grid gap-2 d-md-flex justify-content-md-center mt-4'>
-                            <a href='javascript:location.reload()' class='btn btn-primary'>
-                                <i class='fas fa-redo'></i> Réessayer
-                            </a>
-                            <a href='" . ROOT_PATH . "/dashboard/' class='btn btn-outline-secondary'>
-                                <i class='fas fa-home'></i> Retour au Dashboard
-                            </a>
-                            <a href='" . ROOT_PATH . "/auth/logout.php' class='btn btn-outline-danger'>
-                                <i class='fas fa-sign-out-alt'></i> Déconnexion
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>";
-    exit();
 }
 
-// Définir le titre de la page
-$pageTitle = "DAC - Saisie des Notes";
-
-// Récupérer l'ID du site de l'utilisateur
-$site_id = $_SESSION['site_id'] ?? null;
-
-// Fonctions utilitaires
-function formatMoney($amount) {
-    if ($amount === null || $amount === '' || $amount == 0) return '0 FCFA';
-    return number_format($amount, 0, ',', ' ') . ' FCFA';
+// ============================================
+// 3. FONCTIONS UTILITAIRES
+// ============================================
+function escape($value) {
+    return $value !== null ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : '';
 }
 
-function formatDateFr($date, $format = 'd/m/Y') {
-    if (empty($date) || $date == '0000-00-00') return '';
-    $timestamp = strtotime($date);
-    if ($timestamp === false) return '';
-    return date($format, $timestamp);
+function tableExists($db, $table_name) {
+    try {
+        $sql = "SHOW TABLES LIKE '$table_name'";
+        $stmt = $db->query($sql);
+        return $stmt->fetch() !== false;
+    } catch (Exception $e) {
+        return false;
+    }
 }
 
-function getStatutBadge($statut) {
-    $badges = [
-        'valide' => 'success',
-        'validee' => 'success', 
-        'publie' => 'success',
-        'brouillon' => 'warning',
-        'en_attente' => 'warning',
-        'planifie' => 'warning',
-        'annule' => 'danger',
-        'rejete' => 'danger',
-        'termine' => 'info',
-        'reporte' => 'secondary'
+function columnExists($db, $table, $column) {
+    try {
+        $stmt = $db->prepare("SHOW COLUMNS FROM $table LIKE ?");
+        $stmt->execute([$column]);
+        return $stmt->rowCount() > 0;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+// ============================================
+// 4. FONCTIONS DE SAISIE DES NOTES
+// ============================================
+function getEvaluateurId($db) {
+    if (tableExists($db, 'enseignants')) {
+        $sql = "SELECT id FROM enseignants LIMIT 1";
+        $stmt = $db->query($sql);
+        $enseignant = $stmt->fetch();
+        if ($enseignant) {
+            return $enseignant['id'];
+        }
+    }
+    return 1;
+}
+
+function getTypesExamens($db) {
+    if (tableExists($db, 'types_examens')) {
+        try {
+            $sql = "SELECT * FROM types_examens ORDER BY ordre";
+            return $db->query($sql)->fetchAll();
+        } catch (Exception $e) {
+            // Types par défaut
+        }
+    }
+    
+    return [
+        ['id' => 1, 'nom' => 'DST', 'pourcentage' => 20.00, 'ordre' => 1],
+        ['id' => 2, 'nom' => 'Devoir de Recherche', 'pourcentage' => 20.00, 'ordre' => 2],
+        ['id' => 3, 'nom' => 'Session', 'pourcentage' => 60.00, 'ordre' => 3]
     ];
-    
-    $color = $badges[$statut] ?? 'secondary';
-    return '<span class="badge bg-' . $color . '">' . ucfirst($statut) . '</span>';
 }
 
-// Variables pour les actions
-$action = $_GET['action'] ?? 'list';
-$examen_id = $_GET['examen_id'] ?? null;
-$matiere_id = $_GET['matiere_id'] ?? null;
-$classe_id = $_GET['classe_id'] ?? null;
-$type_examen_id = $_GET['type_examen_id'] ?? null;
-$semestre_id = $_GET['semestre_id'] ?? null;
-$annee_id = $_GET['annee_id'] ?? null;
+function getClasses($db) {
+    try {
+        if (!tableExists($db, 'classes')) {
+            return [];
+        }
+        
+        $site_id = $_SESSION['site_id'] ?? 1;
+        $sql = "SELECT c.*, f.nom as filiere_nom 
+                FROM classes c 
+                LEFT JOIN filieres f ON c.filiere_id = f.id 
+                WHERE c.site_id = ?
+                ORDER BY c.nom";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$site_id]);
+        return $stmt->fetchAll();
+        
+    } catch (Exception $e) {
+        error_log("Erreur getClasses: " . $e->getMessage());
+        return [];
+    }
+}
 
-// Initialiser les variables
-$examen = null;
-$matiere = null;
-$classe = null;
-$type_examen = null;
+function getMatieresParClasse($db, $classe_id) {
+    try {
+        if (!$classe_id) {
+            return [];
+        }
+        
+        $sql_classe = "SELECT * FROM classes WHERE id = ?";
+        $stmt_classe = $db->prepare($sql_classe);
+        $stmt_classe->execute([$classe_id]);
+        $classe = $stmt_classe->fetch();
+        
+        if (!$classe) {
+            return [];
+        }
+        
+        $matieres = [];
+        
+        if (tableExists($db, 'classe_matiere')) {
+            try {
+                $sql = "SELECT m.*, cm.coefficient 
+                        FROM matieres m
+                        INNER JOIN classe_matiere cm ON m.id = cm.matiere_id
+                        WHERE cm.classe_id = ?
+                        ORDER BY m.nom";
+                
+                $stmt = $db->prepare($sql);
+                $stmt->execute([$classe_id]);
+                $matieres = $stmt->fetchAll();
+                
+                if (!empty($matieres)) {
+                    return $matieres;
+                }
+            } catch (Exception $e) {
+                // Continuer avec la méthode suivante
+            }
+        }
+        
+        if (isset($classe['filiere_id']) && $classe['filiere_id']) {
+            $sql = "SELECT m.* 
+                    FROM matieres m
+                    WHERE m.filiere_id = ?";
+            
+            $params = [$classe['filiere_id']];
+            
+            if (isset($classe['niveau_id']) && $classe['niveau_id']) {
+                $sql .= " AND m.niveau_id = ?";
+                $params[] = $classe['niveau_id'];
+            }
+            
+            $sql .= " ORDER BY m.nom";
+            
+            $stmt = $db->prepare($sql);
+            $stmt->execute($params);
+            $matieres = $stmt->fetchAll();
+            
+            if (!empty($matieres)) {
+                return $matieres;
+            }
+        }
+        
+        if (tableExists($db, 'matieres')) {
+            $sql = "SELECT * FROM matieres ORDER BY nom";
+            return $db->query($sql)->fetchAll();
+        }
+        
+        return [];
+        
+    } catch (Exception $e) {
+        error_log("Erreur getMatieresParClasse: " . $e->getMessage());
+        return [];
+    }
+}
+
+function getEtudiantsParClasse($db, $classe_id) {
+    try {
+        if (!tableExists($db, 'etudiants')) {
+            return [];
+        }
+        
+        $sql = "SELECT e.*, c.nom as classe_nom
+                FROM etudiants e
+                INNER JOIN classes c ON e.classe_id = c.id
+                WHERE e.classe_id = ?
+                ORDER BY e.nom, e.prenom";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$classe_id]);
+        return $stmt->fetchAll();
+        
+    } catch (Exception $e) {
+        error_log("Erreur getEtudiantsParClasse: " . $e->getMessage());
+        return [];
+    }
+}
+
+function getSemestres($db) {
+    if (tableExists($db, 'semestres')) {
+        try {
+            $sql = "SELECT * FROM semestres ORDER BY numero";
+            return $db->query($sql)->fetchAll();
+        } catch (Exception $e) {
+            // Semestres par défaut
+        }
+    }
+    
+    return [
+        ['id' => 1, 'numero' => 1, 'nom' => 'Semestre 1'],
+        ['id' => 2, 'numero' => 2, 'nom' => 'Semestre 2']
+    ];
+}
+
+function getAnneesAcademiques($db) {
+    if (tableExists($db, 'annees_academiques')) {
+        try {
+            $sql = "SHOW COLUMNS FROM annees_academiques";
+            $stmt = $db->query($sql);
+            $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            
+            $annee_col = 'id';
+            if (in_array('libelle', $columns)) {
+                $annee_col = 'libelle';
+            } elseif (in_array('annee', $columns)) {
+                $annee_col = 'annee';
+            } elseif (in_array('nom', $columns)) {
+                $annee_col = 'nom';
+            }
+            
+            $sql = "SELECT id, $annee_col as annee FROM annees_academiques ORDER BY $annee_col DESC";
+            return $db->query($sql)->fetchAll();
+        } catch (Exception $e) {
+            // Année actuelle
+        }
+    }
+    
+    $current_year = date('Y');
+    return [
+        ['id' => 1, 'annee' => $current_year . '-' . ($current_year + 1)]
+    ];
+}
+
+function getNotesExistantes($db, $classe_id, $matiere_id, $type_examen_id, $semestre_id, $annee_id) {
+    try {
+        if (!tableExists($db, 'notes')) {
+            return [];
+        }
+        
+        $sql = "SELECT n.*, e.matricule, e.nom, e.prenom
+                FROM notes n
+                INNER JOIN etudiants e ON n.etudiant_id = e.id
+                WHERE e.classe_id = ?
+                  AND n.matiere_id = ?
+                  AND n.type_examen_id = ?
+                  AND n.semestre_id = ?
+                  AND n.annee_academique_id = ?
+                ORDER BY e.nom, e.prenom";
+        
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$classe_id, $matiere_id, $type_examen_id, $semestre_id, $annee_id]);
+        
+        $notes = [];
+        while ($row = $stmt->fetch()) {
+            $notes[$row['etudiant_id']] = $row;
+        }
+        
+        return $notes;
+        
+    } catch (Exception $e) {
+        error_log("Erreur getNotesExistantes: " . $e->getMessage());
+        return [];
+    }
+}
+
+function sauvegarderNotes($db, $notes_data, $type_examen_id, $matiere_id, $semestre_id, $annee_id) {
+    try {
+        $evaluateur_id = getEvaluateurId($db);
+        
+        if (!$semestre_id || !$annee_id) {
+            return [
+                'success' => false,
+                'message' => "Le semestre et l'année académique sont obligatoires!"
+            ];
+        }
+        
+        $db->beginTransaction();
+        
+        $inserted = 0;
+        $updated = 0;
+        $errors = 0;
+        $error_details = [];
+        
+        foreach ($notes_data as $etudiant_id => $note_data) {
+            $note = isset($note_data['note']) && $note_data['note'] !== '' ? $note_data['note'] : null;
+            $coefficient = isset($note_data['coefficient']) ? floatval($note_data['coefficient']) : 1.00;
+            $remarques = isset($note_data['commentaire']) ? trim($note_data['commentaire']) : '';
+            
+            if ($note === null || $note === '' || !is_numeric($note)) {
+                $errors++;
+                continue;
+            }
+            
+            $note = floatval($note);
+            
+            if ($note < 0 || $note > 20) {
+                $errors++;
+                $error_details[] = "Étudiant ID $etudiant_id: Note $note invalide";
+                continue;
+            }
+            
+            $sql_check = "SELECT id FROM notes 
+                         WHERE etudiant_id = ? 
+                         AND matiere_id = ? 
+                         AND type_examen_id = ?
+                         AND semestre_id = ?
+                         AND annee_academique_id = ?";
+            
+            $stmt_check = $db->prepare($sql_check);
+            $stmt_check->execute([$etudiant_id, $matiere_id, $type_examen_id, $semestre_id, $annee_id]);
+            $existing = $stmt_check->fetch();
+            
+            try {
+                if ($existing) {
+                    $sql = "UPDATE notes SET 
+                            note = ?, 
+                            coefficient_note = ?,
+                            remarques = ?,
+                            statut = 'valide',
+                            date_evaluation = CURDATE()
+                            WHERE id = ?";
+                    
+                    $stmt = $db->prepare($sql);
+                    $stmt->execute([$note, $coefficient, $remarques, $existing['id']]);
+                    $updated++;
+                } else {
+                    $sql = "INSERT INTO notes 
+                           (etudiant_id, matiere_id, type_examen_id, note, coefficient_note, 
+                            date_evaluation, evaluateur_id, semestre_id, annee_academique_id, 
+                            remarques, statut, date_creation) 
+                           VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, 'valide', NOW())";
+                    
+                    $stmt = $db->prepare($sql);
+                    $result = $stmt->execute([
+                        $etudiant_id, 
+                        $matiere_id, 
+                        $type_examen_id, 
+                        $note, 
+                        $coefficient,
+                        $evaluateur_id,
+                        $semestre_id,
+                        $annee_id,
+                        $remarques
+                    ]);
+                    
+                    if ($result) {
+                        $inserted++;
+                    } else {
+                        $errors++;
+                    }
+                }
+            } catch (Exception $e) {
+                $errors++;
+                $error_details[] = "Étudiant ID $etudiant_id: " . $e->getMessage();
+            }
+        }
+        
+        $db->commit();
+        
+        $message = "Notes sauvegardées avec succès! ";
+        $message .= "($inserted nouvelles notes, $updated notes mises à jour)";
+        
+        if ($errors > 0) {
+            $message .= " - $errors erreur(s)";
+        }
+        
+        return [
+            'success' => true,
+            'message' => $message,
+            'inserted' => $inserted,
+            'updated' => $updated,
+            'errors' => $errors
+        ];
+        
+    } catch (Exception $e) {
+        if ($db->inTransaction()) {
+            $db->rollBack();
+        }
+        error_log("Erreur sauvegarderNotes: " . $e->getMessage());
+        
+        return [
+            'success' => false,
+            'message' => "Erreur lors de la sauvegarde: " . $e->getMessage()
+        ];
+    }
+}
+
+// ============================================
+// 5. TRAITEMENT DU FORMULAIRE
+// ============================================
+$message = '';
+$message_type = '';
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action']) && $_POST['action'] === 'sauvegarder_notes') {
+        $type_examen_id = $_POST['type_examen_id'] ?? null;
+        $classe_id = $_POST['classe_id'] ?? null;
+        $matiere_id = $_POST['matiere_id'] ?? null;
+        $semestre_id = $_POST['semestre_id'] ?? null;
+        $annee_id = $_POST['annee_id'] ?? null;
+        
+        if (!$type_examen_id || !$classe_id || !$matiere_id || !$semestre_id || !$annee_id) {
+            $message = "Tous les champs sont requis!";
+            $message_type = "danger";
+        } else {
+            $notes_data = [];
+            if (isset($_POST['notes']) && is_array($_POST['notes'])) {
+                foreach ($_POST['notes'] as $etudiant_id => $note_data) {
+                    $note = isset($note_data['note']) && trim($note_data['note']) !== '' ? trim($note_data['note']) : null;
+                    
+                    if ($note !== null && is_numeric($note)) {
+                        $note_val = floatval($note);
+                        if ($note_val >= 0 && $note_val <= 20) {
+                            $notes_data[$etudiant_id] = [
+                                'note' => $note_val,
+                                'coefficient' => isset($note_data['coefficient']) ? floatval($note_data['coefficient']) : 1,
+                                'commentaire' => isset($note_data['commentaire']) ? trim($note_data['commentaire']) : ''
+                            ];
+                        }
+                    }
+                }
+            }
+            
+            if (!empty($notes_data)) {
+                $result = sauvegarderNotes($db, $notes_data, $type_examen_id, $matiere_id, $semestre_id, $annee_id);
+                
+                if ($result['success']) {
+                    $message = $result['message'];
+                    $message_type = "success";
+                } else {
+                    $message = $result['message'];
+                    $message_type = "danger";
+                }
+            } else {
+                $message = "Aucune note valide à sauvegarder!";
+                $message_type = "warning";
+            }
+        }
+    }
+}
+
+// ============================================
+// 6. RÉCUPÉRATION DES DONNÉES
+// ============================================
+$types_examens = getTypesExamens($db);
+$classes = getClasses($db);
+$semestres = getSemestres($db);
+$annees_academiques = getAnneesAcademiques($db);
+
+$type_examen_id = $_GET['type_examen_id'] ?? $_POST['type_examen_id'] ?? null;
+$classe_id = $_GET['classe_id'] ?? $_POST['classe_id'] ?? null;
+$matiere_id = $_GET['matiere_id'] ?? $_POST['matiere_id'] ?? null;
+$semestre_id = $_GET['semestre_id'] ?? $_POST['semestre_id'] ?? ($semestres[0]['id'] ?? 1);
+$annee_id = $_GET['annee_id'] ?? $_POST['annee_id'] ?? ($annees_academiques[0]['id'] ?? 1);
+
+$matieres = [];
 $etudiants = [];
 $notes_existantes = [];
-$error = null;
-$success_message = null;
 
-// Récupérer les données de l'examen si spécifié
-if ($examen_id && $site_id) {
-    try {
-        // Récupérer les informations de l'examen
-        $query = "SELECT ce.*, m.nom as matiere_nom, m.code as matiere_code, m.coefficient as matiere_coeff,
-                 m.filiere_id, m.niveau_id,
-                 c.nom as classe_nom, f.nom as filiere_nom, n.libelle as niveau_libelle,
-                 te.nom as type_examen, te.pourcentage as type_pourcentage,
-                 aa.libelle as annee_libelle, aa.id as annee_id,
-                 ca.semestre as semestre_numero,
-                 CONCAT(u.nom, ' ', u.prenom) as enseignant_nom
-                 FROM calendrier_examens ce
-                 JOIN matieres m ON ce.matiere_id = m.id
-                 JOIN classes c ON ce.classe_id = c.id
-                 JOIN filieres f ON c.filiere_id = f.id
-                 JOIN niveaux n ON c.niveau_id = n.id
-                 JOIN types_examens te ON ce.type_examen_id = te.id
-                 LEFT JOIN enseignants e ON ce.enseignant_id = e.id
-                 LEFT JOIN utilisateurs u ON e.utilisateur_id = u.id
-                 LEFT JOIN calendrier_academique ca ON ce.calendrier_academique_id = ca.id
-                 LEFT JOIN annees_academiques aa ON ca.annee_academique_id = aa.id
-                 WHERE ce.id = :examen_id AND c.site_id = :site_id";
-        
-        $stmt = $db->prepare($query);
-        $stmt->execute(['examen_id' => $examen_id, 'site_id' => $site_id]);
-        $examen = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($examen) {
-            $matiere_id = $examen['matiere_id'];
-            $classe_id = $examen['classe_id'];
-            $type_examen_id = $examen['type_examen_id'];
-            
-            // Récupérer les étudiants de la classe
-            $query = "SELECT e.* 
-                     FROM etudiants e
-                     WHERE e.classe_id = :classe_id AND e.statut = 'actif'
-                     ORDER BY e.nom, e.prenom";
-            $stmt = $db->prepare($query);
-            $stmt->execute(['classe_id' => $classe_id]);
-            $etudiants = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Récupérer les notes existantes pour cet examen
-            $query = "SELECT n.*, e.matricule, e.nom, e.prenom
-                     FROM notes n
-                     JOIN etudiants e ON n.etudiant_id = e.id
-                     WHERE n.matiere_id = :matiere_id 
-                     AND n.type_examen_id = :type_examen_id
-                     AND n.annee_academique_id = :annee_id
-                     AND n.semestre_id = (SELECT id FROM semestres WHERE annee_academique_id = :annee_id2 AND numero = :semestre)";
-            
-            $stmt = $db->prepare($query);
-            $stmt->execute([
-                'matiere_id' => $matiere_id,
-                'type_examen_id' => $type_examen_id,
-                'annee_id' => $examen['annee_id'],
-                'annee_id2' => $examen['annee_id'],
-                'semestre' => $examen['semestre_numero']
-            ]);
-            $notes_existantes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            // Organiser les notes par étudiant
-            $notes_par_etudiant = [];
-            foreach ($notes_existantes as $note) {
-                $notes_par_etudiant[$note['etudiant_id']] = $note;
-            }
-        }
-    } catch (PDOException $e) {
-        $error = "Erreur de base de données: " . $e->getMessage();
+if ($classe_id) {
+    $matieres = getMatieresParClasse($db, $classe_id);
+    
+    if ($matiere_id && $type_examen_id && $semestre_id && $annee_id) {
+        $etudiants = getEtudiantsParClasse($db, $classe_id);
+        $notes_existantes = getNotesExistantes($db, $classe_id, $matiere_id, $type_examen_id, $semestre_id, $annee_id);
     }
 }
 
-// Traitement de la soumission des notes
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['saisie_notes'])) {
-    try {
-        $user_id = $_SESSION['user_id'];
-        $examen_id = $_POST['examen_id'];
-        $matiere_id = $_POST['matiere_id'];
-        $classe_id = $_POST['classe_id'];
-        $type_examen_id = $_POST['type_examen_id'];
-        $semestre_numero = $_POST['semestre_numero'];
-        $annee_academique_id = $_POST['annee_academique_id'];
-        
-        // Récupérer l'ID du semestre
-        $query_semestre = "SELECT id FROM semestres WHERE annee_academique_id = :annee_id AND numero = :numero";
-        $stmt_semestre = $db->prepare($query_semestre);
-        $stmt_semestre->execute(['annee_id' => $annee_academique_id, 'numero' => $semestre_numero]);
-        $semestre = $stmt_semestre->fetch(PDO::FETCH_ASSOC);
-        $semestre_id = $semestre['id'] ?? null;
-        
-        // Récupérer l'ID de l'enseignant (évaluateur)
-        $query = "SELECT id FROM enseignants WHERE utilisateur_id = :user_id";
-        $stmt = $db->prepare($query);
-        $stmt->execute(['user_id' => $user_id]);
-        $enseignant = $stmt->fetch(PDO::FETCH_ASSOC);
-        $evaluateur_id = $enseignant['id'] ?? $user_id;
-        
-        // Traiter chaque note
-        $notes = $_POST['notes'] ?? [];
-        $coefficients = $_POST['coefficients'] ?? [];
-        $remarques = $_POST['remarques'] ?? [];
-        
-        $success_count = 0;
-        $error_count = 0;
-        
-        foreach ($notes as $etudiant_id => $note_value) {
-            if (trim($note_value) === '') continue;
-            
-            $note_value = floatval(str_replace(',', '.', $note_value));
-            $coefficient = isset($coefficients[$etudiant_id]) ? floatval($coefficients[$etudiant_id]) : 1.0;
-            $remarque = isset($remarques[$etudiant_id]) ? trim($remarques[$etudiant_id]) : null;
-            
-            // Vérifier si une note existe déjà
-            $query_check = "SELECT id FROM notes 
-                           WHERE etudiant_id = :etudiant_id 
-                           AND matiere_id = :matiere_id 
-                           AND type_examen_id = :type_examen_id 
-                           AND semestre_id = :semestre_id 
-                           AND annee_academique_id = :annee_id";
-            $stmt_check = $db->prepare($query_check);
-            $stmt_check->execute([
-                'etudiant_id' => $etudiant_id,
-                'matiere_id' => $matiere_id,
-                'type_examen_id' => $type_examen_id,
-                'semestre_id' => $semestre_id,
-                'annee_id' => $annee_academique_id
-            ]);
-            $existing_note = $stmt_check->fetch(PDO::FETCH_ASSOC);
-            
-            if ($existing_note) {
-                // Mettre à jour
-                $query_update = "UPDATE notes 
-                               SET note = :note, coefficient_note = :coefficient, 
-                               date_evaluation = CURDATE(), evaluateur_id = :evaluateur_id,
-                               remarques = :remarques, statut = 'valide'
-                               WHERE id = :id";
-                $stmt_update = $db->prepare($query_update);
-                $result = $stmt_update->execute([
-                    'note' => $note_value,
-                    'coefficient' => $coefficient,
-                    'evaluateur_id' => $evaluateur_id,
-                    'remarques' => $remarque,
-                    'id' => $existing_note['id']
-                ]);
-            } else {
-                // Insérer
-                $query_insert = "INSERT INTO notes 
-                               (etudiant_id, matiere_id, type_examen_id, note, coefficient_note,
-                                date_evaluation, evaluateur_id, semestre_id, annee_academique_id,
-                                remarques, statut, date_creation)
-                               VALUES (:etudiant_id, :matiere_id, :type_examen_id, :note, :coefficient,
-                                       CURDATE(), :evaluateur_id, :semestre_id, :annee_id,
-                                       :remarques, 'valide', NOW())";
-                $stmt_insert = $db->prepare($query_insert);
-                $result = $stmt_insert->execute([
-                    'etudiant_id' => $etudiant_id,
-                    'matiere_id' => $matiere_id,
-                    'type_examen_id' => $type_examen_id,
-                    'note' => $note_value,
-                    'coefficient' => $coefficient,
-                    'evaluateur_id' => $evaluateur_id,
-                    'semestre_id' => $semestre_id,
-                    'annee_id' => $annee_academique_id,
-                    'remarques' => $remarque
-                ]);
-            }
-            
-            if ($result) {
-                $success_count++;
-            } else {
-                $error_count++;
-            }
+$type_examen_selected = null;
+$classe_selected = null;
+$matiere_selected = null;
+$semestre_selected = null;
+$annee_selected = null;
+
+if ($type_examen_id) {
+    foreach ($types_examens as $type) {
+        if ($type['id'] == $type_examen_id) {
+            $type_examen_selected = $type;
+            break;
         }
-        
-        // Mettre à jour le statut de l'examen
-        if ($success_count > 0) {
-            $query_update_examen = "UPDATE calendrier_examens 
-                                   SET notes_saisies = 1, modifie_par = :user_id, date_modification = NOW()
-                                   WHERE id = :examen_id";
-            $stmt_update_examen = $db->prepare($query_update_examen);
-            $stmt_update_examen->execute(['user_id' => $user_id, 'examen_id' => $examen_id]);
-            
-            $success_message = "$success_count note(s) enregistrée(s) avec succès" . 
-                             ($error_count > 0 ? " ($error_count erreur(s))" : "");
-        } else {
-            $error = "Aucune note n'a pu être enregistrée";
-        }
-        
-    } catch (PDOException $e) {
-        $error = "Erreur lors de l'enregistrement: " . $e->getMessage();
     }
 }
 
-// Traitement pour valider les notes
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['valider_notes'])) {
-    try {
-        $examen_id = $_POST['examen_id'];
-        $user_id = $_SESSION['user_id'];
-        
-        $query = "UPDATE calendrier_examens 
-                 SET notes_validees = 1, date_publication_notes = CURDATE(),
-                 valide_par = :user_id, date_validation = NOW()
-                 WHERE id = :examen_id";
-        $stmt = $db->prepare($query);
-        $stmt->execute(['user_id' => $user_id, 'examen_id' => $examen_id]);
-        
-        $success_message = "Notes validées et publiées avec succès";
-        
-        // Recharger les données de l'examen
-        if ($examen) {
-            $query = "SELECT ce.*, m.nom as matiere_nom, m.code as matiere_code, m.coefficient as matiere_coeff,
-                     c.nom as classe_nom, f.nom as filiere_nom, n.libelle as niveau_libelle,
-                     te.nom as type_examen, te.pourcentage as type_pourcentage,
-                     aa.libelle as annee_libelle, aa.id as annee_id,
-                     ca.semestre as semestre_numero,
-                     CONCAT(u.nom, ' ', u.prenom) as enseignant_nom
-                     FROM calendrier_examens ce
-                     JOIN matieres m ON ce.matiere_id = m.id
-                     JOIN classes c ON ce.classe_id = c.id
-                     JOIN filieres f ON c.filiere_id = f.id
-                     JOIN niveaux n ON c.niveau_id = n.id
-                     JOIN types_examens te ON ce.type_examen_id = te.id
-                     LEFT JOIN enseignants e ON ce.enseignant_id = e.id
-                     LEFT JOIN utilisateurs u ON e.utilisateur_id = u.id
-                     LEFT JOIN calendrier_academique ca ON ce.calendrier_academique_id = ca.id
-                     LEFT JOIN annees_academiques aa ON ca.annee_academique_id = aa.id
-                     WHERE ce.id = :examen_id";
-            
-            $stmt = $db->prepare($query);
-            $stmt->execute(['examen_id' => $examen_id]);
-            $examen = $stmt->fetch(PDO::FETCH_ASSOC);
+if ($classe_id) {
+    foreach ($classes as $classe) {
+        if ($classe['id'] == $classe_id) {
+            $classe_selected = $classe;
+            break;
         }
-        
-    } catch (PDOException $e) {
-        $error = "Erreur lors de la validation: " . $e->getMessage();
     }
 }
 
-// Récupérer les listes pour les filtres
-$filieres = [];
-$niveaux = [];
-$matieres = [];
-$classes = [];
-$types_examens = [];
-$examens_recent = [];
-
-try {
-    if ($site_id) {
-        // Récupérer les filières
-        $query = "SELECT f.id, f.nom, o.nom as option_nom 
-                 FROM filieres f 
-                 JOIN options_formation o ON f.option_id = o.id
-                 ORDER BY f.nom";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $filieres = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Récupérer les niveaux
-        $query = "SELECT * FROM niveaux ORDER BY ordre";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $niveaux = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Récupérer les matières
-        $query = "SELECT m.*, f.nom as filiere_nom, n.libelle as niveau_libelle 
-                 FROM matieres m 
-                 JOIN filieres f ON m.filiere_id = f.id
-                 JOIN niveaux n ON m.niveau_id = n.id
-                 WHERE m.site_id = :site_id
-                 ORDER BY m.code";
-        $stmt = $db->prepare($query);
-        $stmt->execute(['site_id' => $site_id]);
-        $matieres = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Récupérer les classes
-        $query = "SELECT c.*, f.nom as filiere_nom, n.libelle as niveau_libelle,
-                 aa.libelle as annee_libelle
-                 FROM classes c
-                 JOIN filieres f ON c.filiere_id = f.id
-                 JOIN niveaux n ON c.niveau_id = n.id
-                 JOIN annees_academiques aa ON c.annee_academique_id = aa.id
-                 WHERE c.site_id = :site_id
-                 ORDER BY f.nom, n.ordre";
-        $stmt = $db->prepare($query);
-        $stmt->execute(['site_id' => $site_id]);
-        $classes = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Récupérer les types d'examens
-        $query = "SELECT * FROM types_examens ORDER BY ordre";
-        $stmt = $db->prepare($query);
-        $stmt->execute();
-        $types_examens = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Récupérer les examens récents
-        $query = "SELECT ce.*, m.nom as matiere_nom, m.code as matiere_code,
-                 c.nom as classe_nom, te.nom as type_examen,
-                 DATE_FORMAT(ce.date_examen, '%d/%m/%Y') as date_formatee
-                 FROM calendrier_examens ce
-                 JOIN matieres m ON ce.matiere_id = m.id
-                 JOIN classes c ON ce.classe_id = c.id
-                 JOIN types_examens te ON ce.type_examen_id = te.id
-                 WHERE c.site_id = :site_id
-                 AND ce.date_examen <= CURDATE()
-                 AND ce.statut = 'termine'
-                 ORDER BY ce.date_examen DESC, ce.heure_debut DESC
-                 LIMIT 10";
-        $stmt = $db->prepare($query);
-        $stmt->execute(['site_id' => $site_id]);
-        $examens_recent = $stmt->fetchAll(PDO::FETCH_ASSOC);
+if ($matiere_id) {
+    foreach ($matieres as $matiere) {
+        if ($matiere['id'] == $matiere_id) {
+            $matiere_selected = $matiere;
+            break;
+        }
     }
-} catch (PDOException $e) {
-    $error = "Erreur lors de la récupération des données: " . $e->getMessage();
 }
 
-// Démarrer l'output buffering pour éviter les erreurs d'en-tête
-ob_start();
+if ($semestre_id) {
+    foreach ($semestres as $semestre) {
+        if ($semestre['id'] == $semestre_id) {
+            $semestre_selected = $semestre;
+            break;
+        }
+    }
+}
+
+if ($annee_id) {
+    foreach ($annees_academiques as $annee) {
+        if ($annee['id'] == $annee_id) {
+            $annee_selected = $annee;
+            break;
+        }
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -544,7 +575,7 @@ ob_start();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle); ?> - ISGI</title>
+    <title>Saisie des Notes - DAC | ISGI</title>
     
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -553,744 +584,1352 @@ ob_start();
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-    :root {
-        --primary-color: #2c3e50;
-        --secondary-color: #3498db;
-        --accent-color: #e74c3c;
-        --success-color: #27ae60;
-        --warning-color: #f39c12;
-        --info-color: #17a2b8;
-        --bg-color: #f8f9fa;
-        --card-bg: #ffffff;
-        --text-color: #212529;
-        --text-muted: #6c757d;
-        --sidebar-bg: #2c3e50;
-        --sidebar-text: #ffffff;
-        --border-color: #dee2e6;
-    }
-    
-    [data-theme="dark"] {
-        --primary-color: #3498db;
-        --secondary-color: #2980b9;
-        --accent-color: #e74c3c;
-        --success-color: #2ecc71;
-        --warning-color: #f39c12;
-        --info-color: #17a2b8;
-        --bg-color: #121212;
-        --card-bg: #1e1e1e;
-        --text-color: #e0e0e0;
-        --text-muted: #a0a0a0;
-        --sidebar-bg: #1a1a1a;
-        --sidebar-text: #ffffff;
-        --border-color: #333333;
-    }
-    
-    body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background-color: var(--bg-color);
-        color: var(--text-color);
-        margin: 0;
-        padding: 0;
-    }
-    
-    /* Header principal */
-    .main-header {
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-        color: white;
-        padding: 20px 0;
-        margin-bottom: 30px;
-    }
-    
-    /* Navigation secondaire */
-    .secondary-nav {
-        background-color: var(--card-bg);
-        border-bottom: 1px solid var(--border-color);
-        padding: 10px 0;
-        margin-bottom: 20px;
-    }
-    
-    /* Cartes */
-    .card {
-        background: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
-        transition: transform 0.2s;
-    }
-    
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    
-    .card-header {
-        background-color: rgba(var(--primary-color), 0.1);
-        border-bottom: 1px solid var(--border-color);
-        padding: 15px 20px;
-        font-weight: 600;
-    }
-    
-    /* Tableaux */
-    .table th {
-        background-color: var(--info-color);
-        color: white;
-        border: none;
-    }
-    
-    .table td {
-        vertical-align: middle;
-    }
-    
-    /* Badges */
-    .badge {
-        padding: 6px 12px;
-        font-weight: 500;
-    }
-    
-    /* Input de notes */
-    .note-input {
-        width: 80px;
-        text-align: center;
-        font-weight: bold;
-        padding: 8px;
-    }
-    
-    /* Alertes */
-    .alert {
-        border-radius: 8px;
-        border: none;
-    }
-    
-    /* Boutons */
-    .btn {
-        border-radius: 6px;
-        padding: 8px 16px;
-        font-weight: 500;
-    }
-    
-    /* Informations examen */
-    .exam-info-card {
-        background: linear-gradient(135deg, var(--info-color), var(--secondary-color));
-        color: white;
-        border-radius: 10px;
-        padding: 20px;
-        margin-bottom: 20px;
-    }
-    
-    /* Responsive */
-    @media (max-width: 768px) {
-        .table-responsive {
+        /* ========== VARIABLES CSS ========== */
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --info-color: #17a2b8;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --sidebar-width: 250px;
+            --sidebar-collapsed: 70px;
+        }
+        
+        /* ========== STYLES GÉNÉRAUX ========== */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        
+        /* ========== LAYOUT PRINCIPAL ========== */
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* ========== SIDEBAR ========== */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, var(--primary-color) 0%, #1a252f 100%);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            z-index: 1000;
+            box-shadow: 3px 0 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            overflow-y: auto;
+        }
+        
+        .sidebar-header {
+            padding: 25px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            text-align: center;
+            background: rgba(0,0,0,0.2);
+        }
+        
+        .sidebar-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--info-color), #0d8abc);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .sidebar-logo i {
+            font-size: 24px;
+        }
+        
+        .user-info {
+            text-align: center;
+            padding: 20px 15px;
+            background: rgba(0,0,0,0.15);
+            margin: 15px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .user-info p {
+            margin: 0;
+            font-weight: 500;
+        }
+        
+        .user-role {
+            display: inline-block;
+            padding: 5px 15px;
+            background: linear-gradient(135deg, var(--info-color), #0d8abc);
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        /* ========== NAVIGATION ========== */
+        .sidebar-nav {
+            padding: 20px 15px;
+        }
+        
+        .nav-section {
+            margin-bottom: 30px;
+        }
+        
+        .nav-section-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 12px;
+            padding: 0 15px;
+            font-weight: 600;
+        }
+        
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 5px;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border-left-color: var(--info-color);
+            transform: translateX(5px);
+        }
+        
+        .nav-link.active {
+            background: linear-gradient(90deg, rgba(23, 162, 184, 0.2), transparent);
+            color: white;
+            border-left-color: var(--info-color);
+            font-weight: 500;
+        }
+        
+        .nav-link i {
+            width: 24px;
+            text-align: center;
+            font-size: 16px;
+            margin-right: 12px;
+            opacity: 0.9;
+        }
+        
+        /* ========== CONTENU PRINCIPAL ========== */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+        
+        /* ========== EN-TÊTE ========== */
+        .content-header {
+            background: white;
+            border-radius: 12px;
+            padding: 25px 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+        }
+        
+        .page-title {
+            color: var(--primary-color);
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .page-subtitle {
+            color: #6c757d;
             font-size: 14px;
         }
         
-        .note-input {
-            width: 60px;
-            padding: 5px;
+        /* ========== CARTES DE CONTENU ========== */
+        .content-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.05);
+            margin-bottom: 25px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
         }
-    }
-    
-    /* Loading spinner */
-    .spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(0,0,0,.1);
-        border-radius: 50%;
-        border-top-color: var(--info-color);
-        animation: spin 1s ease-in-out infinite;
-    }
-    
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
+        
+        .card-header {
+            background: linear-gradient(90deg, #f8f9fa, #e9ecef);
+            border-bottom: 1px solid #dee2e6;
+            padding: 18px 25px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .card-header h5 {
+            margin: 0;
+            color: var(--primary-color);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-header h5 i {
+            margin-right: 10px;
+            color: var(--info-color);
+        }
+        
+        .card-body {
+            padding: 25px;
+        }
+        
+        /* ========== STYLES SPÉCIFIQUES SAISIE NOTES ========== */
+        .form-card {
+            background: #e8f4fd;
+            border-left: 4px solid #0d6efd;
+        }
+        
+        .notes-card {
+            background: #f8fff8;
+            border-left: 4px solid #28a745;
+        }
+        
+        .info-card {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+        }
+        
+        .table-custom th {
+            background-color: #f1f3f4;
+            vertical-align: middle;
+        }
+        
+        .note-input {
+            width: 80px;
+            text-align: center;
+            border-radius: 5px;
+            border: 1px solid #ced4da;
+            padding: 8px;
+            font-weight: 500;
+        }
+        
+        .coefficient-input {
+            width: 60px;
+            text-align: center;
+            border-radius: 5px;
+            border: 1px solid #ced4da;
+            padding: 8px;
+        }
+        
+        .btn-examen {
+            padding: 8px 15px;
+            margin: 3px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-examen:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .badge-examen {
+            font-size: 0.8em;
+            padding: 4px 8px;
+            border-radius: 10px;
+        }
+        
+        .examen-dst {
+            background-color: #0d6efd;
+            color: white;
+        }
+        
+        .examen-dr {
+            background-color: #6f42c1;
+            color: white;
+        }
+        
+        .examen-session {
+            background-color: #198754;
+            color: white;
+        }
+        
+        .invalid-note {
+            border-color: #dc3545 !important;
+            background-color: #fff8f8;
+        }
+        
+        .valid-note {
+            border-color: #198754 !important;
+            background-color: #f8fff9;
+        }
+        
+        .note-hint {
+            font-size: 0.75em;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+        
+        .stat-card {
+            transition: all 0.3s ease;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        .btn-purple {
+            background-color: #6f42c1;
+            color: white;
+            border: none;
+        }
+        
+        .btn-purple:hover {
+            background-color: #5a32a3;
+            color: white;
+        }
+        
+        .quick-actions {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .quick-actions .btn {
+            margin-right: 5px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+        }
+        
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
+        }
+        
+        .matiere-select-group {
+            margin-bottom: 15px;
+        }
+        
+        .select-multiple {
+            height: 200px;
+            border-radius: 8px;
+        }
+        
+        /* ========== BOUTONS ========== */
+        .btn-action {
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-action i {
+            margin-right: 8px;
+        }
+        
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 992px) {
+            .sidebar {
+                width: var(--sidebar-collapsed);
+            }
+            
+            .sidebar-header h5,
+            .user-info,
+            .nav-section-title,
+            .nav-link span {
+                display: none !important;
+            }
+            
+            .sidebar-logo {
+                width: 40px;
+                height: 40px;
+            }
+            
+            .sidebar-logo i {
+                font-size: 18px;
+            }
+            
+            .nav-link {
+                justify-content: center;
+                padding: 15px;
+                margin-bottom: 10px;
+            }
+            
+            .nav-link i {
+                margin-right: 0;
+                font-size: 18px;
+            }
+            
+            .main-content {
+                margin-left: var(--sidebar-collapsed);
+                padding: 15px;
+            }
+            
+            .content-header {
+                padding: 20px;
+            }
+            
+            .note-input {
+                width: 70px;
+            }
+            
+            .coefficient-input {
+                width: 50px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                padding: 15px;
+            }
+            
+            .card-body {
+                padding: 20px;
+            }
+            
+            .table thead th,
+            .table tbody td {
+                padding: 12px 15px;
+            }
+            
+            .btn-examen {
+                padding: 6px 10px;
+                font-size: 0.9em;
+            }
+        }
+        
+        @media (max-width: 576px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .mobile-menu-btn {
+                display: block !important;
+            }
+            
+            .note-input {
+                width: 60px;
+                font-size: 0.9em;
+            }
+            
+            .coefficient-input {
+                width: 40px;
+                font-size: 0.9em;
+            }
+            
+            .table-responsive {
+                font-size: 0.9em;
+            }
+        }
+        
+        /* ========== BOUTON MOBILE ========== */
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1001;
+            background: var(--info-color);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+        }
+        
+        /* ========== SCROLLBAR PERSONNALISÉE ========== */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--info-color);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #0d8abc;
+        }
+        
+        /* ========== ANIMATIONS ========== */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+        }
+        
+        /* ========== TOOLTIPS ========== */
+        .custom-tooltip {
+            --bs-tooltip-bg: var(--bs-primary);
+            --bs-tooltip-color: var(--bs-white);
+        }
     </style>
 </head>
 <body>
-    <!-- Header principal -->
-    <header class="main-header">
-        <div class="container">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="h3 mb-2">
-                        <i class="fas fa-graduation-cap"></i> ISGI - Saisie des Notes
-                    </h1>
-                    <p class="mb-0 opacity-75">
-                        Directeur des Affaires Académiques | 
-                        <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Utilisateur'); ?>
-                    </p>
+    <!-- Bouton menu mobile -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <div class="app-container">
+        <!-- ========== SIDEBAR ========== -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-logo">
+                    <i class="fas fa-graduation-cap"></i>
                 </div>
-                <div class="text-end">
-                    <div class="badge bg-light text-dark mb-2">
-                        Site: <?php echo htmlspecialchars($_SESSION['site_nom'] ?? 'Non défini'); ?>
+                <h5 class="mt-2 mb-1">ISGI DAC</h5>
+                <div class="user-role">Directeur Académique</div>
+            </div>
+            
+            <div class="user-info">
+                <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Administrateur DAC'); ?></p>
+                <small><?php echo htmlspecialchars($_SESSION['site_name'] ?? 'Site ISGI'); ?></small>
+            </div>
+            
+            <div class="sidebar-nav">
+                <!-- Tableau de bord -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Tableau de Bord</div>
+                    <a href="dashboard.php" class="nav-link">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Tableau de bord</span>
+                    </a>
+                </div>
+                
+                <!-- Notes & Évaluations -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Notes & Évaluations</div>
+                    <a href="matieres.php" class="nav-link">
+                        <i class="fas fa-book"></i>
+                        <span>Gestion des matières</span>
+                    </a>
+                    <a href="saisie_notes.php" class="nav-link active">
+                        <i class="fas fa-pencil-alt"></i>
+                        <span>Saisie des notes</span>
+                    </a>
+                    <a href="notes.php" class="nav-link">
+                        <i class="fas fa-calculator"></i>
+                        <span>Calcul des moyennes</span>
+                    </a>
+                    <a href="bulletins.php" class="nav-link">
+                        <i class="fas fa-file-certificate"></i>
+                        <span>Bulletins de notes</span>
+                    </a>
+                </div>
+                
+                <!-- Gestion des étudiants -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Gestion Étudiants</div>
+                    <a href="etudiants.php" class="nav-link">
+                        <i class="fas fa-user-graduate"></i>
+                        <span>Liste des étudiants</span>
+                    </a>
+                </div>
+                
+                <!-- Rapports & Statistiques -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Rapports & Statistiques</div>
+                    <a href="rapports_academiques.php" class="nav-link">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Rapports académiques</span>
+                    </a>
+                </div>
+                
+                <!-- Compte -->
+                <div class="nav-section">
+                    <div class="nav-section-title">Compte</div>
+                    <a href="../../auth/logout.php" class="nav-link">
+                        <i class="fas fa-sign-out-alt"></i>
+                        <span>Déconnexion</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- ========== CONTENU PRINCIPAL ========== -->
+        <div class="main-content" id="mainContent">
+            <!-- En-tête -->
+            <div class="content-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="page-title">
+                            <i class="fas fa-pencil-alt me-2"></i>
+                            Saisie des Notes par Matière et Examen
+                        </h1>
+                        <p class="page-subtitle">
+                            Directeur des Affaires Académiques | 
+                            Site: <strong><?php echo htmlspecialchars($_SESSION['site_name'] ?? 'ISGI'); ?></strong> | 
+                            <?php echo date('d/m/Y'); ?>
+                        </p>
                     </div>
-                    <br>
-                    <a href="<?php echo ROOT_PATH; ?>/dashboard/" class="btn btn-light btn-sm">
-                        <i class="fas fa-tachometer-alt"></i> Dashboard
-                    </a>
-                    <a href="<?php echo ROOT_PATH; ?>/auth/logout.php" class="btn btn-outline-light btn-sm">
-                        <i class="fas fa-sign-out-alt"></i> Déconnexion
-                    </a>
+                    <div class="btn-group">
+                        <button class="btn btn-info btn-action" onclick="location.reload()">
+                            <i class="fas fa-sync-alt"></i> Actualiser
+                        </button>
+                        <a href="calcul_moyennes.php" class="btn btn-outline-info btn-action">
+                            <i class="fas fa-calculator"></i> Calcul Moyennes
+                        </a>
+                    </div>
                 </div>
             </div>
-        </div>
-    </header>
-    
-    <!-- Navigation secondaire -->
-    <nav class="secondary-nav">
-        <div class="container">
-            <div class="d-flex flex-wrap gap-2">
-                <a href="saisie_notes.php" class="btn btn-outline-primary btn-sm">
-                    <i class="fas fa-plus-circle"></i> Nouvelle saisie
-                </a>
-                <a href="notes.php" class="btn btn-outline-secondary btn-sm">
-                    <i class="fas fa-list"></i> Liste des notes
-                </a>
-                <a href="calendrier_examens.php" class="btn btn-outline-info btn-sm">
-                    <i class="fas fa-calendar"></i> Calendrier
-                </a>
-                <a href="bulletins.php" class="btn btn-outline-success btn-sm">
-                    <i class="fas fa-file-alt"></i> Bulletins
-                </a>
-                <div class="ms-auto">
-                    <button class="btn btn-outline-dark btn-sm" onclick="toggleTheme()">
-                        <i class="fas fa-moon"></i> Thème
-                    </button>
-                </div>
+            
+            <!-- Message de confirmation -->
+            <?php if ($message): ?>
+            <div class="alert alert-<?php echo $message_type; ?> alert-dismissible fade show fade-in" role="alert">
+                <i class="fas fa-<?php echo $message_type === 'success' ? 'check-circle' : 'exclamation-triangle'; ?> me-2"></i>
+                <?php echo $message; ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-        </div>
-    </nav>
-    
-    <!-- Contenu principal -->
-    <main class="container">
-        <!-- Messages d'alerte -->
-        <?php if ($success_message): ?>
-        <div class="alert alert-success alert-dismissible fade show">
-            <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_message); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        <?php endif; ?>
-        
-        <?php if ($error): ?>
-        <div class="alert alert-danger alert-dismissible fade show">
-            <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        <?php endif; ?>
-        
-        <!-- Contenu selon l'action -->
-        <?php if (!$examen): ?>
-        <!-- Sélection d'examen -->
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">
-                    <i class="fas fa-search"></i> Sélectionnez un examen pour saisir les notes
-                </h5>
-            </div>
-            <div class="card-body">
-                <?php if (empty($examens_recent)): ?>
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle"></i> Aucun examen disponible pour la saisie.
-                    <p class="mb-0 mt-2">
-                        <small>Les examens doivent être terminés pour pouvoir saisir les notes.</small>
-                    </p>
+            <?php endif; ?>
+            
+            <!-- Filtres principaux -->
+            <div class="content-card form-card fade-in">
+                <div class="card-header">
+                    <h5><i class="fas fa-filter me-2"></i> 1. Sélectionnez les Paramètres</h5>
                 </div>
-                <?php else: ?>
-                <div class="row">
-                    <?php foreach ($examens_recent as $exam): ?>
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100 exam-card" onclick="window.location.href='saisie_notes.php?examen_id=<?php echo $exam['id']; ?>'">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start">
-                                    <div>
-                                        <h6 class="card-title text-primary">
-                                            <?php echo htmlspecialchars($exam['matiere_nom']); ?>
-                                        </h6>
-                                        <p class="card-text mb-1">
-                                            <small class="text-muted">
-                                                <i class="fas fa-users"></i> 
-                                                <?php echo htmlspecialchars($exam['classe_nom']); ?>
-                                            </small>
-                                        </p>
-                                        <p class="card-text mb-1">
-                                            <small>
-                                                <i class="fas fa-calendar"></i> 
-                                                <?php echo $exam['date_formatee']; ?>
-                                            </small>
-                                        </p>
-                                        <p class="card-text mb-0">
-                                            <span class="badge bg-info">
-                                                <?php echo htmlspecialchars($exam['type_examen']); ?>
-                                            </span>
-                                            <span class="badge bg-secondary ms-1">
-                                                <?php echo $exam['matiere_code']; ?>
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <?php if ($exam['notes_saisies'] == 1): ?>
-                                        <span class="badge bg-success">
-                                            <i class="fas fa-check"></i> Saisi
-                                        </span>
-                                        <?php else: ?>
-                                        <span class="badge bg-warning">
-                                            <i class="fas fa-clock"></i> À saisir
-                                        </span>
+                <div class="card-body">
+                    <form method="GET" action="" class="row g-3" id="filtres-form">
+                        <!-- Classe -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Classe *</label>
+                            <select name="classe_id" class="form-select" required onchange="this.form.submit()">
+                                <option value="">Sélectionnez une classe...</option>
+                                <?php foreach ($classes as $classe): ?>
+                                    <option value="<?php echo $classe['id']; ?>" <?php echo ($classe_id == $classe['id']) ? 'selected' : ''; ?>>
+                                        <?php echo escape($classe['nom']); ?>
+                                        <?php if (isset($classe['filiere_nom'])): ?>
+                                        (<?php echo escape($classe['filiere_nom']); ?>)
                                         <?php endif; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <!-- Semestre -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Semestre *</label>
+                            <select name="semestre_id" class="form-select" required onchange="this.form.submit()">
+                                <option value="">Sélectionnez...</option>
+                                <?php foreach ($semestres as $semestre): ?>
+                                    <option value="<?php echo $semestre['id']; ?>" <?php echo ($semestre_id == $semestre['id']) ? 'selected' : ''; ?>>
+                                        <?php echo escape($semestre['nom'] ?? 'Semestre ' . $semestre['numero']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <!-- Année académique -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Année académique *</label>
+                            <select name="annee_id" class="form-select" required onchange="this.form.submit()">
+                                <option value="">Sélectionnez...</option>
+                                <?php foreach ($annees_academiques as $annee): ?>
+                                    <option value="<?php echo $annee['id']; ?>" <?php echo ($annee_id == $annee['id']) ? 'selected' : ''; ?>>
+                                        <?php echo escape($annee['annee']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100 btn-action">
+                                <i class="fas fa-search"></i> Charger
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <?php if ($classe_id && $semestre_id && $annee_id): ?>
+                    <div class="alert alert-success mt-3">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Paramètres sélectionnés:</strong>
+                        Classe: <?php echo escape($classe_selected['nom'] ?? ''); ?> | 
+                        Semestre: <?php echo escape($semestre_selected['nom'] ?? ''); ?> | 
+                        Année: <?php echo escape($annee_selected['annee'] ?? ''); ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <?php if ($classe_id && $semestre_id && $annee_id): ?>
+            <!-- Sélection du type d'examen et de la matière -->
+            <div class="content-card fade-in">
+                <div class="card-header">
+                    <h5><i class="fas fa-clipboard-check me-2"></i> 2. Sélectionnez le Type d'Examen et la Matière</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Sélection du type d'examen -->
+                        <div class="col-lg-4 mb-4">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-clipboard-data me-2"></i> Type d'Examen</h6>
+                            <div class="d-flex flex-wrap">
+                                <?php foreach ($types_examens as $type): 
+                                    $btn_class = '';
+                                    $badge_class = '';
+                                    
+                                    if (stripos($type['nom'], 'DST') !== false) {
+                                        $btn_class = 'btn-primary';
+                                        $badge_class = 'examen-dst';
+                                    } elseif (stripos($type['nom'], 'Recherche') !== false) {
+                                        $btn_class = 'btn-purple';
+                                        $badge_class = 'examen-dr';
+                                    } elseif (stripos($type['nom'], 'Session') !== false) {
+                                        $btn_class = 'btn-success';
+                                        $badge_class = 'examen-session';
+                                    } else {
+                                        $btn_class = 'btn-secondary';
+                                    }
+                                ?>
+                                <a href="?classe_id=<?php echo $classe_id; ?>&semestre_id=<?php echo $semestre_id; ?>&annee_id=<?php echo $annee_id; ?>&type_examen_id=<?php echo $type['id']; ?>" 
+                                   class="btn <?php echo $btn_class; ?> btn-examen <?php echo ($type_examen_id == $type['id']) ? 'active' : ''; ?>">
+                                    <span class="badge <?php echo $badge_class; ?> me-1"><?php echo $type['pourcentage']; ?>%</span>
+                                    <?php echo escape($type['nom']); ?>
+                                </a>
+                                <?php endforeach; ?>
+                            </div>
+                            
+                            <?php if ($type_examen_id): ?>
+                            <div class="alert alert-info mt-3">
+                                <strong><i class="fas fa-check me-2"></i>Type sélectionné:</strong> 
+                                <?php echo escape($type_examen_selected['nom']); ?>
+                                <span class="badge bg-primary ms-2"><?php echo $type_examen_selected['pourcentage']; ?>%</span>
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <!-- Sélection de la matière -->
+                        <div class="col-lg-8">
+                            <h6 class="fw-bold mb-3"><i class="fas fa-book me-2"></i> Matière</h6>
+                            <?php if (empty($matieres)): ?>
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                Aucune matière trouvée pour cette classe.
+                            </div>
+                            <?php else: ?>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <select name="matiere_id" class="form-select" onchange="window.location.href='?classe_id=<?php echo $classe_id; ?>&semestre_id=<?php echo $semestre_id; ?>&annee_id=<?php echo $annee_id; ?>&type_examen_id=<?php echo $type_examen_id; ?>&matiere_id='+this.value" <?php echo !$type_examen_id ? 'disabled' : ''; ?>>
+                                        <option value="">Sélectionnez une matière...</option>
+                                        <?php foreach ($matieres as $matiere): ?>
+                                            <option value="<?php echo $matiere['id']; ?>" <?php echo ($matiere_id == $matiere['id']) ? 'selected' : ''; ?>>
+                                                <?php echo escape($matiere['nom']); ?> 
+                                                (<?php echo $matiere['credit'] ?? '?'; ?> crédits)
+                                                <?php if (isset($matiere['coefficient'])): ?>
+                                                - Coef: <?php echo $matiere['coefficient']; ?>
+                                                <?php endif; ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?php if (!$type_examen_id): ?>
+                                    <small class="text-muted">Veuillez d'abord sélectionner un type d'examen</small>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <?php if ($type_examen_id && $matiere_id): ?>
+                                    <div class="alert alert-success">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>Prêt à saisir:</strong><br>
+                                        <small>
+                                            <?php echo escape($matiere_selected['nom']); ?> - 
+                                            <?php echo escape($type_examen_selected['nom']); ?>
+                                        </small>
                                     </div>
+                                    <?php endif; ?>
                                 </div>
                             </div>
-                            <div class="card-footer bg-transparent text-center">
-                                <small>
-                                    <a href="saisie_notes.php?examen_id=<?php echo $exam['id']; ?>" 
-                                       class="text-decoration-none">
-                                        <i class="fas fa-edit"></i> Saisir les notes
+                            
+                            <!-- Matières rapides -->
+                            <?php if ($type_examen_id): ?>
+                            <div class="mt-3">
+                                <h6><i class="fas fa-bolt me-2"></i> Accès rapide aux matières:</h6>
+                                <div class="d-flex flex-wrap">
+                                    <?php foreach (array_slice($matieres, 0, 8) as $matiere): ?>
+                                    <a href="?classe_id=<?php echo $classe_id; ?>&semestre_id=<?php echo $semestre_id; ?>&annee_id=<?php echo $annee_id; ?>&type_examen_id=<?php echo $type_examen_id; ?>&matiere_id=<?php echo $matiere['id']; ?>" 
+                                       class="btn btn-outline-primary btn-sm me-2 mb-2 <?php echo ($matiere_id == $matiere['id']) ? 'active' : ''; ?>">
+                                        <?php echo substr(escape($matiere['nom']), 0, 20); ?><?php echo strlen($matiere['nom']) > 20 ? '...' : ''; ?>
                                     </a>
-                                </small>
+                                    <?php endforeach; ?>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                </div>
-                <?php endif; ?>
-            </div>
-        </div>
-        
-        <?php else: ?>
-        <!-- Formulaire de saisie des notes -->
-        <div class="exam-info-card">
-            <div class="row">
-                <div class="col-md-8">
-                    <h4 class="mb-2">
-                        <i class="fas fa-book"></i> 
-                        <?php echo htmlspecialchars($examen['matiere_nom'] . ' (' . $examen['matiere_code'] . ')'); ?>
-                    </h4>
-                    <p class="mb-1">
-                        <i class="fas fa-chalkboard-teacher"></i> 
-                        Classe: <?php echo htmlspecialchars($examen['classe_nom']); ?>
-                    </p>
-                    <p class="mb-1">
-                        <i class="fas fa-layer-group"></i> 
-                        <?php echo htmlspecialchars($examen['filiere_nom'] . ' - ' . $examen['niveau_libelle']); ?>
-                    </p>
-                    <p class="mb-0">
-                        <i class="fas fa-clipboard-check"></i> 
-                        <?php echo htmlspecialchars($examen['type_examen']); ?> 
-                        (<?php echo $examen['type_pourcentage']; ?>%) - 
-                        Coefficient: <?php echo $examen['matiere_coeff']; ?>
-                    </p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <div class="d-flex flex-column align-items-end">
-                        <span class="badge bg-light text-dark mb-2">
-                            <i class="fas fa-calendar"></i> 
-                            <?php echo formatDateFr($examen['date_examen']); ?>
-                        </span>
-                        <div>
-                            <?php if ($examen['notes_validees'] == 1): ?>
-                            <span class="badge bg-success">
-                                <i class="fas fa-check-double"></i> Validé
-                            </span>
-                            <?php elseif ($examen['notes_saisies'] == 1): ?>
-                            <span class="badge bg-warning">
-                                <i class="fas fa-check"></i> Saisi
-                            </span>
-                            <?php else: ?>
-                            <span class="badge bg-secondary">
-                                <i class="fas fa-clock"></i> En attente
-                            </span>
+                            <?php endif; ?>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- Statistiques rapides -->
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body py-3">
-                        <h6 class="card-title text-muted">Étudiants</h6>
-                        <h2 class="text-primary"><?php echo count($etudiants); ?></h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body py-3">
-                        <h6 class="card-title text-muted">Notes saisies</h6>
-                        <h2 class="text-success"><?php echo count($notes_existantes); ?></h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body py-3">
-                        <h6 class="card-title text-muted">Taux de saisie</h6>
-                        <h2 class="text-info">
-                            <?php 
-                            $taux = count($etudiants) > 0 ? 
-                                   (count($notes_existantes) / count($etudiants)) * 100 : 0;
-                            echo number_format($taux, 1) . '%';
-                            ?>
-                        </h2>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card text-center">
-                    <div class="card-body py-3">
-                        <h6 class="card-title text-muted">Moyenne</h6>
-                        <h2 class="text-warning">
-                            <?php
-                            if (count($notes_existantes) > 0) {
-                                $somme = 0;
-                                foreach ($notes_existantes as $note) {
-                                    $somme += $note['note'];
-                                }
-                                echo number_format($somme / count($notes_existantes), 2);
-                            } else {
-                                echo '0.00';
-                            }
-                            ?>
-                        </h2>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Formulaire de saisie -->
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">
-                    <i class="fas fa-edit"></i> Saisie des notes
-                </h5>
-                <div>
-                    <?php if ($examen['notes_validees'] == 0): ?>
-                    <button type="button" class="btn btn-success btn-sm" onclick="calculerMoyennes()">
-                        <i class="fas fa-calculator"></i> Calculer
-                    </button>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#validerModal">
-                        <i class="fas fa-check-circle"></i> Valider
-                    </button>
-                    <?php endif; ?>
-                </div>
-            </div>
+            <?php endif; ?>
             
-            <div class="card-body">
-                <?php if (empty($etudiants)): ?>
-                <div class="alert alert-warning text-center">
-                    <i class="fas fa-exclamation-triangle"></i> Aucun étudiant trouvé dans cette classe.
-                </div>
-                <?php else: ?>
-                <form method="post" id="formSaisieNotes">
-                    <input type="hidden" name="saisie_notes" value="1">
-                    <input type="hidden" name="examen_id" value="<?php echo $examen['id']; ?>">
-                    <input type="hidden" name="matiere_id" value="<?php echo $examen['matiere_id']; ?>">
-                    <input type="hidden" name="classe_id" value="<?php echo $examen['classe_id']; ?>">
-                    <input type="hidden" name="type_examen_id" value="<?php echo $examen['type_examen_id']; ?>">
-                    <input type="hidden" name="semestre_numero" value="<?php echo $examen['semestre_numero']; ?>">
-                    <input type="hidden" name="annee_academique_id" value="<?php echo $examen['annee_id']; ?>">
-                    
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead class="table-info">
-                                <tr>
-                                    <th width="5%">#</th>
-                                    <th width="15%">Matricule</th>
-                                    <th width="25%">Étudiant</th>
-                                    <th width="15%">Note /20</th>
-                                    <th width="15%">Coefficient</th>
-                                    <th width="25%">Remarques</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php $i = 1; foreach ($etudiants as $etudiant): 
-                                    $note_existante = $notes_par_etudiant[$etudiant['id']] ?? null;
-                                    $note_value = $note_existante ? $note_existante['note'] : '';
-                                    $coefficient = $note_existante ? $note_existante['coefficient_note'] : 1.0;
-                                    $remarque = $note_existante ? $note_existante['remarques'] : '';
-                                ?>
-                                <tr>
-                                    <td><?php echo $i++; ?></td>
-                                    <td>
-                                        <span class="badge bg-dark"><?php echo htmlspecialchars($etudiant['matricule']); ?></span>
-                                    </td>
-                                    <td>
-                                        <strong><?php echo htmlspecialchars($etudiant['prenom'] . ' ' . $etudiant['nom']); ?></strong>
-                                    </td>
-                                    <td>
-                                        <input type="number" 
-                                               name="notes[<?php echo $etudiant['id']; ?>]"
-                                               class="form-control note-input"
-                                               min="0" max="20" step="0.25"
-                                               value="<?php echo $note_value; ?>"
-                                               placeholder="0.00"
-                                               onchange="updateNoteStatus(this, <?php echo $etudiant['id']; ?>)">
-                                    </td>
-                                    <td>
-                                        <input type="number"
-                                               name="coefficients[<?php echo $etudiant['id']; ?>]"
-                                               class="form-control"
-                                               min="0.1" max="5" step="0.1"
-                                               value="<?php echo $coefficient; ?>"
-                                               style="width: 80px;">
-                                    </td>
-                                    <td>
-                                        <input type="text"
-                                               name="remarques[<?php echo $etudiant['id']; ?>]"
-                                               class="form-control"
-                                               placeholder="Observation..."
-                                               value="<?php echo htmlspecialchars($remarque); ?>">
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                            <tfoot>
-                                <tr>
-                                    <td colspan="6" class="text-end">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <button type="button" class="btn btn-outline-secondary" onclick="remplirNotesTest()">
-                                                    <i class="fas fa-vial"></i> Test
-                                                </button>
-                                                <button type="button" class="btn btn-outline-warning" onclick="resetForm()">
-                                                    <i class="fas fa-undo"></i> Réinitialiser
-                                                </button>
-                                            </div>
-                                            <div>
-                                                <button type="submit" class="btn btn-primary btn-lg">
-                                                    <i class="fas fa-save"></i> Enregistrer toutes les notes
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tfoot>
-                        </table>
+            <?php if ($type_examen_id && $matiere_id && !empty($etudiants)): ?>
+            <!-- Formulaire de saisie des notes -->
+            <div class="content-card notes-card fade-in">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-pencil-square me-2"></i> 
+                        3. Saisie des Notes - 
+                        <?php echo escape($type_examen_selected['nom']); ?> - 
+                        <?php echo escape($matiere_selected['nom']); ?>
+                    </h5>
+                    <div>
+                        <span class="badge bg-info me-2">
+                            <?php echo escape($classe_selected['nom']); ?>
+                        </span>
+                        <span class="badge bg-secondary">
+                            <?php echo count($etudiants); ?> étudiant(s)
+                        </span>
                     </div>
-                </form>
-                <?php endif; ?>
-            </div>
-        </div>
-        
-        <!-- Modal de validation -->
-        <div class="modal fade" id="validerModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form method="post">
-                        <input type="hidden" name="valider_notes" value="1">
-                        <input type="hidden" name="examen_id" value="<?php echo $examen['id']; ?>">
+                </div>
+                
+                <div class="card-body">
+                    <!-- Informations détaillées -->
+                    <div class="alert alert-info mb-4">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <strong><i class="fas fa-clipboard-list me-2"></i>Type d'examen:</strong><br>
+                                <span class="badge bg-primary mt-1"><?php echo escape($type_examen_selected['nom']); ?></span>
+                                <small class="d-block mt-1">Pondération: <?php echo $type_examen_selected['pourcentage']; ?>%</small>
+                            </div>
+                            <div class="col-md-3">
+                                <strong><i class="fas fa-book me-2"></i>Matière:</strong><br>
+                                <?php echo escape($matiere_selected['nom']); ?>
+                                <small class="d-block mt-1">
+                                    Crédits: <?php echo $matiere_selected['credit'] ?? '?'; ?>
+                                    <?php if (isset($matiere_selected['coefficient'])): ?>
+                                    | Coef: <?php echo $matiere_selected['coefficient']; ?>
+                                    <?php endif; ?>
+                                </small>
+                            </div>
+                            <div class="col-md-2">
+                                <strong><i class="fas fa-calendar me-2"></i>Semestre:</strong><br>
+                                <?php echo escape($semestre_selected['nom'] ?? ''); ?>
+                            </div>
+                            <div class="col-md-2">
+                                <strong><i class="fas fa-calendar-alt me-2"></i>Année:</strong><br>
+                                <?php echo escape($annee_selected['annee'] ?? ''); ?>
+                            </div>
+                            <div class="col-md-2">
+                                <strong><i class="fas fa-users me-2"></i>Étudiants:</strong><br>
+                                <span class="badge bg-info mt-1"><?php echo count($etudiants); ?></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Actions rapides -->
+                    <div class="quick-actions">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="remplirNotesAleatoires()">
+                            <i class="fas fa-random me-1"></i> Notes aléatoires (test)
+                        </button>
+                        <button type="button" class="btn btn-outline-warning btn-sm" onclick="viderToutesLesNotes()">
+                            <i class="fas fa-times-circle me-1"></i> Vider tout
+                        </button>
+                        <button type="button" class="btn btn-outline-info btn-sm" onclick="remplirMoyenne10()">
+                            <i class="fas fa-arrow-right me-1"></i> Remplir avec 10
+                        </button>
+                        <button type="button" class="btn btn-outline-success btn-sm" onclick="remplirMoyenne15()">
+                            <i class="fas fa-arrow-up me-1"></i> Remplir avec 15
+                        </button>
+                        <div class="float-end">
+                            <span class="badge bg-warning me-2">
+                                <?php echo count($notes_existantes); ?> note(s) déjà saisie(s)
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Formulaire de saisie -->
+                    <form method="POST" action="" id="form-notes">
+                        <input type="hidden" name="action" value="sauvegarder_notes">
+                        <input type="hidden" name="type_examen_id" value="<?php echo $type_examen_id; ?>">
+                        <input type="hidden" name="classe_id" value="<?php echo $classe_id; ?>">
+                        <input type="hidden" name="matiere_id" value="<?php echo $matiere_id; ?>">
+                        <input type="hidden" name="semestre_id" value="<?php echo $semestre_id; ?>">
+                        <input type="hidden" name="annee_id" value="<?php echo $annee_id; ?>">
                         
-                        <div class="modal-header">
-                            <h5 class="modal-title">Validation des Notes</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th width="50">#</th>
+                                        <th width="120">Matricule</th>
+                                        <th>Nom & Prénom</th>
+                                        <th width="140">Note /20 *</th>
+                                        <th width="100">Coefficient</th>
+                                        <th>Commentaire</th>
+                                        <th width="100">Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($etudiants as $index => $etudiant): 
+                                        $note_existante = $notes_existantes[$etudiant['id']] ?? null;
+                                        $note_value = $note_existante ? $note_existante['note'] : '';
+                                        $coefficient_value = $note_existante ? $note_existante['coefficient_note'] : 1;
+                                        $commentaire_value = $note_existante ? $note_existante['remarques'] : '';
+                                        $statut_class = $note_existante ? 'success' : 'warning';
+                                        $statut_text = $note_existante ? 'Déjà saisie' : 'À saisir';
+                                    ?>
+                                    <tr>
+                                        <td class="text-center"><?php echo $index + 1; ?></td>
+                                        <td><?php echo escape($etudiant['matricule']); ?></td>
+                                        <td><?php echo escape($etudiant['nom'] . ' ' . $etudiant['prenom']); ?></td>
+                                        <td>
+                                            <input type="number" 
+                                                   name="notes[<?php echo $etudiant['id']; ?>][note]" 
+                                                   class="form-control note-input" 
+                                                   min="0" max="20" step="0.01"
+                                                   value="<?php echo $note_value; ?>"
+                                                   placeholder="0-20"
+                                                   required
+                                                   data-etudiant-id="<?php echo $etudiant['id']; ?>">
+                                            <div class="note-hint">Note obligatoire (0-20)</div>
+                                        </td>
+                                        <td>
+                                            <input type="number" 
+                                                   name="notes[<?php echo $etudiant['id']; ?>][coefficient]" 
+                                                   class="form-control coefficient-input" 
+                                                   min="0.1" max="5" step="0.1"
+                                                   value="<?php echo $coefficient_value; ?>"
+                                                   title="Coefficient (0.1 à 5)">
+                                        </td>
+                                        <td>
+                                            <input type="text" 
+                                                   name="notes[<?php echo $etudiant['id']; ?>][commentaire]" 
+                                                   class="form-control" 
+                                                   value="<?php echo escape($commentaire_value); ?>"
+                                                   placeholder="Commentaire optionnel">
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-<?php echo $statut_class; ?>">
+                                                <?php echo $statut_text; ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
                         </div>
-                        <div class="modal-body">
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <strong>Attention !</strong> Cette action est définitive.
+                        
+                        <!-- Statistiques -->
+                        <div class="row mt-4">
+                            <div class="col-md-4">
+                                <div class="card stat-card">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-primary"><?php echo count($etudiants); ?></h4>
+                                        <p class="mb-0 text-muted">Étudiants</p>
+                                    </div>
+                                </div>
                             </div>
-                            <p>En validant, les notes seront publiées et visibles par les étudiants.</p>
-                            <div class="mb-3">
-                                <label class="form-label">Date de publication</label>
-                                <input type="date" name="date_publication" class="form-control" 
-                                       value="<?php echo date('Y-m-d'); ?>" required>
+                            <div class="col-md-4">
+                                <div class="card stat-card">
+                                    <div class="card-body text-center">
+                                        <h4 class="text-success"><?php echo count($notes_existantes); ?></h4>
+                                        <p class="mb-0 text-muted">Notes déjà saisies</p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                            <button type="submit" class="btn btn-primary">Confirmer la validation</button>
+                            <div class="col-md-4">
+                                <div class="card stat-card">
+                                    <div class="card-body text-center">
+                                        <button type="submit" class="btn btn-success btn-lg btn-action">
+                                            <i class="fas fa-save me-2"></i> Sauvegarder toutes les notes
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </form>
+                    
+                    <!-- Navigation rapide -->
+                    <div class="content-card mt-4">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="fas fa-arrows-alt-h me-2"></i> Navigation rapide</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-exchange-alt me-2"></i> Autres types d'examen:</h6>
+                                    <div class="d-flex flex-wrap">
+                                        <?php foreach ($types_examens as $type): 
+                                            if ($type['id'] == $type_examen_id) continue;
+                                        ?>
+                                        <a href="?classe_id=<?php echo $classe_id; ?>&semestre_id=<?php echo $semestre_id; ?>&annee_id=<?php echo $annee_id; ?>&type_examen_id=<?php echo $type['id']; ?>&matiere_id=<?php echo $matiere_id; ?>" 
+                                           class="btn btn-outline-secondary btn-sm me-2 mb-2">
+                                            <i class="fas fa-arrow-right me-1"></i>
+                                            <?php echo escape($type['nom']); ?>
+                                        </a>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6><i class="fas fa-book-open me-2"></i> Autres matières:</h6>
+                                    <div class="d-flex flex-wrap">
+                                        <?php foreach (array_slice($matieres, 0, 5) as $matiere): 
+                                            if ($matiere['id'] == $matiere_id) continue;
+                                        ?>
+                                        <a href="?classe_id=<?php echo $classe_id; ?>&semestre_id=<?php echo $semestre_id; ?>&annee_id=<?php echo $annee_id; ?>&type_examen_id=<?php echo $type_examen_id; ?>&matiere_id=<?php echo $matiere['id']; ?>" 
+                                           class="btn btn-outline-primary btn-sm me-2 mb-2">
+                                            <i class="fas fa-book me-1"></i>
+                                            <?php echo substr(escape($matiere['nom']), 0, 15); ?>...
+                                        </a>
+                                        <?php endforeach; ?>
+                                        <?php if (count($matieres) > 5): ?>
+                                        <button class="btn btn-link btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#plusDeMatieres">
+                                            <i class="fas fa-ellipsis-h me-1"></i>Voir plus...
+                                        </button>
+                                        <div class="collapse mt-2" id="plusDeMatieres">
+                                            <div class="d-flex flex-wrap">
+                                                <?php foreach (array_slice($matieres, 5) as $matiere): 
+                                                    if ($matiere['id'] == $matiere_id) continue;
+                                                ?>
+                                                <a href="?classe_id=<?php echo $classe_id; ?>&semestre_id=<?php echo $semestre_id; ?>&annee_id=<?php echo $annee_id; ?>&type_examen_id=<?php echo $type_examen_id; ?>&matiere_id=<?php echo $matiere['id']; ?>" 
+                                                   class="btn btn-outline-primary btn-sm me-2 mb-2">
+                                                    <?php echo substr(escape($matiere['nom']), 0, 15); ?>...
+                                                </a>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php elseif ($type_examen_id && $matiere_id && empty($etudiants)): ?>
+            <!-- Message si aucun étudiant -->
+            <div class="alert alert-warning text-center fade-in">
+                <i class="fas fa-users fs-4"></i>
+                <h5 class="mt-3">Aucun étudiant dans cette classe</h5>
+                <p class="mb-0">Veuillez d'abord assigner des étudiants à cette classe.</p>
+                <a href="etudiants.php" class="btn btn-primary mt-3">
+                    <i class="fas fa-users me-2"></i> Gérer les étudiants
+                </a>
+            </div>
+            <?php endif; ?>
+            
+            <!-- Informations sur les pondérations -->
+            <div class="content-card info-card mt-4 fade-in">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle me-2"></i> Informations sur les pondérations</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-calculator me-2"></i>Formule de calcul de la note finale:</h6>
+                            <div class="alert alert-light">
+                                <code>Note Finale = (DST × 20%) + (Recherche × 20%) + (Session × 60%)</code>
+                            </div>
+                            <p>Pour qu'une matière soit prise en compte dans le calcul de la moyenne générale, 
+                            les 3 types de notes doivent être saisis pour chaque étudiant.</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-percentage me-2"></i>Types d'examens et pondérations:</h6>
+                            <ul class="list-group">
+                                <?php foreach ($types_examens as $type): ?>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <?php echo escape($type['nom']); ?>
+                                    <span class="badge bg-primary rounded-pill"><?php echo $type['pourcentage']; ?>%</span>
+                                </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
-        <?php endif; ?>
-        
-        <!-- Pied de page -->
-        <footer class="mt-5 pt-3 border-top text-center text-muted">
-            <p class="mb-1">
-                <small>
-                    <i class="fas fa-copyright"></i> ISGI - Système de Gestion Académique
-                </small>
-            </p>
-            <p class="mb-0">
-                <small>
-                    Session: <?php echo date('d/m/Y H:i'); ?> | 
-                    Version: 1.0
-                </small>
-            </p>
-        </footer>
-    </main>
+    </div>
     
-    <!-- Scripts JavaScript -->
+    <!-- ========== SCRIPTS ========== -->
+    <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-    // Fonction pour basculer le thème
-    function toggleTheme() {
-        const html = document.documentElement;
-        const currentTheme = html.getAttribute('data-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-theme', newTheme);
-        localStorage.setItem('isgi_theme', newTheme);
-    }
+    // ========== FONCTIONS UTILITAIRES ==========
     
-    // Initialiser le thème
-    document.addEventListener('DOMContentLoaded', function() {
-        const savedTheme = localStorage.getItem('isgi_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
+    // Toggle sidebar sur mobile
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
         
-        // Auto-suppression des alertes après 5 secondes
-        setTimeout(() => {
-            const alerts = document.querySelectorAll('.alert');
-            alerts.forEach(alert => {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            });
-        }, 5000);
-    });
-    
-    // Mettre à jour le statut visuel de la note
-    function updateNoteStatus(input, etudiantId) {
-        const note = parseFloat(input.value) || 0;
-        if (note >= 16) {
-            input.classList.add('border-success');
-            input.classList.remove('border-warning', 'border-danger');
-        } else if (note >= 10) {
-            input.classList.add('border-warning');
-            input.classList.remove('border-success', 'border-danger');
-        } else if (note > 0) {
-            input.classList.add('border-danger');
-            input.classList.remove('border-success', 'border-warning');
-        } else {
-            input.classList.remove('border-success', 'border-warning', 'border-danger');
-        }
-    }
-    
-    // Calculer les statistiques
-    function calculerMoyennes() {
-        const inputs = document.querySelectorAll('input[name^="notes"]');
-        let total = 0;
-        let count = 0;
-        let valides = 0;
-        
-        inputs.forEach(input => {
-            const note = parseFloat(input.value);
-            if (!isNaN(note) && note >= 0 && note <= 20) {
-                total += note;
-                count++;
-                if (note >= 10) valides++;
+        if (window.innerWidth <= 576) {
+            if (sidebar.style.display === 'block') {
+                sidebar.style.display = 'none';
+                mainContent.style.marginLeft = '0';
+            } else {
+                sidebar.style.display = 'block';
+                sidebar.style.width = '250px';
+                sidebar.style.position = 'fixed';
+                sidebar.style.zIndex = '1000';
+                mainContent.style.marginLeft = '0';
             }
-        });
-        
-        if (count > 0) {
-            const moyenne = total / count;
-            const tauxReussite = (valides / count) * 100;
-            
-            alert(`Statistiques :\n\n` +
-                  `Notes saisies : ${count}\n` +
-                  `Moyenne : ${moyenne.toFixed(2)}/20\n` +
-                  `Taux de réussite : ${tauxReussite.toFixed(1)}%\n` +
-                  `Étudiants ≥ 10/20 : ${valides}`);
-        } else {
-            alert('Aucune note valide saisie');
         }
     }
     
-    // Remplir avec des notes de test
-    function remplirNotesTest() {
-        if (!confirm('Remplir avec des notes de test ?')) return;
+    // Gérer le responsive du sidebar
+    function handleSidebarResponsive() {
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const mobileBtn = document.getElementById('mobileMenuBtn');
         
-        const inputs = document.querySelectorAll('input[name^="notes"]');
+        if (window.innerWidth <= 576) {
+            sidebar.style.display = 'none';
+            mainContent.style.marginLeft = '0';
+            mobileBtn.style.display = 'block';
+        } else if (window.innerWidth <= 992) {
+            sidebar.style.display = 'block';
+            sidebar.style.width = '70px';
+            mainContent.style.marginLeft = '70px';
+            mobileBtn.style.display = 'none';
+        } else {
+            sidebar.style.display = 'block';
+            sidebar.style.width = '250px';
+            mainContent.style.marginLeft = '250px';
+            mobileBtn.style.display = 'none';
+        }
+    }
+    
+    // Valider une note
+    function validateNoteInput(input) {
+        const value = input.value.trim();
+        input.classList.remove('invalid-note', 'valid-note');
+        
+        if (value === '') {
+            input.classList.add('invalid-note');
+            return false;
+        }
+        
+        const note = parseFloat(value);
+        if (isNaN(note) || note < 0 || note > 20) {
+            input.classList.add('invalid-note');
+            return false;
+        }
+        
+        input.classList.add('valid-note');
+        return true;
+    }
+    
+    // Remplir aléatoirement
+    function remplirNotesAleatoires() {
+        if (!confirm('Remplir les notes avec des valeurs aléatoires? (Pour test seulement)')) {
+            return;
+        }
+        
+        const inputs = document.querySelectorAll('input.note-input');
         inputs.forEach(input => {
-            // Générer une note entre 8 et 18
-            const note = (Math.random() * 10 + 8).toFixed(2);
+            const note = (Math.random() * 15 + 5).toFixed(2);
             input.value = note;
+            validateNoteInput(input);
+        });
+        
+        showNotification('Notes remplies aléatoirement pour test!', 'info');
+    }
+    
+    // Remplir avec 10
+    function remplirMoyenne10() {
+        if (!confirm('Remplir toutes les notes avec 10/20?')) {
+            return;
+        }
+        
+        const inputs = document.querySelectorAll('input.note-input');
+        inputs.forEach(input => {
+            input.value = '10.00';
+            validateNoteInput(input);
+        });
+        
+        showNotification('Toutes les notes remplies avec 10/20', 'info');
+    }
+    
+    // Remplir avec 15
+    function remplirMoyenne15() {
+        if (!confirm('Remplir toutes les notes avec 15/20?')) {
+            return;
+        }
+        
+        const inputs = document.querySelectorAll('input.note-input');
+        inputs.forEach(input => {
+            input.value = '15.00';
+            validateNoteInput(input);
+        });
+        
+        showNotification('Toutes les notes remplies avec 15/20', 'info');
+    }
+    
+    // Vider toutes les notes
+    function viderToutesLesNotes() {
+        if (confirm('Êtes-vous sûr de vouloir vider toutes les notes?')) {
+            const inputs = document.querySelectorAll('input.note-input');
+            inputs.forEach(input => {
+                input.value = '';
+                input.classList.remove('invalid-note', 'valid-note');
+            });
             
-            // Mettre à jour le style
-            const id = input.name.match(/\[(\d+)\]/)[1];
-            updateNoteStatus(input, id);
-        });
+            showNotification('Toutes les notes ont été vidées!', 'warning');
+        }
+    }
+    
+    // Afficher une notification
+    function showNotification(message, type = 'info') {
+        const alert = document.createElement('div');
+        alert.className = `custom-alert alert alert-${type} alert-dismissible fade show position-fixed`;
+        alert.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+        alert.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 
+                             type === 'warning' ? 'exclamation-triangle' : 
+                             type === 'danger' ? 'x-circle' : 'info-circle'} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
         
-        // Remplir quelques remarques
-        const remarques = document.querySelectorAll('input[name^="remarques"]');
-        const texts = ['Bon travail', 'À améliorer', 'Excellent', 'Moyen', 'Satisfaisant'];
+        document.body.appendChild(alert);
         
-        remarques.forEach((input, index) => {
-            if (index % 3 === 0) {
-                input.value = texts[Math.floor(Math.random() * texts.length)];
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.remove();
             }
-        });
-        
-        alert('Notes de test générées. N\'oubliez pas de sauvegarder !');
+        }, 5000);
     }
     
-    // Réinitialiser le formulaire
-    function resetForm() {
-        if (!confirm('Voulez-vous vraiment réinitialiser toutes les notes ?')) return;
+    // ========== INITIALISATION ==========
+    document.addEventListener('DOMContentLoaded', function() {
+        // Gérer le responsive
+        handleSidebarResponsive();
+        window.addEventListener('resize', handleSidebarResponsive);
         
-        document.querySelectorAll('input[name^="notes"]').forEach(input => {
-            input.value = '';
-            input.classList.remove('border-success', 'border-warning', 'border-danger');
+        // Bouton menu mobile
+        document.getElementById('mobileMenuBtn').addEventListener('click', toggleSidebar);
+        
+        // Validation en temps réel des notes
+        document.querySelectorAll('input.note-input').forEach(input => {
+            input.addEventListener('blur', function() {
+                validateNoteInput(this);
+            });
+            
+            input.addEventListener('input', function() {
+                const value = this.value;
+                if (value && value !== '') {
+                    validateNoteInput(this);
+                } else {
+                    this.classList.remove('invalid-note', 'valid-note');
+                }
+            });
         });
         
-        document.querySelectorAll('input[name^="coefficients"]').forEach(input => {
-            input.value = '1.0';
+        // Validation des coefficients
+        document.querySelectorAll('input.coefficient-input').forEach(input => {
+            input.addEventListener('blur', function() {
+                const value = parseFloat(this.value);
+                if (this.value && this.value !== '') {
+                    if (isNaN(value) || value < 0.1 || value > 5) {
+                        this.classList.add('is-invalid');
+                    } else {
+                        this.classList.remove('is-invalid');
+                    }
+                }
+            });
         });
         
-        document.querySelectorAll('input[name^="remarques"]').forEach(input => {
-            input.value = '';
-        });
-    }
-    
-    // Validation du formulaire
-    document.getElementById('formSaisieNotes')?.addEventListener('submit', function(e) {
-        const inputs = document.querySelectorAll('input[name^="notes"]');
-        let hasNotes = false;
-        let invalidNotes = [];
+        // Auto-focus sur le premier champ vide
+        const firstEmptyNote = document.querySelector('input.note-input[value=""]');
+        if (firstEmptyNote) {
+            setTimeout(() => firstEmptyNote.focus(), 100);
+        }
         
-        inputs.forEach((input, index) => {
-            const note = parseFloat(input.value);
-            if (!isNaN(note)) {
-                hasNotes = true;
-                if (note < 0 || note > 20) {
-                    invalidNotes.push(`Ligne ${index + 1}: ${note}/20`);
+        // Gestion du chargement des filtres
+        const filtresForm = document.getElementById('filtres-form');
+        if (filtresForm) {
+            filtresForm.addEventListener('submit', function() {
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Chargement...';
+                    submitBtn.disabled = true;
+                    document.body.classList.add('loading');
+                }
+            });
+        }
+        
+        // Validation du formulaire de saisie
+        const formNotes = document.getElementById('form-notes');
+        if (formNotes) {
+            formNotes.addEventListener('submit', function(e) {
+                let hasErrors = false;
+                const noteInputs = document.querySelectorAll('input.note-input');
+                
+                noteInputs.forEach(input => {
+                    if (!validateNoteInput(input)) {
+                        hasErrors = true;
+                    }
+                });
+                
+                if (hasErrors) {
+                    e.preventDefault();
+                    showNotification('Certaines notes sont invalides! Vérifiez que toutes les notes sont entre 0 et 20.', 'danger');
+                    return false;
+                }
+                
+                if (!confirm('Confirmez-vous la sauvegarde de toutes les notes?')) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                const submitBtn = this.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i> Sauvegarde en cours...';
+                    submitBtn.disabled = true;
+                }
+                
+                return true;
+            });
+        }
+        
+        // Raccourci clavier: Ctrl+S pour sauvegarder
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                const submitBtn = document.querySelector('#form-notes button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.click();
                 }
             }
         });
         
-        if (invalidNotes.length > 0) {
-            e.preventDefault();
-            alert(`Notes invalides :\n\n${invalidNotes.join('\n')}\n\nLes notes doivent être entre 0 et 20.`);
-        } else if (!hasNotes) {
-            if (!confirm('Aucune note n\'est remplie. Voulez-vous continuer ?')) {
-                e.preventDefault();
-            }
-        }
-    });
-    
-    // Raccourcis clavier
-    document.addEventListener('keydown', function(e) {
-        // Ctrl + S pour sauvegarder
-        if (e.ctrlKey && e.key === 's') {
-            e.preventDefault();
-            document.getElementById('formSaisieNotes')?.submit();
-        }
-        
-        // Ctrl + R pour réinitialiser
-        if (e.ctrlKey && e.key === 'r' && e.altKey) {
-            e.preventDefault();
-            resetForm();
-        }
+        // Ajouter des tooltips
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
     });
     </script>
 </body>
 </html>
-
-<?php
-// Fin du output buffering
-ob_end_flush();
-?>

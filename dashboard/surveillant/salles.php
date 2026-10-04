@@ -222,6 +222,7 @@ try {
         --sidebar-bg: #2c3e50;
         --sidebar-text: #ffffff;
         --border-color: #dee2e6;
+        --sidebar-width: 250px;
     }
     
     [data-theme="dark"] {
@@ -247,6 +248,7 @@ try {
         margin: 0;
         padding: 0;
         min-height: 100vh;
+        overflow-x: hidden;
     }
     
     .app-container {
@@ -254,14 +256,33 @@ try {
         min-height: 100vh;
     }
     
-    /* Sidebar */
+    /* Sidebar pour desktop */
     .sidebar {
-        width: 250px;
+        width: var(--sidebar-width);
         background-color: var(--sidebar-bg);
         color: var(--sidebar-text);
         position: fixed;
         height: 100vh;
         overflow-y: auto;
+        z-index: 1000;
+        transition: transform 0.3s ease-in-out;
+    }
+    
+    /* Overlay pour mobile */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+    }
+    
+    /* Sidebar visible sur mobile */
+    .sidebar.show {
+        transform: translateX(0);
     }
     
     .sidebar-header {
@@ -318,7 +339,7 @@ try {
     .nav-link {
         display: flex;
         align-items: center;
-        padding: 10px 15px;
+        padding: 12px 15px;
         color: var(--sidebar-text);
         text-decoration: none;
         border-radius: 5px;
@@ -335,6 +356,7 @@ try {
         width: 20px;
         margin-right: 10px;
         text-align: center;
+        font-size: 16px;
     }
     
     .nav-badge {
@@ -346,12 +368,40 @@ try {
         border-radius: 10px;
     }
     
+    /* Bouton hamburger mobile */
+    .mobile-toggle {
+        display: none;
+        position: fixed;
+        top: 15px;
+        left: 15px;
+        z-index: 1001;
+        background: var(--primary-color);
+        border: none;
+        color: white;
+        width: 40px;
+        height: 40px;
+        border-radius: 5px;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
+    
     /* Contenu principal */
     .main-content {
         flex: 1;
-        margin-left: 250px;
         padding: 20px;
         min-height: 100vh;
+        width: 100%;
+        transition: margin-left 0.3s ease-in-out;
+    }
+    
+    /* Header mobile */
+    .mobile-header {
+        display: none;
+        padding: 15px;
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border-color);
+        margin: -20px -20px 20px -20px;
     }
     
     /* Cartes */
@@ -382,15 +432,16 @@ try {
     .stat-card {
         text-align: center;
         padding: 20px;
+        height: 100%;
     }
     
     .stat-icon {
-        font-size: 2.5rem;
+        font-size: 2rem;
         margin-bottom: 15px;
     }
     
     .stat-value {
-        font-size: 2rem;
+        font-size: 1.8rem;
         font-weight: bold;
         margin-bottom: 5px;
         color: var(--text-color);
@@ -428,33 +479,108 @@ try {
     }
     
     /* Responsive */
-    @media (max-width: 768px) {
+    @media (max-width: 992px) {
         .sidebar {
-            width: 70px;
-            overflow-x: hidden;
+            transform: translateX(-100%);
         }
         
-        .sidebar-header, .user-info, .nav-section-title, .nav-link span {
-            display: none;
+        .sidebar.show {
+            transform: translateX(0);
         }
         
-        .nav-link {
-            justify-content: center;
-            padding: 15px;
+        .mobile-toggle {
+            display: flex;
         }
         
-        .nav-link i {
-            margin-right: 0;
-            font-size: 18px;
+        .mobile-header {
+            display: block;
         }
         
         .main-content {
-            margin-left: 70px;
-            padding: 15px;
+            margin-left: 0 !important;
+            padding-top: 70px;
+        }
+        
+        .stat-card {
+            margin-bottom: 15px;
         }
         
         .stat-value {
             font-size: 1.5rem;
+        }
+        
+        .btn-group {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .btn-group .btn {
+            width: 100%;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .sidebar {
+            width: 280px;
+        }
+        
+        .stat-value {
+            font-size: 1.3rem;
+        }
+        
+        .stat-icon {
+            font-size: 1.5rem;
+        }
+        
+        .card-body {
+            padding: 15px;
+        }
+        
+        .content-header h2 {
+            font-size: 1.5rem;
+        }
+        
+        /* Filtres empilés sur mobile */
+        .row.mb-3 > div {
+            margin-bottom: 10px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .main-content {
+            padding: 15px;
+        }
+        
+        .mobile-header {
+            margin: -15px -15px 15px -15px;
+        }
+        
+        .card-header {
+            padding: 12px 15px;
+        }
+        
+        .content-header h2 {
+            font-size: 1.3rem;
+        }
+        
+        .btn {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+        }
+        
+        .table {
+            font-size: 0.9rem;
+        }
+        
+        .table thead th,
+        .table tbody td {
+            padding: 10px;
+        }
+        
+        /* Salle card en pleine largeur sur très petits écrans */
+        .salle-item {
+            flex: 0 0 100%;
+            max-width: 100%;
         }
     }
     
@@ -507,6 +633,7 @@ try {
     .salle-card {
         cursor: pointer;
         transition: all 0.3s;
+        height: 100%;
     }
     
     .salle-card:hover {
@@ -515,7 +642,7 @@ try {
     }
     
     .salle-icon {
-        font-size: 2rem;
+        font-size: 1.8rem;
         margin-bottom: 10px;
     }
     
@@ -546,12 +673,81 @@ try {
     .fc-daygrid-day.fc-day-today {
         background-color: rgba(52, 152, 219, 0.1) !important;
     }
+    
+    /* Responsive pour le calendrier */
+    @media (max-width: 768px) {
+        .fc-toolbar {
+            flex-direction: column;
+            align-items: stretch !important;
+        }
+        
+        .fc-toolbar-chunk {
+            margin-bottom: 10px;
+        }
+        
+        .fc-toolbar-title {
+            font-size: 1.2rem !important;
+        }
+    }
+    
+    /* Améliorations pour mobile */
+    .form-control, .form-select {
+        padding: 10px;
+        font-size: 16px; /* Évite le zoom automatique sur iOS */
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        font-size: 16px;
+        touch-action: manipulation; /* Améliore l'expérience tactile */
+    }
+    
+    /* Menu hamburger animation */
+    .hamburger-icon {
+        display: inline-block;
+        cursor: pointer;
+    }
+    
+    .hamburger-icon span {
+        display: block;
+        width: 25px;
+        height: 3px;
+        margin: 5px 0;
+        background-color: white;
+        transition: 0.3s;
+    }
+    
+    /* Scrollbar personnalisée */
+    .sidebar::-webkit-scrollbar {
+        width: 5px;
+    }
+    
+    .sidebar::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+    }
+    
+    .sidebar::-webkit-scrollbar-thumb {
+        background: var(--secondary-color);
+        border-radius: 10px;
+    }
     </style>
 </head>
 <body>
     <div class="app-container">
+        <!-- Bouton hamburger pour mobile -->
+        <button class="mobile-toggle" id="mobileToggle">
+            <div class="hamburger-icon">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </button>
+        
+        <!-- Overlay pour fermer le menu -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
+        
         <!-- Sidebar -->
-        <div class="sidebar">
+        <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-logo">
                     <i class="fas fa-user-shield"></i>
@@ -636,11 +832,24 @@ try {
         </div>
         
         <!-- Contenu Principal -->
-        <div class="main-content">
+        <div class="main-content" id="mainContent">
+            <!-- Header mobile -->
+            <div class="mobile-header">
+                <div class="d-flex align-items-center">
+                    <div>
+                        <h5 class="mb-0">
+                            <i class="fas fa-door-open me-2"></i>
+                            Gestion des Salles
+                        </h5>
+                        <small class="text-muted"><?php echo $_SESSION['site_name'] ?? 'Non spécifié'; ?></small>
+                    </div>
+                </div>
+            </div>
+            
             <!-- En-tête -->
             <div class="content-header mb-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                    <div class="mb-2 mb-md-0">
                         <h2 class="mb-0">
                             <i class="fas fa-door-open me-2"></i>
                             Gestion des Salles de Classe
@@ -652,12 +861,12 @@ try {
                             <?php echo date('d/m/Y'); ?>
                         </p>
                     </div>
-                    <div class="btn-group">
-                        <button class="btn btn-success" onclick="window.location.href='#reserver'">
-                            <i class="fas fa-calendar-plus"></i> Réserver une salle
+                    <div class="btn-group flex-wrap">
+                        <button class="btn btn-success mb-1" onclick="window.location.href='#reserver'">
+                            <i class="fas fa-calendar-plus"></i> <span class="d-none d-md-inline">Réserver</span>
                         </button>
-                        <button class="btn btn-primary" onclick="location.reload()">
-                            <i class="fas fa-sync-alt"></i> Actualiser
+                        <button class="btn btn-primary mb-1" onclick="location.reload()">
+                            <i class="fas fa-sync-alt"></i> <span class="d-none d-md-inline">Actualiser</span>
                         </button>
                     </div>
                 </div>
@@ -671,7 +880,7 @@ try {
             
             <!-- Section 1: Statistiques des Salles -->
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-sm-6 col-lg-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-primary stat-icon">
                             <i class="fas fa-door-closed"></i>
@@ -681,7 +890,7 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-sm-6 col-lg-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-success stat-icon">
                             <i class="fas fa-check-circle"></i>
@@ -691,7 +900,7 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-sm-6 col-lg-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-danger stat-icon">
                             <i class="fas fa-times-circle"></i>
@@ -701,7 +910,7 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-3">
+                <div class="col-sm-6 col-lg-3 mb-3">
                     <div class="card stat-card">
                         <div class="text-info stat-icon">
                             <i class="fas fa-users"></i>
@@ -714,8 +923,8 @@ try {
             
             <!-- Section 2: Salles Actuellement Occupées -->
             <div class="row mb-4">
-                <div class="col-md-8">
-                    <div class="card">
+                <div class="col-lg-8 mb-4 mb-lg-0">
+                    <div class="card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">
                                 <i class="fas fa-clock me-2"></i>
@@ -741,7 +950,6 @@ try {
                                             <th>Matière</th>
                                             <th>Enseignant</th>
                                             <th>Horaire</th>
-                                            <th>Type</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -757,9 +965,6 @@ try {
                                                 <?php echo date('H:i', strtotime($occupation['heure_debut'])); ?> - 
                                                 <?php echo date('H:i', strtotime($occupation['heure_fin'])); ?>
                                             </td>
-                                            <td>
-                                                <span class="badge bg-info">Cours régulier</span>
-                                            </td>
                                         </tr>
                                         <?php endforeach; ?>
                                     </tbody>
@@ -770,8 +975,8 @@ try {
                     </div>
                 </div>
                 
-                <div class="col-md-4">
-                    <div class="card">
+                <div class="col-lg-4">
+                    <div class="card h-100">
                         <div class="card-header">
                             <h5 class="mb-0">
                                 <i class="fas fa-chart-pie me-2"></i>
@@ -813,7 +1018,7 @@ try {
                     </h5>
                 </div>
                 <div class="card-body">
-                    <div class="row mb-3">
+                    <div class="row mb-3 g-2">
                         <div class="col-md-4">
                             <input type="text" class="form-control" id="searchSalle" placeholder="Rechercher une salle...">
                         </div>
@@ -839,7 +1044,7 @@ try {
                         </div>
                         <div class="col-md-2">
                             <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
-                                <i class="fas fa-times"></i> Réinitialiser
+                                <i class="fas fa-times"></i> <span class="d-none d-md-inline">Réinitialiser</span>
                             </button>
                         </div>
                     </div>
@@ -912,11 +1117,11 @@ try {
                                     <div class="d-flex justify-content-between">
                                         <button class="btn btn-sm btn-outline-primary" 
                                                 onclick="event.stopPropagation(); voirOccupation('<?php echo htmlspecialchars($salle['nom']); ?>')">
-                                            <i class="fas fa-calendar-alt"></i> Horaire
+                                            <i class="fas fa-calendar-alt"></i> <span class="d-none d-sm-inline">Horaire</span>
                                         </button>
                                         <button class="btn btn-sm btn-outline-success" 
                                                 onclick="event.stopPropagation(); reserverSalle(<?php echo $salle['id']; ?>)">
-                                            <i class="fas fa-calendar-plus"></i> Réserver
+                                            <i class="fas fa-calendar-plus"></i> <span class="d-none d-sm-inline">Réserver</span>
                                         </button>
                                     </div>
                                 </div>
@@ -950,7 +1155,6 @@ try {
                                     <th>Réservé par</th>
                                     <th>Classe/Événement</th>
                                     <th>Horaire</th>
-                                    <th>Motif</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -972,16 +1176,17 @@ try {
                                         <?php echo formatDateFr($reservation['date_debut'], 'H:i'); ?> - 
                                         <?php echo formatDateFr($reservation['date_fin'], 'H:i'); ?>
                                     </td>
-                                    <td><?php echo htmlspecialchars($reservation['motif'] ?? '-'); ?></td>
                                     <td>
-                                        <button class="btn btn-sm btn-outline-info" 
-                                                onclick="voirReservation(<?php echo $reservation['id']; ?>)">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-warning" 
-                                                onclick="annulerReservation(<?php echo $reservation['id']; ?>)">
-                                            <i class="fas fa-times"></i>
-                                        </button>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-info" 
+                                                    onclick="voirReservation(<?php echo $reservation['id']; ?>)">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" 
+                                                    onclick="annulerReservation(<?php echo $reservation['id']; ?>)">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -1075,18 +1280,18 @@ try {
                                 </select>
                             </div>
                             
-                            <div class="col-md-12 mb-3">
+                            <div class="col-12 mb-3">
                                 <label class="form-label">Motif/Description</label>
                                 <textarea class="form-control" id="motif" rows="3" 
                                           placeholder="Description de la réservation..." required></textarea>
                             </div>
                             
-                            <div class="col-md-12">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-2"></i>Enregistrer la réservation
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary me-2 mb-2">
+                                    <i class="fas fa-save me-1"></i>Enregistrer
                                 </button>
-                                <button type="button" class="btn btn-secondary" onclick="resetReservationForm()">
-                                    <i class="fas fa-times me-2"></i>Annuler
+                                <button type="button" class="btn btn-secondary mb-2" onclick="resetReservationForm()">
+                                    <i class="fas fa-times me-1"></i>Annuler
                                 </button>
                             </div>
                         </div>
@@ -1151,6 +1356,13 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/fr.js"></script>
     
     <script>
+    // Variables pour la gestion du menu mobile
+    let sidebarOpen = false;
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+    const mobileToggle = document.getElementById('mobileToggle');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    
     // Fonction pour basculer entre mode sombre et clair
     function toggleTheme() {
         const html = document.documentElement;
@@ -1175,7 +1387,54 @@ try {
         }
     }
     
-    // Initialiser le thème
+    // Fonction pour ouvrir/fermer le sidebar sur mobile
+    function toggleSidebar() {
+        sidebarOpen = !sidebarOpen;
+        
+        if (sidebarOpen) {
+            sidebar.classList.add('show');
+            sidebarOverlay.style.display = 'block';
+            document.body.style.overflow = 'hidden'; // Empêche le scroll du body
+        } else {
+            sidebar.classList.remove('show');
+            sidebarOverlay.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    }
+    
+    // Fermer le sidebar quand on clique sur l'overlay
+    sidebarOverlay.addEventListener('click', toggleSidebar);
+    
+    // Fermer le sidebar quand on clique sur un lien
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 992) {
+                toggleSidebar();
+            }
+        });
+    });
+    
+    // Fermer le sidebar en appuyant sur la touche Échap
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebarOpen) {
+            toggleSidebar();
+        }
+    });
+    
+    // Ajuster la marge du contenu principal selon la largeur de l'écran
+    function adjustLayout() {
+        if (window.innerWidth >= 992) {
+            // Desktop
+            mainContent.style.marginLeft = sidebarOpen ? '250px' : '0';
+            sidebarOverlay.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        } else {
+            // Mobile
+            mainContent.style.marginLeft = '0';
+        }
+    }
+    
+    // Initialiser le thème et le layout
     document.addEventListener('DOMContentLoaded', function() {
         // Récupérer le thème sauvegardé ou utiliser 'light' par défaut
         const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
@@ -1191,6 +1450,9 @@ try {
             }
         }
         
+        // Initialiser le layout
+        adjustLayout();
+        
         // Initialiser le calendrier
         initializeCalendar();
         
@@ -1199,6 +1461,12 @@ try {
         
         // Initialiser le formulaire de réservation
         initializeReservationForm();
+        
+        // Gestionnaire d'événement pour le bouton hamburger
+        mobileToggle.addEventListener('click', toggleSidebar);
+        
+        // Ajuster le layout au redimensionnement
+        window.addEventListener('resize', adjustLayout);
     });
     
     // Initialiser le calendrier FullCalendar

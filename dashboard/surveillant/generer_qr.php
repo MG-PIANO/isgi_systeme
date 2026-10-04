@@ -22,8 +22,7 @@ $pageTitle = "Générer QR Codes";
 // Inclure la bibliothèque QR Code
 error_reporting(E_ALL & ~E_DEPRECATED);
 require_once ROOT_PATH . '/libs/phpqrcode/qrlib.php';
-error_reporting(E_ALL); // Réactiver tous les erreurs après
-
+error_reporting(E_ALL);
 
 // Fonction pour générer un QR code
 function generateQRCode($data, $filename) {
@@ -225,7 +224,6 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- QR Code Styling -->
     <style>
     :root {
         --primary-color: #2c3e50;
@@ -234,29 +232,235 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
         --success-color: #27ae60;
         --warning-color: #f39c12;
         --info-color: #17a2b8;
+        --bg-color: #f8f9fa;
+        --card-bg: #ffffff;
+        --text-color: #212529;
+        --text-muted: #6c757d;
+        --sidebar-bg: #2c3e50;
+        --sidebar-text: #ffffff;
+        --border-color: #dee2e6;
     }
     
-    .qr-card {
-        border-radius: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
+    [data-theme="dark"] {
+        --primary-color: #3498db;
+        --secondary-color: #2980b9;
+        --accent-color: #e74c3c;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --info-color: #17a2b8;
+        --bg-color: #121212;
+        --card-bg: #1e1e1e;
+        --text-color: #e0e0e0;
+        --text-muted: #a0a0a0;
+        --sidebar-bg: #1a1a1a;
+        --sidebar-text: #ffffff;
+        --border-color: #333333;
+    }
+    
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    
+    /* Header Mobile */
+    .mobile-header {
+        display: none;
+        background-color: var(--sidebar-bg);
+        color: white;
+        padding: 10px 15px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        height: 60px;
+    }
+    
+    .mobile-header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 100%;
+    }
+    
+    .hamburger-btn {
+        background: transparent;
         border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px 10px;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 5px;
+    }
+    
+    .hamburger-btn:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .mobile-brand {
+        font-size: 16px;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+        width: 250px;
+        background-color: var(--sidebar-bg);
+        color: var(--sidebar-text);
+        position: fixed;
+        height: 100vh;
+        overflow-y: auto;
+        z-index: 1040;
+        transition: transform 0.3s ease-in-out;
+        top: 0;
+        left: 0;
+    }
+    
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1039;
+    }
+    
+    .sidebar-header {
+        padding: 20px 15px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+        background-color: rgba(0,0,0,0.1);
+    }
+    
+    .sidebar-logo {
+        width: 50px;
+        height: 50px;
+        background: var(--secondary-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+    }
+    
+    .user-info {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 0 15px;
+    }
+    
+    .user-role {
+        display: inline-block;
+        padding: 4px 12px;
+        background: var(--info-color);
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-top: 5px;
+    }
+    
+    /* Navigation */
+    .sidebar-nav {
+        padding: 15px 0;
+    }
+    
+    .nav-section {
+        margin-bottom: 15px;
+    }
+    
+    .nav-section-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 10px;
+        padding: 0 20px;
+    }
+    
+    .nav-link {
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        color: var(--sidebar-text);
+        text-decoration: none;
+        transition: all 0.3s;
+        border-left: 3px solid transparent;
+    }
+    
+    .nav-link:hover, .nav-link.active {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+        border-left-color: var(--secondary-color);
+    }
+    
+    .nav-link i {
+        width: 20px;
+        margin-right: 12px;
+        text-align: center;
+        font-size: 16px;
+    }
+    
+    .nav-link span {
+        font-size: 14px;
+    }
+    
+    /* Contenu principal */
+    .main-content {
+        padding: 20px;
+        min-height: 100vh;
+        transition: all 0.3s ease-in-out;
+    }
+    
+    /* QR Cards */
+    .qr-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+        transition: transform 0.2s;
     }
     
     .qr-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        transform: translateY(-2px);
     }
     
+    .qr-card .card-header {
+        background-color: rgba(0,0,0,0.02);
+        border-bottom: 1px solid var(--border-color);
+        padding: 15px 20px;
+    }
+    
+    .qr-card .card-body {
+        padding: 20px;
+    }
+    
+    /* QR Preview */
     .qr-preview {
         width: 200px;
         height: 200px;
-        border: 2px dashed #dee2e6;
+        border: 2px solid var(--border-color);
         border-radius: 10px;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #f8f9fa;
+        background: var(--bg-color);
         margin: 0 auto;
         overflow: hidden;
     }
@@ -265,21 +469,10 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
         max-width: 100%;
         max-height: 100%;
         padding: 10px;
-        background: white;
+        background: var(--card-bg);
     }
     
-    .nav-tabs .nav-link {
-        color: var(--primary-color);
-        border: none;
-        padding: 10px 20px;
-    }
-    
-    .nav-tabs .nav-link.active {
-        background-color: var(--primary-color);
-        color: white;
-        border-radius: 8px;
-    }
-    
+    /* QR Type Icons */
     .qr-type-icon {
         width: 50px;
         height: 50px;
@@ -287,7 +480,7 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 24px;
+        font-size: 20px;
         margin: 0 auto 10px;
     }
     
@@ -296,755 +489,863 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
     .type-surveillant { background-color: rgba(231, 76, 60, 0.1); color: var(--accent-color); }
     .type-custom { background-color: rgba(243, 156, 18, 0.1); color: var(--warning-color); }
     
-    .qr-actions .btn {
-        border-radius: 20px;
-        padding: 8px 20px;
+    /* Tabs */
+    .nav-tabs {
+        border-bottom: 1px solid var(--border-color);
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        flex-wrap: nowrap;
+    }
+    
+    .nav-tabs .nav-link {
+        white-space: nowrap;
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: var(--text-muted);
+        padding: 10px 15px;
+        border-radius: 0;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: var(--primary-color);
+        background: none;
+        border-bottom-color: var(--primary-color);
+    }
+    
+    /* Badges */
+    .badge {
+        font-size: 0.75em;
+        padding: 5px 10px;
         font-weight: 500;
+        border-radius: 20px;
     }
     
     .badge-qr {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: white;
-        font-size: 0.8em;
     }
     
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        /* Mobile Header */
+        .mobile-header {
+            display: block;
+        }
+        
+        /* Sidebar Mobile */
+        .sidebar {
+            transform: translateX(-100%);
+            width: 280px;
+            top: 60px;
+            height: calc(100vh - 60px);
+        }
+        
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 80px 15px 20px 15px;
+            margin-left: 0 !important;
+        }
+        
+        /* QR Preview */
+        .qr-preview {
+            width: 150px;
+            height: 150px;
+        }
+        
+        /* En-tête */
+        .content-header .d-flex {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+        
+        .content-header .btn-group {
+            margin-top: 15px;
+            width: 100%;
+        }
+        
+        .content-header .btn-group .btn {
+            flex: 1;
+            padding: 10px;
+            font-size: 14px;
+        }
+        
+        /* Forms */
+        .row .col-md-6 {
+            margin-bottom: 15px;
+        }
+        
+        /* Tabs */
+        .nav-tabs .nav-link {
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        
+        /* QR Actions */
+        .qr-actions .btn {
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        /* QR Preview */
+        .qr-preview {
+            width: 120px;
+            height: 120px;
+        }
+        
+        /* Cards */
+        .card-header, .card-body {
+            padding: 15px;
+        }
+        
+        /* Buttons */
+        .btn {
+            font-size: 14px;
+            padding: 8px 15px;
+        }
+        
+        /* Form controls */
+        .form-control, .form-select {
+            font-size: 14px;
+            padding: 8px 12px;
+        }
+        
+        /* QR Type Icons */
+        .qr-type-icon {
+            width: 40px;
+            height: 40px;
+            font-size: 16px;
+        }
+    }
+    
+    /* Small Mobile */
+    @media (max-width: 360px) {
+        .mobile-brand {
+            font-size: 14px;
+        }
+        
+        .mobile-brand i {
+            font-size: 18px;
+        }
+        
+        .qr-preview {
+            width: 100px;
+            height: 100px;
+        }
+        
+        .qr-type-icon {
+            width: 35px;
+            height: 35px;
+            font-size: 14px;
+        }
+    }
+    
+    /* Mode Desktop */
+    @media (min-width: 769px) {
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+        }
+        
+        .sidebar-overlay {
+            display: none !important;
+        }
+        
+        .mobile-header {
+            display: none;
+        }
+    }
+    
+    /* Améliorations pour les écrans moyens */
+    @media (min-width: 769px) and (max-width: 992px) {
+        .sidebar {
+            width: 200px;
+        }
+        
+        .main-content {
+            margin-left: 200px;
+        }
+        
+        .nav-link span {
+            font-size: 13px;
+        }
+        
+        .nav-link i {
+            margin-right: 8px;
+            font-size: 14px;
+        }
+        
+        .qr-preview {
+            width: 180px;
+            height: 180px;
+        }
+    }
+    
+    /* Carousel pour les QR codes de classe */
+    .carousel-item img {
+        max-width: 100%;
+        max-height: 100%;
+    }
+    
+    .carousel-control-prev,
+    .carousel-control-next {
+        width: 30px;
+        height: 30px;
+        background-color: rgba(0,0,0,0.5);
+        border-radius: 50%;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+    
+    /* Animation pour le QR code généré */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    #resultCard {
+        animation: fadeIn 0.5s ease-out;
+    }
+    
+    /* Style pour les données QR */
     #qrDataText {
         font-family: 'Courier New', monospace;
         font-size: 12px;
-        background: #f8f9fa;
+        background: var(--bg-color);
         border-radius: 5px;
         padding: 10px;
         max-height: 100px;
         overflow-y: auto;
+        word-break: break-all;
     }
     </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="dashboard.php">
-                <i class="fas fa-qrcode me-2"></i>
-                Générer QR Codes
-            </a>
-            <div class="collapse navbar-collapse">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link" href="dashboard.php">
-                            <i class="fas fa-arrow-left me-1"></i> Retour Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="scanner_qr.php">
-                            <i class="fas fa-camera me-1"></i> Scanner QR
-                        </a>
-                    </li>
-                </ul>
+    <!-- Header Mobile -->
+    <div class="mobile-header">
+        <div class="mobile-header-content">
+            <button class="hamburger-btn" id="hamburgerBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="mobile-brand">
+                <i class="fas fa-qrcode"></i>
+                <span>Générer QR</span>
+            </div>
+            <button class="hamburger-btn" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Overlay pour fermer le sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <h5 class="mt-2 mb-1">SURVEILLANT</h5>
+            <div class="user-role">Surveillant Général</div>
+        </div>
+        
+        <div class="user-info">
+            <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Surveillant'); ?></p>
+            <small>Gestion des Présences</small>
+        </div>
+        
+        <div class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Tableau de Bord</div>
+                <a href="dashboard.php" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Gestion Présences</div>
+                <a href="presences.php" class="nav-link">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Toutes les Présences</span>
+                </a>
+                <a href="scanner_qr.php" class="nav-link">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Scanner QR Code</span>
+                </a>
+                <a href="generer_qr.php" class="nav-link active">
+                    <i class="fas fa-barcode"></i>
+                    <span>Générer QR Code</span>
+                </a>
+                <a href="absences.php" class="nav-link">
+                    <i class="fas fa-user-times"></i>
+                    <span>Absences</span>
+                </a>
+                <a href="retards.php" class="nav-link">
+                    <i class="fas fa-clock"></i>
+                    <span>Retards</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Étudiants</div>
+                <a href="etudiants.php" class="nav-link">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>Liste Étudiants</span>
+                </a>
+                <a href="rechercher_etudiant.php" class="nav-link">
+                    <i class="fas fa-search"></i>
+                    <span>Rechercher</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <button class="btn btn-outline-light w-100 mb-2" onclick="toggleTheme()" style="margin-left: 20px; margin-right: 20px; text-align: left; padding: 8px 15px;">
+                    <i class="fas fa-moon"></i> <span>Mode Sombre</span>
+                </button>
+                <a href="../../auth/logout.php" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Déconnexion</span>
+                </a>
             </div>
         </div>
-    </nav>
+    </div>
     
-    <div class="container-fluid mt-4">
-        <!-- En-tête -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2><i class="fas fa-barcode text-primary me-2"></i>Générateur de QR Codes</h2>
-                        <p class="text-muted">Générez des QR codes pour les étudiants, classes et plus</p>
+    <!-- Contenu Principal -->
+    <div class="main-content" id="mainContent">
+        <div class="container-fluid">
+            <!-- En-tête -->
+            <div class="content-header mb-4">
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                    <div class="mb-3 mb-md-0">
+                        <h1 class="h3 mb-2">
+                            <i class="fas fa-barcode me-2"></i>
+                            Générateur de QR Codes
+                        </h1>
+                        <p class="text-muted mb-0">
+                            Générez des QR codes pour les étudiants, classes et plus
+                        </p>
                     </div>
-                    <div class="btn-group">
-                        <button class="btn btn-outline-primary" onclick="printAllQRCodes()">
-                            <i class="fas fa-print me-1"></i> Imprimer Tous
-                        </button>
+                    <div class="btn-group w-100 w-md-auto">
                         <button class="btn btn-success" onclick="downloadBatch()">
-                            <i class="fas fa-download me-1"></i> Télécharger ZIP
+                            <i class="fas fa-download me-2"></i> <span class="d-none d-md-inline">Télécharger ZIP</span>
+                        </button>
+                        <button class="btn btn-primary" onclick="printAllQRCodes()">
+                            <i class="fas fa-print me-2"></i> <span class="d-none d-md-inline">Imprimer Tous</span>
                         </button>
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <?php if($error): ?>
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            <i class="fas fa-exclamation-circle me-2"></i>
-            <?php echo htmlspecialchars($error); ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-        <?php endif; ?>
-        
-        <div class="row">
-            <!-- Sidebar avec options -->
-            <div class="col-lg-3">
-                <div class="card qr-card">
-                    <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Options de Génération</h5>
+            
+            <!-- Alertes -->
+            <?php if($error): ?>
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                <?php echo htmlspecialchars($error); ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <?php endif; ?>
+            
+            <!-- Options de Génération -->
+            <div class="row">
+                <!-- Onglets de navigation -->
+                <div class="col-12 mb-4">
+                    <div class="card qr-card">
+                        <div class="card-header p-0">
+                            <ul class="nav nav-tabs" id="qrTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="studentTabBtn" data-bs-toggle="tab" 
+                                            data-bs-target="#studentTabContent" type="button">
+                                        <i class="fas fa-user-graduate me-2"></i>
+                                        <span class="d-none d-sm-inline">Étudiant</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="classTabBtn" data-bs-toggle="tab" 
+                                            data-bs-target="#classTabContent" type="button">
+                                        <i class="fas fa-users me-2"></i>
+                                        <span class="d-none d-sm-inline">Classe</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="surveillantTabBtn" data-bs-toggle="tab" 
+                                            data-bs-target="#surveillantTabContent" type="button">
+                                        <i class="fas fa-user-shield me-2"></i>
+                                        <span class="d-none d-sm-inline">Surveillant</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="customTabBtn" data-bs-toggle="tab" 
+                                            data-bs-target="#customTabContent" type="button">
+                                        <i class="fas fa-edit me-2"></i>
+                                        <span class="d-none d-sm-inline">Personnalisé</span>
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="card-body">
-                        <div class="list-group list-group-flush">
-                            <a href="#studentTab" class="list-group-item list-group-item-action active" 
-                               data-bs-toggle="tab" role="tab">
-                                <div class="d-flex align-items-center">
-                                    <div class="qr-type-icon type-student">
-                                        <i class="fas fa-user-graduate"></i>
-                                    </div>
-                                    <div class="ms-3">
-                                        <h6 class="mb-1">Étudiant</h6>
-                                        <small class="text-muted">QR code individuel</small>
-                                    </div>
+                </div>
+                
+                <!-- Contenu des onglets -->
+                <div class="col-12">
+                    <div class="tab-content" id="qrTabsContent">
+                        <!-- Onglet Étudiant -->
+                        <div class="tab-pane fade show active" id="studentTabContent" role="tabpanel">
+                            <div class="card qr-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-user-graduate me-2"></i>
+                                        QR Code Étudiant
+                                    </h5>
                                 </div>
-                            </a>
-                            
-                            <a href="#classTab" class="list-group-item list-group-item-action" 
-                               data-bs-toggle="tab" role="tab">
-                                <div class="d-flex align-items-center">
-                                    <div class="qr-type-icon type-class">
-                                        <i class="fas fa-users"></i>
-                                    </div>
-                                    <div class="ms-3">
-                                        <h6 class="mb-1">Classe</h6>
-                                        <small class="text-muted">Tous les étudiants</small>
-                                    </div>
+                                <div class="card-body">
+                                    <form method="POST" id="studentForm">
+                                        <input type="hidden" name="action" value="generate_student">
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Sélectionner un étudiant</label>
+                                                    <select class="form-select" name="student_id" required 
+                                                            onchange="loadStudentInfo(this.value)">
+                                                        <option value="">Choisir un étudiant...</option>
+                                                        <?php foreach($students as $student): ?>
+                                                        <option value="<?php echo $student['id']; ?>">
+                                                            <?php echo htmlspecialchars($student['matricule'] . ' - ' . $student['nom'] . ' ' . $student['prenom']); ?>
+                                                        </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label">Type de QR Code</label>
+                                                    <select class="form-select" name="qr_type">
+                                                        <option value="etudiant">QR Code Présence</option>
+                                                        <option value="identite">QR Code Identité</option>
+                                                        <option value="acces">QR Code Accès</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <div id="studentInfo" class="alert alert-info" style="display: none;">
+                                                    <h6>Informations de l'étudiant</h6>
+                                                    <div id="studentDetails">
+                                                        <!-- Rempli par JavaScript -->
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label">Options</label>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="auto_print" id="autoPrint">
+                                                        <label class="form-check-label" for="autoPrint">
+                                                            Imprimer automatiquement
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="text-center mt-4">
+                                            <button type="submit" class="btn btn-primary btn-lg">
+                                                <i class="fas fa-qrcode me-2"></i> Générer QR Code
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary btn-lg ms-2" 
+                                                    onclick="generateStudentBatch()">
+                                                <i class="fas fa-bolt me-2"></i> Générer en Masse
+                                            </button>
+                                        </div>
+                                    </form>
                                 </div>
-                            </a>
-                            
-                            <a href="#surveillantTab" class="list-group-item list-group-item-action" 
-                               data-bs-toggle="tab" role="tab">
-                                <div class="d-flex align-items-center">
-                                    <div class="qr-type-icon type-surveillant">
-                                        <i class="fas fa-user-shield"></i>
-                                    </div>
-                                    <div class="ms-3">
-                                        <h6 class="mb-1">Surveillant</h6>
-                                        <small class="text-muted">QR code personnel</small>
-                                    </div>
-                                </div>
-                            </a>
-                            
-                            <a href="#customTab" class="list-group-item list-group-item-action" 
-                               data-bs-toggle="tab" role="tab">
-                                <div class="d-flex align-items-center">
-                                    <div class="qr-type-icon type-custom">
-                                        <i class="fas fa-edit"></i>
-                                    </div>
-                                    <div class="ms-3">
-                                        <h6 class="mb-1">Personnalisé</h6>
-                                        <small class="text-muted">Données spécifiques</small>
-                                    </div>
-                                </div>
-                            </a>
+                            </div>
                         </div>
                         
-                        <hr>
+                        <!-- Onglet Classe -->
+                        <div class="tab-pane fade" id="classTabContent" role="tabpanel">
+                            <div class="card qr-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-users me-2"></i>
+                                        QR Codes par Classe
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" id="classForm">
+                                        <input type="hidden" name="action" value="generate_class">
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Sélectionner une classe</label>
+                                                    <select class="form-select" name="class_id" required 
+                                                            onchange="loadClassInfo(this.value)">
+                                                        <option value="">Choisir une classe...</option>
+                                                        <?php foreach($classes as $class): ?>
+                                                        <option value="<?php echo $class['id']; ?>">
+                                                            <?php echo htmlspecialchars($class['nom']); ?>
+                                                        </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label">Options de génération</label>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="include_all" id="includeAll" checked>
+                                                        <label class="form-check-label" for="includeAll">
+                                                            Tous les étudiants de la classe
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" name="only_missing" id="onlyMissing">
+                                                        <label class="form-check-label" for="onlyMissing">
+                                                            Seulement les étudiants sans QR code
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <div id="classInfo" class="alert alert-info" style="display: none;">
+                                                    <h6>Informations de la classe</h6>
+                                                    <div id="classDetails">
+                                                        <!-- Rempli par JavaScript -->
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label">Format de sortie</label>
+                                                    <select class="form-select" name="output_format">
+                                                        <option value="individual">QR codes individuels</option>
+                                                        <option value="sheet">Feuille A4 (9 par page)</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="text-center mt-4">
+                                            <button type="submit" class="btn btn-success btn-lg">
+                                                <i class="fas fa-qrcode me-2"></i> Générer pour la Classe
+                                            </button>
+                                            <button type="button" class="btn btn-outline-primary btn-lg ms-2" 
+                                                    onclick="generateAllClasses()">
+                                                <i class="fas fa-layer-group me-2"></i> Toutes les Classes
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
                         
-                        <div class="mt-3">
-                            <h6><i class="fas fa-history me-2"></i>QR Codes Récents</h6>
-                            <div id="recentQRCodes" class="mt-2">
-                                <!-- Liste des QR codes récents via AJAX -->
+                        <!-- Onglet Surveillant -->
+                        <div class="tab-pane fade" id="surveillantTabContent" role="tabpanel">
+                            <div class="card qr-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-user-shield me-2"></i>
+                                        QR Code Surveillant
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" id="surveillantForm">
+                                        <input type="hidden" name="action" value="generate_surveillant">
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="alert alert-warning">
+                                                    <h6><i class="fas fa-info-circle me-2"></i>Information</h6>
+                                                    <p class="mb-0 small">Ce QR code vous permettra d'accéder à des fonctionnalités 
+                                                    spéciales et d'authentifier vos actions.</p>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label">Type d'accès</label>
+                                                    <select class="form-select" name="access_type">
+                                                        <option value="full">Accès complet</option>
+                                                        <option value="presence">Présence uniquement</option>
+                                                        <option value="scan">Scan uniquement</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <?php if(isset($_SESSION['user_name'])): ?>
+                                                <div class="alert alert-info">
+                                                    <h6>Vos informations</h6>
+                                                    <p class="mb-1 small">
+                                                        <strong>Nom:</strong> <?php echo htmlspecialchars($_SESSION['user_name']); ?>
+                                                    </p>
+                                                    <p class="mb-0 small">
+                                                        <strong>Site:</strong> 
+                                                        <?php 
+                                                        $query = "SELECT nom FROM sites WHERE id = :site_id";
+                                                        $stmt = $db->prepare($query);
+                                                        $stmt->execute([':site_id' => $site_id]);
+                                                        $site = $stmt->fetch(PDO::FETCH_ASSOC);
+                                                        echo htmlspecialchars($site['nom'] ?? 'N/A');
+                                                        ?>
+                                                    </p>
+                                                </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="text-center mt-4">
+                                            <button type="submit" class="btn btn-warning btn-lg">
+                                                <i class="fas fa-key me-2"></i> Générer QR Code Surveillant
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Onglet Personnalisé -->
+                        <div class="tab-pane fade" id="customTabContent" role="tabpanel">
+                            <div class="card qr-card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-edit me-2"></i>
+                                        QR Code Personnalisé
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <form method="POST" id="customForm">
+                                        <input type="hidden" name="action" value="generate_custom">
+                                        
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Libellé du QR code</label>
+                                                    <input type="text" class="form-control" name="custom_label" 
+                                                           placeholder="Ex: Salle de réunion, Matériel..." required>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label">Données à encoder</label>
+                                                    <textarea class="form-control" name="custom_data" rows="4" 
+                                                              placeholder="Entrez les données à encoder..." required></textarea>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="col-md-6">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Options avancées</label>
+                                                    <div class="row g-2">
+                                                        <div class="col-6">
+                                                            <label class="form-label small">Couleur avant-plan</label>
+                                                            <input type="color" class="form-control form-control-color" 
+                                                                   name="fg_color" value="#000000" title="Couleur avant-plan">
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <label class="form-label small">Couleur arrière-plan</label>
+                                                            <input type="color" class="form-control form-control-color" 
+                                                                   name="bg_color" value="#ffffff" title="Couleur arrière-plan">
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="text-center mt-4">
+                                            <button type="submit" class="btn btn-info btn-lg">
+                                                <i class="fas fa-magic me-2"></i> Générer QR Code Personnalisé
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Contenu principal avec onglets -->
-            <div class="col-lg-9">
-                <div class="tab-content" id="qrTabsContent">
-                    <!-- Onglet Étudiant -->
-                    <div class="tab-pane fade show active" id="studentTab" role="tabpanel">
-                        <div class="card qr-card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-user-graduate me-2"></i>QR Code Étudiant</h5>
-                            </div>
-                            <div class="card-body">
-                                <form method="POST" id="studentForm">
-                                    <input type="hidden" name="action" value="generate_student">
-                                    
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Sélectionner un étudiant</label>
-                                                <select class="form-select" name="student_id" required 
-                                                        onchange="loadStudentInfo(this.value)">
-                                                    <option value="">Choisir un étudiant...</option>
-                                                    <?php foreach($students as $student): ?>
-                                                    <option value="<?php echo $student['id']; ?>">
-                                                        <?php echo htmlspecialchars($student['matricule'] . ' - ' . $student['nom'] . ' ' . $student['prenom']); ?>
-                                                    </option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Type de QR Code</label>
-                                                <select class="form-select" name="qr_type">
-                                                    <option value="etudiant">QR Code Présence</option>
-                                                    <option value="identite">QR Code Identité</option>
-                                                    <option value="acces">QR Code Accès</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Options</label>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="include_photo" id="includePhoto">
-                                                    <label class="form-check-label" for="includePhoto">
-                                                        Inclure la photo dans le QR code
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="auto_print" id="autoPrint">
-                                                    <label class="form-check-label" for="autoPrint">
-                                                        Imprimer automatiquement
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="send_email" id="sendEmail">
-                                                    <label class="form-check-label" for="sendEmail">
-                                                        Envoyer par email à l'étudiant
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-6">
-                                            <div id="studentInfo" class="alert alert-info" style="display: none;">
-                                                <h6>Informations de l'étudiant</h6>
-                                                <div id="studentDetails">
-                                                    <!-- Rempli par JavaScript -->
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Format du QR Code</label>
-                                                <div class="row">
-                                                    <div class="col-6">
-                                                        <label class="form-label">Taille</label>
-                                                        <select class="form-select" name="qr_size">
-                                                            <option value="small">Petit (200x200)</option>
-                                                            <option value="medium" selected>Moyen (300x300)</option>
-                                                            <option value="large">Grand (400x400)</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <label class="form-label">Couleur</label>
-                                                        <input type="color" class="form-control form-control-color" 
-                                                               name="qr_color" value="#000000" title="Choisir la couleur">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Format d'impression</label>
-                                                <select class="form-select" name="print_format">
-                                                    <option value="badge">Badge (85x55 mm)</option>
-                                                    <option value="carte">Carte étudiante (CR80)</option>
-                                                    <option value="sticker">Autocollant (50x50 mm)</option>
-                                                    <option value="simple">Simple (A4)</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="text-center mt-4">
-                                        <button type="submit" class="btn btn-primary btn-lg">
-                                            <i class="fas fa-qrcode me-2"></i> Générer QR Code
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary btn-lg ms-2" 
-                                                onclick="generateStudentBatch()">
-                                            <i class="fas fa-bolt me-2"></i> Générer en Masse
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Onglet Classe -->
-                    <div class="tab-pane fade" id="classTab" role="tabpanel">
-                        <div class="card qr-card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-users me-2"></i>QR Codes par Classe</h5>
-                            </div>
-                            <div class="card-body">
-                                <form method="POST" id="classForm">
-                                    <input type="hidden" name="action" value="generate_class">
-                                    
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Sélectionner une classe</label>
-                                                <select class="form-select" name="class_id" required 
-                                                        onchange="loadClassInfo(this.value)">
-                                                    <option value="">Choisir une classe...</option>
-                                                    <?php foreach($classes as $class): ?>
-                                                    <option value="<?php echo $class['id']; ?>">
-                                                        <?php echo htmlspecialchars($class['nom']); ?>
-                                                    </option>
-                                                    <?php endforeach; ?>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Options de génération</label>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="include_all" id="includeAll" checked>
-                                                    <label class="form-check-label" for="includeAll">
-                                                        Tous les étudiants de la classe
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="only_missing" id="onlyMissing">
-                                                    <label class="form-check-label" for="onlyMissing">
-                                                        Seulement les étudiants sans QR code
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="generate_pdf" id="generatePDF">
-                                                    <label class="form-check-label" for="generatePDF">
-                                                        Générer un PDF avec tous les QR codes
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-6">
-                                            <div id="classInfo" class="alert alert-info" style="display: none;">
-                                                <h6>Informations de la classe</h6>
-                                                <div id="classDetails">
-                                                    <!-- Rempli par JavaScript -->
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Format de sortie</label>
-                                                <select class="form-select" name="output_format">
-                                                    <option value="individual">QR codes individuels</option>
-                                                    <option value="sheet">Feuille A4 (9 par page)</option>
-                                                    <option value="badges">Feuille de badges</option>
-                                                    <option value="csv">Liste CSV avec liens</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Options d'impression</label>
-                                                <div class="row">
-                                                    <div class="col-6">
-                                                        <input type="number" class="form-control" name="copies" 
-                                                               value="1" min="1" max="10" placeholder="Copies">
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <select class="form-select" name="paper_size">
-                                                            <option value="A4">A4</option>
-                                                            <option value="A5">A5</option>
-                                                            <option value="Letter">Letter</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="text-center mt-4">
-                                        <button type="submit" class="btn btn-success btn-lg">
-                                            <i class="fas fa-qrcode me-2"></i> Générer pour la Classe
-                                        </button>
-                                        <button type="button" class="btn btn-outline-primary btn-lg ms-2" 
-                                                onclick="generateAllClasses()">
-                                            <i class="fas fa-layer-group me-2"></i> Toutes les Classes
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Onglet Surveillant -->
-                    <div class="tab-pane fade" id="surveillantTab" role="tabpanel">
-                        <div class="card qr-card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-user-shield me-2"></i>QR Code Surveillant</h5>
-                            </div>
-                            <div class="card-body">
-                                <form method="POST" id="surveillantForm">
-                                    <input type="hidden" name="action" value="generate_surveillant">
-                                    
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="alert alert-warning">
-                                                <h6><i class="fas fa-info-circle me-2"></i>Information</h6>
-                                                <p class="mb-0">Ce QR code vous permettra d'accéder à des fonctionnalités 
-                                                spéciales et d'authentifier vos actions.</p>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Type d'accès</label>
-                                                <select class="form-select" name="access_type">
-                                                    <option value="full">Accès complet</option>
-                                                    <option value="presence">Présence uniquement</option>
-                                                    <option value="scan">Scan uniquement</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Validité</label>
-                                                <div class="row">
-                                                    <div class="col-6">
-                                                        <input type="date" class="form-control" name="valid_from" 
-                                                               value="<?php echo date('Y-m-d'); ?>">
-                                                        <small class="text-muted">Début</small>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <input type="date" class="form-control" name="valid_to" 
-                                                               value="<?php echo date('Y-m-d', strtotime('+1 year')); ?>">
-                                                        <small class="text-muted">Fin</small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Sécurité</label>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="require_pin" id="requirePin">
-                                                    <label class="form-check-label" for="requirePin">
-                                                        Requérir un PIN pour l'utilisation
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="expirable" id="expirable" checked>
-                                                    <label class="form-check-label" for="expirable">
-                                                        QR code expirable
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="checkbox" name="revocable" id="revocable" checked>
-                                                    <label class="form-check-label" for="revocable">
-                                                        Révocable en cas de perte
-                                                    </label>
-                                                </div>
-                                            </div>
-                                            
-                                            <?php if(isset($_SESSION['user_name'])): ?>
-                                            <div class="alert alert-info">
-                                                <h6>Vos informations</h6>
-                                                <p class="mb-1">
-                                                    <strong>Nom:</strong> <?php echo htmlspecialchars($_SESSION['user_name']); ?>
-                                                </p>
-                                                <p class="mb-0">
-                                                    <strong>Site:</strong> 
-                                                    <?php 
-                                                    $query = "SELECT nom FROM sites WHERE id = :site_id";
-                                                    $stmt = $db->prepare($query);
-                                                    $stmt->execute([':site_id' => $site_id]);
-                                                    $site = $stmt->fetch(PDO::FETCH_ASSOC);
-                                                    echo htmlspecialchars($site['nom'] ?? 'N/A');
-                                                    ?>
-                                                </p>
-                                            </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="text-center mt-4">
-                                        <button type="submit" class="btn btn-warning btn-lg">
-                                            <i class="fas fa-key me-2"></i> Générer QR Code Surveillant
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary btn-lg ms-2" 
-                                                onclick="generateStaffQR()">
-                                            <i class="fas fa-users-cog me-2"></i> Pour tout le Personnel
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Onglet Personnalisé -->
-                    <div class="tab-pane fade" id="customTab" role="tabpanel">
-                        <div class="card qr-card">
-                            <div class="card-header">
-                                <h5 class="mb-0"><i class="fas fa-edit me-2"></i>QR Code Personnalisé</h5>
-                            </div>
-                            <div class="card-body">
-                                <form method="POST" id="customForm">
-                                    <input type="hidden" name="action" value="generate_custom">
-                                    
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Libellé du QR code</label>
-                                                <input type="text" class="form-control" name="custom_label" 
-                                                       placeholder="Ex: Salle de réunion, Matériel..." required>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Type de données</label>
-                                                <select class="form-select" name="data_type" onchange="changeDataType(this.value)">
-                                                    <option value="text">Texte libre</option>
-                                                    <option value="url">URL/liens</option>
-                                                    <option value="wifi">WiFi</option>
-                                                    <option value="contact">Contact</option>
-                                                    <option value="event">Événement</option>
-                                                    <option value="location">Localisation</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div id="customFields">
-                                                <!-- Champs dynamiques selon le type -->
-                                                <div class="mb-3">
-                                                    <label class="form-label">Données</label>
-                                                    <textarea class="form-control" name="custom_data" rows="5" 
-                                                              placeholder="Entrez les données à encoder..." required></textarea>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Options avancées</label>
-                                                <div class="row">
-                                                    <div class="col-6">
-                                                        <label class="form-label">Niveau de correction</label>
-                                                        <select class="form-select" name="error_correction">
-                                                            <option value="L">Faible (7%)</option>
-                                                            <option value="M">Moyen (15%)</option>
-                                                            <option value="Q" selected>Qualité (25%)</option>
-                                                            <option value="H">Haute (30%)</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="col-6">
-                                                        <label class="form-label">Version QR</label>
-                                                        <select class="form-select" name="qr_version">
-                                                            <option value="1">1 (21x21)</option>
-                                                            <option value="5">5 (37x37)</option>
-                                                            <option value="10" selected>10 (57x57)</option>
-                                                            <option value="20">20 (97x97)</option>
-                                                            <option value="40">40 (177x177)</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Style du QR code</label>
-                                                <div class="row g-2">
-                                                    <div class="col-4">
-                                                        <input type="color" class="form-control form-control-color" 
-                                                               name="fg_color" value="#000000" title="Couleur avant-plan">
-                                                        <small class="text-muted">Avant-plan</small>
-                                                    </div>
-                                                    <div class="col-4">
-                                                        <input type="color" class="form-control form-control-color" 
-                                                               name="bg_color" value="#ffffff" title="Couleur arrière-plan">
-                                                        <small class="text-muted">Arrière-plan</small>
-                                                    </div>
-                                                    <div class="col-4">
-                                                        <select class="form-select" name="qr_style">
-                                                            <option value="square">Carrés</option>
-                                                            <option value="rounded">Arrondi</option>
-                                                            <option value="dots">Points</option>
-                                                            <option value="hex">Hexagones</option>
-                                                        </select>
-                                                        <small class="text-muted">Style</small>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="mb-3">
-                                                <label class="form-label">Logo (optionnel)</label>
-                                                <input type="file" class="form-control" name="logo_file" 
-                                                       accept="image/png,image/jpeg" id="logoUpload">
-                                                <small class="text-muted">PNG ou JPG, max 100KB</small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="text-center mt-4">
-                                        <button type="submit" class="btn btn-info btn-lg">
-                                            <i class="fas fa-magic me-2"></i> Générer QR Code Personnalisé
-                                        </button>
-                                        <button type="button" class="btn btn-outline-warning btn-lg ms-2" 
-                                                onclick="previewQR()">
-                                            <i class="fas fa-eye me-2"></i> Prévisualiser
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Résultat de génération -->
+            <?php if($generated_qr): ?>
+            <div class="card qr-card mt-4" id="resultCard">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle text-success me-2"></i>
+                        QR Code Généré avec Succès
+                    </h5>
                 </div>
-                
-                <!-- Résultat de génération -->
-                <?php if($generated_qr): ?>
-                <div class="card qr-card mt-4" id="resultCard">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-check-circle text-success me-2"></i>
-                            QR Code Généré avec Succès
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4 text-center">
-                                <div class="qr-preview mb-3">
-                                    <?php if($generated_qr['type'] === 'Classe'): ?>
-                                        <div id="classQRCarousel" class="carousel slide" data-bs-ride="carousel">
-                                            <div class="carousel-inner">
-                                                <?php foreach($generated_qr['qr_codes'] as $index => $qr): ?>
-                                                <div class="carousel-item <?php echo $index === 0 ? 'active' : ''; ?>">
-                                                    <img src="<?php echo $qr['qr_path']; ?>" 
-                                                         alt="QR Code <?php echo $qr['student']['nom']; ?>">
-                                                    <div class="carousel-caption d-none d-md-block">
-                                                        <small><?php echo $qr['student']['nom']; ?></small>
-                                                    </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-lg-4 text-center mb-4 mb-lg-0">
+                            <div class="qr-preview mb-3">
+                                <?php if($generated_qr['type'] === 'Classe'): ?>
+                                    <div id="classQRCarousel" class="carousel slide" data-bs-ride="carousel">
+                                        <div class="carousel-inner">
+                                            <?php foreach($generated_qr['qr_codes'] as $index => $qr): ?>
+                                            <div class="carousel-item <?php echo $index === 0 ? 'active' : ''; ?>">
+                                                <img src="<?php echo $qr['qr_path']; ?>" 
+                                                     alt="QR Code <?php echo $qr['student']['nom']; ?>">
+                                                <div class="carousel-caption d-none d-md-block">
+                                                    <small><?php echo $qr['student']['nom']; ?></small>
                                                 </div>
-                                                <?php endforeach; ?>
                                             </div>
-                                            <button class="carousel-control-prev" type="button" data-bs-target="#classQRCarousel" data-bs-slide="prev">
-                                                <span class="carousel-control-prev-icon"></span>
-                                            </button>
-                                            <button class="carousel-control-next" type="button" data-bs-target="#classQRCarousel" data-bs-slide="next">
-                                                <span class="carousel-control-next-icon"></span>
-                                            </button>
+                                            <?php endforeach; ?>
                                         </div>
-                                        <p class="mt-2">
-                                            <span class="badge bg-primary"><?php echo $generated_qr['count']; ?> QR codes</span>
-                                        </p>
-                                    <?php else: ?>
-                                        <img src="<?php echo $generated_qr['qr_path']; ?>" 
-                                             alt="QR Code <?php echo $generated_qr['name']; ?>">
-                                    <?php endif; ?>
+                                        <button class="carousel-control-prev" type="button" data-bs-target="#classQRCarousel" data-bs-slide="prev">
+                                            <span class="carousel-control-prev-icon"></span>
+                                        </button>
+                                        <button class="carousel-control-next" type="button" data-bs-target="#classQRCarousel" data-bs-slide="next">
+                                            <span class="carousel-control-next-icon"></span>
+                                        </button>
+                                    </div>
+                                    <p class="mt-2">
+                                        <span class="badge bg-primary"><?php echo $generated_qr['count']; ?> QR codes</span>
+                                    </p>
+                                <?php else: ?>
+                                    <img src="<?php echo $generated_qr['qr_path']; ?>" 
+                                         alt="QR Code <?php echo $generated_qr['name']; ?>">
+                                <?php endif; ?>
+                            </div>
+                            
+                            <div class="qr-actions d-flex justify-content-center gap-2 flex-wrap">
+                                <button class="btn btn-success" onclick="downloadQR('<?php echo $generated_qr['qr_path']; ?>', '<?php echo $generated_qr['download_name'] ?? 'qr_code.png'; ?>')">
+                                    <i class="fas fa-download me-1"></i> Télécharger
+                                </button>
+                                <button class="btn btn-primary" onclick="printQR()">
+                                    <i class="fas fa-print me-1"></i> Imprimer
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-8">
+                            <h5><?php echo $generated_qr['name']; ?></h5>
+                            <p class="text-muted mb-3">
+                                <i class="fas fa-tag me-1"></i>
+                                Type: <span class="badge-qr"><?php echo $generated_qr['type']; ?></span>
+                                <?php if($generated_qr['type'] === 'Étudiant'): ?>
+                                    | Matricule: <strong><?php echo $generated_qr['matricule']; ?></strong>
+                                <?php endif; ?>
+                            </p>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Données encodées:</label>
+                                <div id="qrDataText" class="mb-2">
+                                    <?php echo htmlspecialchars($generated_qr['qr_data']); ?>
+                                </div>
+                                <button class="btn btn-sm btn-outline-secondary" onclick="copyQRData()">
+                                    <i class="fas fa-copy me-1"></i> Copier les données
+                                </button>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-3">
+                                            <h6 class="mb-2"><i class="fas fa-info-circle me-2"></i>Informations techniques</h6>
+                                            <ul class="mb-0 small">
+                                                <li>Date: <?php echo date('d/m/Y H:i:s'); ?></li>
+                                                <li>Format: PNG</li>
+                                                <li>Taille: 300x300 pixels</li>
+                                                <li>Encodage: UTF-8</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                 </div>
                                 
-                                <div class="qr-actions d-flex justify-content-center gap-2">
-                                    <button class="btn btn-success" onclick="downloadQR('<?php echo $generated_qr['qr_path']; ?>', '<?php echo $generated_qr['download_name'] ?? 'qr_code.png'; ?>')">
-                                        <i class="fas fa-download me-1"></i> Télécharger
-                                    </button>
-                                    <button class="btn btn-primary" onclick="printQR()">
-                                        <i class="fas fa-print me-1"></i> Imprimer
-                                    </button>
+                                <div class="col-md-6">
+                                    <div class="card bg-light">
+                                        <div class="card-body p-3">
+                                            <h6 class="mb-2"><i class="fas fa-share-alt me-2"></i>Partage rapide</h6>
+                                            <div class="btn-group w-100">
+                                                <button class="btn btn-outline-primary btn-sm" onclick="shareQR('whatsapp')">
+                                                    <i class="fab fa-whatsapp"></i>
+                                                </button>
+                                                <button class="btn btn-outline-info btn-sm" onclick="shareQR('email')">
+                                                    <i class="fas fa-envelope"></i>
+                                                </button>
+                                                <button class="btn btn-outline-dark btn-sm" onclick="shareQR('sms')">
+                                                    <i class="fas fa-sms"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="col-md-8">
-                                <h5><?php echo $generated_qr['name']; ?></h5>
-                                <p class="text-muted">
-                                    <i class="fas fa-tag me-1"></i>
-                                    Type: <span class="badge-qr"><?php echo $generated_qr['type']; ?></span>
-                                    <?php if($generated_qr['type'] === 'Étudiant'): ?>
-                                        | Matricule: <strong><?php echo $generated_qr['matricule']; ?></strong>
-                                    <?php endif; ?>
-                                </p>
-                                
-                                <div class="mb-3">
-                                    <label class="form-label">Données encodées:</label>
-                                    <div id="qrDataText" class="mb-2">
-                                        <?php echo htmlspecialchars($generated_qr['qr_data']); ?>
-                                    </div>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="copyQRData()">
-                                        <i class="fas fa-copy me-1"></i> Copier les données
+                            <?php if($generated_qr['type'] === 'Classe'): ?>
+                            <div class="mt-4">
+                                <h6>Liste des QR codes générés:</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Étudiant</th>
+                                                <th>Matricule</th>
+                                                <th>QR Code</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php foreach($generated_qr['qr_codes'] as $qr): ?>
+                                            <tr>
+                                                <td class="small"><?php echo htmlspecialchars($qr['student']['nom'] . ' ' . $qr['student']['prenom']); ?></td>
+                                                <td><span class="badge bg-secondary small"><?php echo $qr['student']['matricule']; ?></span></td>
+                                                <td><img src="<?php echo $qr['qr_path']; ?>" width="40" height="40"></td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary" 
+                                                            onclick="downloadQR('<?php echo $qr['qr_path']; ?>', 'qr_<?php echo $qr['student']['matricule']; ?>.png')">
+                                                        <i class="fas fa-download"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="text-center">
+                                    <button class="btn btn-primary" onclick="downloadClassZip()">
+                                        <i class="fas fa-file-archive me-2"></i> Télécharger tous les QR codes (ZIP)
                                     </button>
                                 </div>
-                                
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="card bg-light">
-                                            <div class="card-body">
-                                                <h6><i class="fas fa-info-circle me-2"></i>Informations techniques</h6>
-                                                <ul class="mb-0">
-                                                    <li>Date: <?php echo date('d/m/Y H:i:s'); ?></li>
-                                                    <li>Format: PNG</li>
-                                                    <li>Taille: 300x300 pixels</li>
-                                                    <li>Encodage: UTF-8</li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <div class="card bg-light">
-                                            <div class="card-body">
-                                                <h6><i class="fas fa-share-alt me-2"></i>Partage rapide</h6>
-                                                <div class="btn-group w-100">
-                                                    <button class="btn btn-outline-primary" onclick="shareQR('whatsapp')">
-                                                        <i class="fab fa-whatsapp"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-info" onclick="shareQR('email')">
-                                                        <i class="fas fa-envelope"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-dark" onclick="shareQR('sms')">
-                                                        <i class="fas fa-sms"></i>
-                                                    </button>
-                                                    <button class="btn btn-outline-secondary" onclick="copyQRImage()">
-                                                        <i class="fas fa-image"></i>
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <?php if($generated_qr['type'] === 'Classe'): ?>
-                                <div class="mt-3">
-                                    <h6>Liste des QR codes générés:</h6>
-                                    <div class="table-responsive">
-                                        <table class="table table-sm">
-                                            <thead>
-                                                <tr>
-                                                    <th>Étudiant</th>
-                                                    <th>Matricule</th>
-                                                    <th>QR Code</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <?php foreach($generated_qr['qr_codes'] as $qr): ?>
-                                                <tr>
-                                                    <td><?php echo htmlspecialchars($qr['student']['nom'] . ' ' . $qr['student']['prenom']); ?></td>
-                                                    <td><span class="badge bg-secondary"><?php echo $qr['student']['matricule']; ?></span></td>
-                                                    <td><img src="<?php echo $qr['qr_path']; ?>" width="50" height="50"></td>
-                                                    <td>
-                                                        <button class="btn btn-sm btn-outline-primary" 
-                                                                onclick="downloadQR('<?php echo $qr['qr_path']; ?>', 'qr_<?php echo $qr['student']['matricule']; ?>.png')">
-                                                            <i class="fas fa-download"></i>
-                                                        </button>
-                                                    </td>
-                                                </tr>
-                                                <?php endforeach; ?>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <div class="text-center">
-                                        <button class="btn btn-primary" onclick="downloadClassZip()">
-                                            <i class="fas fa-file-archive me-2"></i> Télécharger tous les QR codes (ZIP)
-                                        </button>
-                                    </div>
-                                </div>
-                                <?php endif; ?>
                             </div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
-                <?php endif; ?>
             </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Footer Mobile -->
+        <div class="d-block d-md-none mt-4 pt-3 border-top text-center">
+            <small class="text-muted">
+                <?php echo $_SESSION['user_name'] ?? 'Surveillant'; ?> • 
+                Générateur QR Codes • 
+                <?php echo date('d/m/Y H:i'); ?>
+            </small>
         </div>
     </div>
     
     <!-- Modal de prévisualisation -->
     <div class="modal fade" id="previewModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Prévisualisation QR Code</h5>
+                    <h5 class="modal-title"><i class="fas fa-eye me-2"></i>Prévisualisation</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <div id="qrPreview" class="qr-preview mx-auto mb-3" style="width: 300px; height: 300px;">
+                    <div id="qrPreview" class="qr-preview mx-auto mb-3" style="width: 200px; height: 200px;">
                         <!-- Prévisualisation dynamique -->
                     </div>
-                    <div id="previewInfo"></div>
                 </div>
             </div>
         </div>
@@ -1053,42 +1354,74 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
     
     <script>
-    // Charger les QR codes récents
-    async function loadRecentQRCodes() {
-        try {
-            const response = await fetch('ajax/get_recent_qrcodes.php');
-            const qrcodes = await response.json();
-            
-            const container = document.getElementById('recentQRCodes');
-            if (qrcodes.length > 0) {
-                let html = '';
-                qrcodes.forEach(qr => {
-                    html += `
-                        <div class="d-flex align-items-center mb-2 p-2 border rounded">
-                            <img src="${qr.path}" width="40" height="40" class="me-2">
-                            <div class="flex-grow-1">
-                                <small class="d-block">${qr.name}</small>
-                                <small class="text-muted">${qr.date}</small>
-                            </div>
-                            <button class="btn btn-sm btn-outline-secondary" onclick="downloadQR('${qr.path}', '${qr.filename}')">
-                                <i class="fas fa-download"></i>
-                            </button>
-                        </div>
-                    `;
-                });
-                container.innerHTML = html;
-            } else {
-                container.innerHTML = '<p class="text-muted text-center">Aucun QR code récent</p>';
-            }
-        } catch (error) {
-            console.error('Erreur:', error);
-        }
+    // Gestion du sidebar mobile
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mainContent = document.getElementById('mainContent');
+    
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('active');
+        document.body.classList.toggle('sidebar-open');
     }
+    
+    function closeSidebar() {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+    }
+    
+    // Événements
+    hamburgerBtn.addEventListener('click', toggleSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
+    
+    // Fermer le sidebar en cliquant sur un lien (mobile)
+    document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 769) {
+                closeSidebar();
+            }
+        });
+    });
+    
+    // Fonction pour basculer entre mode sombre et clair
+    function toggleTheme() {
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        html.setAttribute('data-theme', newTheme);
+        document.cookie = `isgi_theme=${newTheme}; max-age=${30*24*60*60}; path=/`;
+        
+        // Mettre à jour le bouton
+        const buttons = document.querySelectorAll('button[onclick="toggleTheme()"]');
+        buttons.forEach(button => {
+            if (newTheme === 'dark') {
+                button.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
+            } else {
+                button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+            }
+        });
+    }
+    
+    // Initialiser le thème
+    document.addEventListener('DOMContentLoaded', function() {
+        // Thème
+        const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        
+        const themeButtons = document.querySelectorAll('button[onclick="toggleTheme()"]');
+        themeButtons.forEach(button => {
+            if (theme === 'dark') {
+                button.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
+            } else {
+                button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+            }
+        });
+    });
     
     // Charger les infos de l'étudiant
     async function loadStudentInfo(studentId) {
@@ -1103,10 +1436,9 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
             
             if (student) {
                 details.innerHTML = `
-                    <p class="mb-1"><strong>Matricule:</strong> ${student.matricule}</p>
-                    <p class="mb-1"><strong>Classe:</strong> ${student.classe || 'Non assigné'}</p>
-                    <p class="mb-1"><strong>Téléphone:</strong> ${student.telephone || 'Non renseigné'}</p>
-                    <p class="mb-0"><strong>Email:</strong> ${student.email || 'Non renseigné'}</p>
+                    <p class="mb-1 small"><strong>Matricule:</strong> ${student.matricule}</p>
+                    <p class="mb-1 small"><strong>Classe:</strong> ${student.classe || 'Non assigné'}</p>
+                    <p class="mb-0 small"><strong>Téléphone:</strong> ${student.telephone || 'Non renseigné'}</p>
                 `;
                 container.style.display = 'block';
             }
@@ -1128,149 +1460,14 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
             
             if (classe) {
                 details.innerHTML = `
-                    <p class="mb-1"><strong>Effectif:</strong> ${classe.effectif} étudiants</p>
-                    <p class="mb-1"><strong>Niveau:</strong> ${classe.niveau || 'N/A'}</p>
-                    <p class="mb-1"><strong>Filière:</strong> ${classe.filiere || 'N/A'}</p>
-                    <p class="mb-0"><strong>Avec QR code:</strong> ${classe.with_qr || 0} étudiants</p>
+                    <p class="mb-1 small"><strong>Effectif:</strong> ${classe.effectif} étudiants</p>
+                    <p class="mb-0 small"><strong>Avec QR code:</strong> ${classe.with_qr || 0} étudiants</p>
                 `;
                 container.style.display = 'block';
             }
         } catch (error) {
             console.error('Erreur:', error);
         }
-    }
-    
-    // Changer les champs selon le type de données
-    function changeDataType(type) {
-        const container = document.getElementById('customFields');
-        let html = '';
-        
-        switch(type) {
-            case 'url':
-                html = `
-                    <div class="mb-3">
-                        <label class="form-label">URL</label>
-                        <input type="url" class="form-control" name="custom_data" 
-                               placeholder="https://example.com" required>
-                    </div>
-                `;
-                break;
-                
-            case 'wifi':
-                html = `
-                    <div class="row">
-                        <div class="col-6">
-                            <label class="form-label">SSID (Nom réseau)</label>
-                            <input type="text" class="form-control" name="wifi_ssid" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Mot de passe</label>
-                            <input type="text" class="form-control" name="wifi_password">
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-6">
-                            <label class="form-label">Type de sécurité</label>
-                            <select class="form-select" name="wifi_type">
-                                <option value="WPA">WPA/WPA2</option>
-                                <option value="WEP">WEP</option>
-                                <option value="nopass">Aucun</option>
-                            </select>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Caché</label>
-                            <select class="form-select" name="wifi_hidden">
-                                <option value="false">Non</option>
-                                <option value="true">Oui</option>
-                            </select>
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'contact':
-                html = `
-                    <div class="row">
-                        <div class="col-6">
-                            <label class="form-label">Nom</label>
-                            <input type="text" class="form-control" name="contact_name" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Téléphone</label>
-                            <input type="tel" class="form-control" name="contact_phone" required>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-6">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" name="contact_email">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Entreprise</label>
-                            <input type="text" class="form-control" name="contact_company">
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'event':
-                html = `
-                    <div class="row">
-                        <div class="col-6">
-                            <label class="form-label">Nom de l'événement</label>
-                            <input type="text" class="form-control" name="event_title" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Lieu</label>
-                            <input type="text" class="form-control" name="event_location">
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-6">
-                            <label class="form-label">Date début</label>
-                            <input type="datetime-local" class="form-control" name="event_start" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Date fin</label>
-                            <input type="datetime-local" class="form-control" name="event_end">
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            case 'location':
-                html = `
-                    <div class="row">
-                        <div class="col-6">
-                            <label class="form-label">Latitude</label>
-                            <input type="number" step="any" class="form-control" name="lat" required>
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Longitude</label>
-                            <input type="number" step="any" class="form-control" name="lng" required>
-                        </div>
-                    </div>
-                    <div class="row mt-2">
-                        <div class="col-12">
-                            <label class="form-label">Libellé</label>
-                            <input type="text" class="form-control" name="location_label" 
-                                   placeholder="Ex: ISGI Brazzaville">
-                        </div>
-                    </div>
-                `;
-                break;
-                
-            default:
-                html = `
-                    <div class="mb-3">
-                        <label class="form-label">Données</label>
-                        <textarea class="form-control" name="custom_data" rows="5" 
-                                  placeholder="Entrez les données à encoder..." required></textarea>
-                    </div>
-                `;
-        }
-        
-        container.innerHTML = html;
     }
     
     // Télécharger un QR code
@@ -1315,7 +1512,7 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
     }
     
     // Télécharger un batch de QR codes
-    async function downloadBatch() {
+    function downloadBatch() {
         Swal.fire({
             title: 'Génération en masse',
             input: 'select',
@@ -1378,25 +1575,9 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
         });
     }
     
-    // Copier l'image du QR code
-    async function copyQRImage() {
-        try {
-            const response = await fetch(document.querySelector('#resultCard img').src);
-            const blob = await response.blob();
-            
-            const item = new ClipboardItem({ 'image/png': blob });
-            await navigator.clipboard.write([item]);
-            
-            Swal.fire('Succès', 'Image copiée dans le presse-papier', 'success');
-        } catch (error) {
-            Swal.fire('Erreur', 'Impossible de copier l\'image', 'error');
-        }
-    }
-    
     // Partager le QR code
     function shareQR(platform) {
         const qrData = document.getElementById('qrDataText').textContent;
-        const qrImage = document.querySelector('#resultCard img').src;
         
         let url = '';
         switch(platform) {
@@ -1421,23 +1602,17 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
             title: 'Génération en masse',
             html: `
                 <div class="text-start">
-                    <p>Sélectionnez les étudiants pour générer leurs QR codes:</p>
+                    <p class="small">Sélectionnez les étudiants pour générer leurs QR codes:</p>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="selectAllStudents">
-                        <label class="form-check-label" for="selectAllStudents">
+                        <label class="form-check-label small" for="selectAllStudents">
                             Tous les étudiants actifs
                         </label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox" id="onlyWithoutQR">
-                        <label class="form-check-label" for="onlyWithoutQR">
+                        <label class="form-check-label small" for="onlyWithoutQR">
                             Seulement ceux sans QR code
-                        </label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" id="byClass" checked>
-                        <label class="form-check-label" for="byClass">
-                            Grouper par classe
                         </label>
                     </div>
                 </div>
@@ -1447,7 +1622,6 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
             cancelButtonText: 'Annuler'
         }).then((result) => {
             if (result.isConfirmed) {
-                // Redirection vers le script de génération en masse
                 window.location.href = 'ajax/generate_student_batch.php';
             }
         });
@@ -1467,41 +1641,6 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
                 window.location.href = 'ajax/generate_all_classes.php';
             }
         });
-    }
-    
-    // Générer pour tout le personnel
-    function generateStaffQR() {
-        Swal.fire({
-            title: 'QR Codes Personnel',
-            text: 'Générer des QR codes pour tout le personnel administratif et enseignant ?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Générer',
-            cancelButtonText: 'Annuler'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = 'ajax/generate_staff_qr.php';
-            }
-        });
-    }
-    
-    // Prévisualiser un QR code
-    function previewQR() {
-        // Récupérer les données du formulaire
-        const form = document.getElementById('customForm');
-        const formData = new FormData(form);
-        
-        // Générer un QR code de prévisualisation
-        const qr = qrcode(0, 'H');
-        qr.addData('Prévisualisation - Données non encore générées');
-        qr.make();
-        
-        const previewDiv = document.getElementById('qrPreview');
-        previewDiv.innerHTML = qr.createImgTag(10);
-        
-        // Afficher le modal
-        const modal = new bootstrap.Modal(document.getElementById('previewModal'));
-        modal.show();
     }
     
     // Imprimer tous les QR codes
@@ -1525,33 +1664,11 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
         });
     }
     
-    // Initialisation
+    // Validation des formulaires
     document.addEventListener('DOMContentLoaded', () => {
-        // Charger les QR codes récents
-        loadRecentQRCodes();
-        
-        // Initialiser les tooltips
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-        
-        // Auto-sélection pour les formulaires
-        const firstStudent = document.querySelector('select[name="student_id"] option:not([value=""])');
-        if (firstStudent) {
-            loadStudentInfo(firstStudent.value);
-        }
-        
-        const firstClass = document.querySelector('select[name="class_id"] option:not([value=""])');
-        if (firstClass) {
-            loadClassInfo(firstClass.value);
-        }
-        
-        // Sauvegarder automatiquement les formulaires
         const forms = document.querySelectorAll('form');
         forms.forEach(form => {
             form.addEventListener('submit', function(e) {
-                // Validation supplémentaire
                 if (!this.checkValidity()) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1559,10 +1676,13 @@ $classes = $stmt_classes->fetchAll(PDO::FETCH_ASSOC);
                 this.classList.add('was-validated');
             });
         });
+        
+        // Initialiser le carousel si présent
+        const carousel = document.getElementById('classQRCarousel');
+        if (carousel) {
+            new bootstrap.Carousel(carousel);
+        }
     });
-    
-    // Auto-refresh des QR codes récents
-    setInterval(loadRecentQRCodes, 30000); // Toutes les 30 secondes
     </script>
 </body>
 </html>

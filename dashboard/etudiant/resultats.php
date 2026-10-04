@@ -208,6 +208,7 @@ try {
              LEFT JOIN utilisateurs u ON b.edite_par = u.id
              LEFT JOIN utilisateurs uv ON b.valide_par = uv.id
              WHERE b.etudiant_id = ? 
+             AND b.statut = 'publie'
              ORDER BY aa.libelle DESC, s.numero DESC
              LIMIT 10",
             [$etudiant_id]);
@@ -1002,8 +1003,10 @@ try {
                         <!-- Tab 1: Bulletins -->
                         <div class="tab-pane fade show active" id="bulletins">
                             <?php if(empty($bulletins)): ?>
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i> Aucun bulletin disponible pour le moment.
+                            <div class="alert alert-info py-4 text-center">
+                                <i class="fas fa-lock fa-2x mb-2 text-warning"></i>
+                                <h6 class="fw-bold mb-1">Résultats officiels en cours de délibération</h6>
+                                <p class="mb-0 text-muted small">Les bulletins et délibérations sont en cours de validation par la Direction des Affaires Académiques (DAC) et seront consultables dès leur publication officielle.</p>
                             </div>
                             <?php else: ?>
                             <div class="row">

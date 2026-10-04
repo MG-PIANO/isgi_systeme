@@ -1,0 +1,31 @@
+node_modules
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+
+# Runtime data and private uploads
+/error.log
+/uploads/
+/scratch/
+*.xlsx
+*.log
+
+# Dependencies and generated builds
+vendor/
+**/vendor/
+**/dist/
+**/dist_electron/
+**/win-unpacked.tmp/
+**/.gradle/
+**/local.properties
+/app_surveillant_mobile/android/build/
+/app_surveillant_mobile/android/app/build/
+/app_surveillant_mobile/android/app/src/main/assets/
+*.apk
+*.aab
+
+# Generated diagnostic artifacts
+debug_electron.png
+libs/phpqrcode/*-errors.txt

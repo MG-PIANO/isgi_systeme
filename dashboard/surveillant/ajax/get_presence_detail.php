@@ -43,6 +43,7 @@ if (!$presence) {
 }
 
 function formatDateFr($date, $format = 'd/m/Y H:i:s') {
+    if (empty($date) || $date == '0000-00-00 00:00:00') return 'N/A';
     return date($format, strtotime($date));
 }
 
@@ -65,6 +66,13 @@ function getStatutText($statut) {
     ];
     return $statuts[$statut] ?? $statut;
 }
+
+// Vérifier si les clés existent et les initialiser si nécessaire
+$observations = $presence['observations'] ?? null;
+$motif_absence = $presence['motif_absence'] ?? null;
+$ip_address = $presence['ip_address'] ?? 'N/A';
+$date_creation = $presence['date_creation'] ?? null;
+$qr_code_scanne = $presence['qr_code_scanne'] ?? null;
 ?>
 
 <div class="row">
@@ -75,7 +83,7 @@ function getStatutText($statut) {
         <h4><?php echo htmlspecialchars($presence['nom'] . ' ' . $presence['prenom']); ?></h4>
         <p class="text-muted">
             Matricule: <strong><?php echo htmlspecialchars($presence['matricule']); ?></strong><br>
-            Classe: <?php echo htmlspecialchars($presence['classe_nom']); ?>
+            Classe: <?php echo htmlspecialchars($presence['classe_nom'] ?? 'N/A'); ?>
         </p>
     </div>
     
@@ -86,7 +94,7 @@ function getStatutText($statut) {
                     <label class="form-label text-muted">Type de présence</label>
                     <div class="form-control bg-light">
                         <i class="fas fa-door-open me-2"></i>
-                        <?php echo getTypePresenceText($presence['type_presence']); ?>
+                        <?php echo getTypePresenceText($presence['type_presence'] ?? ''); ?>
                     </div>
                 </div>
             </div>
@@ -94,8 +102,8 @@ function getStatutText($statut) {
                 <div class="mb-3">
                     <label class="form-label text-muted">Statut</label>
                     <div class="form-control bg-light">
-                        <i class="fas fa-<?php echo $presence['statut'] == 'present' ? 'check-circle text-success' : ($presence['statut'] == 'absent' ? 'times-circle text-danger' : 'clock text-warning'); ?> me-2"></i>
-                        <?php echo getStatutText($presence['statut']); ?>
+                        <i class="fas fa-<?php echo ($presence['statut'] ?? '') == 'present' ? 'check-circle text-success' : (($presence['statut'] ?? '') == 'absent' ? 'times-circle text-danger' : 'clock text-warning'); ?> me-2"></i>
+                        <?php echo getStatutText($presence['statut'] ?? ''); ?>
                     </div>
                 </div>
             </div>
@@ -107,7 +115,7 @@ function getStatutText($statut) {
                     <label class="form-label text-muted">Date et Heure</label>
                     <div class="form-control bg-light">
                         <i class="fas fa-calendar-alt me-2"></i>
-                        <?php echo formatDateFr($presence['date_heure']); ?>
+                        <?php echo formatDateFr($presence['date_heure'] ?? ''); ?>
                     </div>
                 </div>
             </div>
@@ -116,7 +124,7 @@ function getStatutText($statut) {
                     <label class="form-label text-muted">Matière</label>
                     <div class="form-control bg-light">
                         <i class="fas fa-book me-2"></i>
-                        <?php echo $presence['matiere_nom'] ? htmlspecialchars($presence['matiere_nom']) : 'Non spécifiée'; ?>
+                        <?php echo isset($presence['matiere_nom']) && $presence['matiere_nom'] ? htmlspecialchars($presence['matiere_nom']) : 'Non spécifiée'; ?>
                     </div>
                 </div>
             </div>
@@ -128,8 +136,8 @@ function getStatutText($statut) {
                     <label class="form-label text-muted">Enregistré par</label>
                     <div class="form-control bg-light">
                         <i class="fas fa-user-shield me-2"></i>
-                        <?php echo $presence['surveillant_nom'] ? 
-                            htmlspecialchars($presence['surveillant_nom'] . ' ' . $presence['surveillant_prenom']) : 
+                        <?php echo isset($presence['surveillant_nom']) && $presence['surveillant_nom'] ? 
+                            htmlspecialchars(($presence['surveillant_nom'] ?? '') . ' ' . ($presence['surveillant_prenom'] ?? '')) : 
                             'Système automatique'; ?>
                     </div>
                 </div>
@@ -139,28 +147,28 @@ function getStatutText($statut) {
                     <label class="form-label text-muted">Code QR Scanné</label>
                     <div class="form-control bg-light">
                         <i class="fas fa-qrcode me-2"></i>
-                        <?php echo $presence['qr_code_scanne'] ? 'Oui' : 'Non'; ?>
+                        <?php echo $qr_code_scanne ? 'Oui' : 'Non'; ?>
                     </div>
                 </div>
             </div>
         </div>
         
-        <?php if($presence['motif_absence']): ?>
+        <?php if(!empty($motif_absence)): ?>
         <div class="mb-3">
             <label class="form-label text-muted">Motif d'absence</label>
             <div class="form-control bg-light">
                 <i class="fas fa-comment me-2"></i>
-                <?php echo htmlspecialchars($presence['motif_absence']); ?>
+                <?php echo htmlspecialchars($motif_absence); ?>
             </div>
         </div>
         <?php endif; ?>
         
-        <?php if($presence['observations']): ?>
+        <?php if(!empty($observations)): ?>
         <div class="mb-3">
             <label class="form-label text-muted">Observations</label>
             <div class="form-control bg-light">
                 <i class="fas fa-sticky-note me-2"></i>
-                <?php echo htmlspecialchars($presence['observations']); ?>
+                <?php echo htmlspecialchars($observations); ?>
             </div>
         </div>
         <?php endif; ?>
@@ -170,8 +178,8 @@ function getStatutText($statut) {
             <div class="form-control bg-light">
                 <small>
                     <i class="fas fa-info-circle me-1"></i>
-                    IP: <?php echo $presence['ip_address'] ?? 'N/A'; ?> | 
-                    Créé le: <?php echo formatDateFr($presence['date_creation']); ?>
+                    IP: <?php echo $ip_address; ?> | 
+                    Créé le: <?php echo formatDateFr($date_creation); ?>
                 </small>
             </div>
         </div>

@@ -359,11 +359,41 @@ try {
         margin: 0;
         padding: 0;
         min-height: 100vh;
+        overflow-x: hidden;
     }
     
-    .app-container {
+    /* Header Mobile */
+    .mobile-header {
+        display: none;
+        background-color: var(--sidebar-bg);
+        color: white;
+        padding: 10px 15px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 1050;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .mobile-header-content {
         display: flex;
-        min-height: 100vh;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .hamburger-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 5px 10px;
+    }
+    
+    .mobile-brand {
+        font-size: 18px;
+        font-weight: bold;
     }
     
     /* Sidebar */
@@ -374,12 +404,26 @@ try {
         position: fixed;
         height: 100vh;
         overflow-y: auto;
+        z-index: 1040;
+        transition: transform 0.3s ease-in-out;
+    }
+    
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        z-index: 1039;
     }
     
     .sidebar-header {
         padding: 20px 15px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         text-align: center;
+        background-color: rgba(0,0,0,0.1);
     }
     
     .sidebar-logo {
@@ -411,11 +455,11 @@ try {
     
     /* Navigation */
     .sidebar-nav {
-        padding: 15px;
+        padding: 15px 0;
     }
     
     .nav-section {
-        margin-bottom: 25px;
+        margin-bottom: 15px;
     }
     
     .nav-section-title {
@@ -424,37 +468,50 @@ try {
         letter-spacing: 1px;
         color: rgba(255, 255, 255, 0.6);
         margin-bottom: 10px;
-        padding: 0 10px;
+        padding: 0 20px;
     }
     
     .nav-link {
         display: flex;
         align-items: center;
-        padding: 10px 15px;
+        padding: 12px 20px;
         color: var(--sidebar-text);
         text-decoration: none;
-        border-radius: 5px;
-        margin-bottom: 5px;
         transition: all 0.3s;
+        border-left: 3px solid transparent;
     }
     
     .nav-link:hover, .nav-link.active {
-        background-color: var(--secondary-color);
+        background-color: rgba(255, 255, 255, 0.1);
         color: white;
+        border-left-color: var(--secondary-color);
     }
     
     .nav-link i {
         width: 20px;
-        margin-right: 10px;
+        margin-right: 12px;
         text-align: center;
+        font-size: 16px;
+    }
+    
+    .nav-link span {
+        font-size: 14px;
+    }
+    
+    .nav-badge {
+        margin-left: auto;
+        background: var(--accent-color);
+        color: white;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
     }
     
     /* Contenu principal */
     .main-content {
-        flex: 1;
-        margin-left: 250px;
         padding: 20px;
         min-height: 100vh;
+        transition: margin-left 0.3s ease-in-out;
     }
     
     /* Cartes */
@@ -462,7 +519,7 @@ try {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
         border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         margin-bottom: 20px;
         transition: transform 0.2s;
     }
@@ -472,7 +529,7 @@ try {
     }
     
     .card-header {
-        background-color: rgba(0, 0, 0, 0.03);
+        background-color: rgba(0, 0, 0, 0.02);
         border-bottom: 1px solid var(--border-color);
         padding: 15px 20px;
     }
@@ -481,131 +538,181 @@ try {
         padding: 20px;
     }
     
-    /* Stat cards */
-    .stat-card {
-        text-align: center;
-        padding: 20px;
-    }
-    
-    .stat-icon {
-        font-size: 2.5rem;
-        margin-bottom: 15px;
-    }
-    
-    .stat-value {
-        font-size: 2rem;
-        font-weight: bold;
-        margin-bottom: 5px;
-        color: var(--text-color);
-    }
-    
-    .stat-label {
-        color: var(--text-muted);
-        font-size: 0.9rem;
-    }
-    
     /* Tableaux */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
     .table {
         color: var(--text-color);
+        min-width: 600px;
     }
     
     .table thead th {
         background-color: var(--primary-color);
         color: white;
         border: none;
-        padding: 15px;
+        padding: 12px 15px;
+        font-size: 14px;
+        white-space: nowrap;
     }
     
     .table tbody td {
         border-color: var(--border-color);
-        padding: 15px;
+        padding: 12px 15px;
         color: var(--text-color);
+        font-size: 14px;
     }
     
     .table tbody tr:hover {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: rgba(0, 0, 0, 0.03);
     }
     
     [data-theme="dark"] .table tbody tr:hover {
         background-color: rgba(255, 255, 255, 0.05);
     }
     
-    /* Responsive */
-    @media (max-width: 768px) {
-        .sidebar {
-            width: 70px;
-            overflow-x: hidden;
-        }
-        
-        .sidebar-header, .user-info, .nav-section-title, .nav-link span {
-            display: none;
-        }
-        
-        .nav-link {
-            justify-content: center;
-            padding: 15px;
-        }
-        
-        .nav-link i {
-            margin-right: 0;
-            font-size: 18px;
-        }
-        
-        .main-content {
-            margin-left: 70px;
-            padding: 15px;
-        }
-        
-        .stat-value {
-            font-size: 1.5rem;
-        }
-    }
-    
     /* Badges */
     .badge {
         font-size: 0.75em;
         padding: 4px 8px;
+        font-weight: 500;
     }
     
-    /* Alertes */
-    .alert {
-        border: none;
-        border-radius: 8px;
-        color: var(--text-color);
-        background-color: var(--card-bg);
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        /* Mobile Header */
+        .mobile-header {
+            display: block;
+            height: 60px;
+        }
+        
+        /* Sidebar Mobile */
+        .sidebar {
+            transform: translateX(-100%);
+            width: 280px;
+            top: 60px;
+            height: calc(100vh - 60px);
+        }
+        
+        .sidebar.active {
+            transform: translateX(0);
+        }
+        
+        .sidebar-overlay.active {
+            display: block;
+        }
+        
+        /* Main Content */
+        .main-content {
+            margin-left: 0 !important;
+            padding: 80px 15px 20px 15px;
+        }
+        
+        /* Content Header */
+        .content-header .d-flex {
+            flex-direction: column;
+            align-items: flex-start !important;
+        }
+        
+        .content-header .btn-group {
+            margin-top: 15px;
+            width: 100%;
+        }
+        
+        .content-header .btn-group .btn {
+            flex: 1;
+        }
+        
+        /* KPI Cards */
+        .col-md-3 {
+            margin-bottom: 15px;
+        }
+        
+        .stat-icon {
+            font-size: 1.5rem !important;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem !important;
+        }
+        
+        /* Chart Container */
+        .chart-container {
+            height: 250px !important;
+        }
+        
+        /* Filter Card */
+        .filter-card .row.g-3 > div {
+            margin-bottom: 10px;
+        }
     }
     
-    .alert-info {
-        background-color: rgba(23, 162, 184, 0.1);
-        border-left: 4px solid var(--info-color);
+    @media (max-width: 576px) {
+        /* Stats Grid */
+        .row.g-2 {
+            margin: -5px;
+        }
+        
+        .row.g-2 > [class*="col-"] {
+            padding: 5px;
+        }
+        
+        /* Cards */
+        .card-header, .card-body {
+            padding: 15px;
+        }
+        
+        /* Buttons */
+        .btn {
+            font-size: 14px;
+            padding: 8px 15px;
+        }
     }
     
-    .alert-success {
-        background-color: rgba(39, 174, 96, 0.1);
-        border-left: 4px solid var(--success-color);
+    /* Mode Desktop */
+    @media (min-width: 769px) {
+        .main-content {
+            margin-left: 250px;
+        }
+        
+        .sidebar-overlay {
+            display: none !important;
+        }
     }
     
-    .alert-warning {
-        background-color: rgba(243, 156, 18, 0.1);
-        border-left: 4px solid var(--warning-color);
+    /* Améliorations pour les écrans moyens */
+    @media (min-width: 769px) and (max-width: 992px) {
+        .sidebar {
+            width: 200px;
+        }
+        
+        .main-content {
+            margin-left: 200px;
+        }
+        
+        .nav-link span {
+            font-size: 13px;
+        }
+        
+        .nav-link i {
+            margin-right: 8px;
+            font-size: 14px;
+        }
     }
     
-    .alert-danger {
-        background-color: rgba(231, 76, 60, 0.1);
-        border-left: 4px solid var(--accent-color);
+    /* KPI Cards */
+    .kpi-card {
+        border-left: 4px solid;
+        padding: 15px;
+        height: 100%;
     }
     
-    /* Boutons */
-    .btn-export {
-        background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
-        color: white;
-        border: none;
-    }
-    
-    .btn-export:hover {
-        background: linear-gradient(135deg, #219653 0%, #1e8749 100%);
-        color: white;
-    }
+    .kpi-present { border-color: var(--success-color); }
+    .kpi-absent { border-color: var(--accent-color); }
+    .kpi-retard { border-color: var(--warning-color); }
+    .kpi-justifie { border-color: var(--info-color); }
     
     /* Graphiques */
     .chart-container {
@@ -623,459 +730,511 @@ try {
         margin-bottom: 20px;
     }
     
-    /* KPI Cards */
-    .kpi-card {
-        border-left: 4px solid;
-        padding: 15px;
+    /* Boutons d'export */
+    .btn-export {
+        background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
+        color: white;
+        border: none;
     }
     
-    .kpi-present { border-color: var(--success-color); }
-    .kpi-absent { border-color: var(--accent-color); }
-    .kpi-retard { border-color: var(--warning-color); }
-    .kpi-justifie { border-color: var(--info-color); }
-    
-    /* DataTable personnalisation */
-    .dataTables_wrapper {
-        color: var(--text-color);
-    }
-    
-    .dataTables_filter input {
-        background-color: var(--card-bg);
-        color: var(--text-color);
-        border: 1px solid var(--border-color);
-    }
-    
-    .dataTables_length select {
-        background-color: var(--card-bg);
-        color: var(--text-color);
-        border: 1px solid var(--border-color);
-    }
-    
-    .dataTables_paginate .paginate_button {
-        background-color: var(--card-bg) !important;
-        color: var(--text-color) !important;
-        border: 1px solid var(--border-color) !important;
-    }
-    
-    .dataTables_paginate .paginate_button:hover {
-        background-color: var(--primary-color) !important;
-        color: white !important;
+    .btn-export:hover {
+        background: linear-gradient(135deg, #219653 0%, #1e8749 100%);
+        color: white;
     }
     </style>
 </head>
 <body>
-    <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <div class="sidebar-logo">
-                    <i class="fas fa-user-shield"></i>
-                </div>
-                <h5 class="mt-2 mb-1">SURVEILLANT</h5>
-                <div class="user-role">Surveillant Général</div>
+    <!-- Header Mobile -->
+    <div class="mobile-header">
+        <div class="mobile-header-content">
+            <button class="hamburger-btn" id="hamburgerBtn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="mobile-brand">
+                <i class="fas fa-chart-bar me-2"></i>
+                RAPPORTS
+            </div>
+            <div>
+                <button class="btn btn-sm btn-light" onclick="location.reload()">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Overlay pour fermer le sidebar -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-logo">
+                <i class="fas fa-user-shield"></i>
+            </div>
+            <h5 class="mt-2 mb-1">SURVEILLANT</h5>
+            <div class="user-role">Surveillant Général</div>
+        </div>
+        
+        <div class="user-info">
+            <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Surveillant'); ?></p>
+            <small>Rapports de Présence</small>
+        </div>
+        
+        <div class="sidebar-nav">
+            <div class="nav-section">
+                <div class="nav-section-title">Tableau de Bord</div>
+                <a href="dashboard.php" class="nav-link">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Tableau de Bord</span>
+                </a>
             </div>
             
-            <div class="user-info">
-                <p class="mb-1"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Surveillant'); ?></p>
-                <small>Rapports de Présence</small>
+            <div class="nav-section">
+                <div class="nav-section-title">Gestion Présences</div>
+                <a href="presences.php" class="nav-link">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Toutes les Présences</span>
+                </a>
+                <a href="scanner_qr.php" class="nav-link">
+                    <i class="fas fa-qrcode"></i>
+                    <span>Scanner QR Code</span>
+                </a>
+                <a href="generer_qr.php" class="nav-link">
+                    <i class="fas fa-barcode"></i>
+                    <span>Générer QR Code</span>
+                </a>
+                <a href="absences.php" class="nav-link">
+                    <i class="fas fa-user-times"></i>
+                    <span>Absences</span>
+                </a>
+                <a href="retards.php" class="nav-link">
+                    <i class="fas fa-clock"></i>
+                    <span>Retards</span>
+                </a>
             </div>
             
-            <div class="sidebar-nav">
-                <div class="nav-section">
-                    <div class="nav-section-title">Tableau de Bord</div>
-                    <a href="dashboard.php" class="nav-link">
-                        <i class="fas fa-tachometer-alt"></i>
-                        <span>Dashboard</span>
-                    </a>
+            <div class="nav-section">
+                <div class="nav-section-title">Étudiants</div>
+                <a href="etudiants.php" class="nav-link">
+                    <i class="fas fa-user-graduate"></i>
+                    <span>Liste Étudiants</span>
+                </a>
+                <a href="rechercher_etudiant.php" class="nav-link">
+                    <i class="fas fa-search"></i>
+                    <span>Rechercher</span>
+                </a>
+                <a href="classe_presence.php" class="nav-link">
+                    <i class="fas fa-users"></i>
+                    <span>Par Classe</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Salles & Horaires</div>
+                <a href="salles.php" class="nav-link">
+                    <i class="fas fa-door-open"></i>
+                    <span>Salles de Classe</span>
+                </a>
+                <a href="emploi_du_temps.php" class="nav-link">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span>Emploi du Temps</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Rapports</div>
+                <a href="rapports_presence.php" class="nav-link active">
+                    <i class="fas fa-chart-bar"></i>
+                    <span>Rapports de Présence</span>
+                </a>
+                <a href="statistiques.php" class="nav-link">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Statistiques</span>
+                </a>
+                <a href="export.php" class="nav-link">
+                    <i class="fas fa-file-export"></i>
+                    <span>Exporter</span>
+                </a>
+            </div>
+            
+            <div class="nav-section">
+                <div class="nav-section-title">Configuration</div>
+                <button class="btn btn-outline-light w-100 mb-2" onclick="toggleTheme()" style="margin-left: 20px; margin-right: 20px; text-align: left; padding: 8px 15px;">
+                    <i class="fas fa-moon"></i> <span>Mode Sombre</span>
+                </button>
+                <a href="../../auth/logout.php" class="nav-link">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Déconnexion</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Contenu Principal -->
+    <div class="main-content" id="mainContent">
+        <!-- En-tête -->
+        <div class="content-header mb-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <div class="mb-3 mb-md-0">
+                    <h2 class="mb-1 h4">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Rapports de Présence
+                    </h2>
+                    <p class="text-muted mb-0 small">
+                        <i class="fas fa-building"></i> 
+                        Site: <?php echo $_SESSION['site_name'] ?? 'Non spécifié'; ?> - 
+                        Période: <?php echo $date_debut ? date('d/m/Y', strtotime($date_debut)) . ' au ' . date('d/m/Y', strtotime($date_fin)) : 'Non spécifiée'; ?>
+                    </p>
                 </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Gestion Présences</div>
-                    <a href="presences.php" class="nav-link">
-                        <i class="fas fa-calendar-check"></i>
-                        <span>Toutes les Présences</span>
-                    </a>
-                    <a href="scanner_qr.php" class="nav-link">
-                        <i class="fas fa-qrcode"></i>
-                        <span>Scanner QR Code</span>
-                    </a>
-                </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Rapports</div>
-                    <a href="rapports_presence.php" class="nav-link active">
-                        <i class="fas fa-chart-bar"></i>
-                        <span>Rapports de Présence</span>
-                    </a>
-                    <a href="statistiques.php" class="nav-link">
-                        <i class="fas fa-chart-pie"></i>
-                        <span>Statistiques</span>
-                    </a>
-                </div>
-                
-                <div class="nav-section">
-                    <div class="nav-section-title">Configuration</div>
-                    <button class="btn btn-outline-light w-100 mb-2" onclick="toggleTheme()">
-                        <i class="fas fa-moon"></i> <span>Mode Sombre</span>
+                <div class="btn-group w-100 w-md-auto">
+                    <button class="btn btn-export btn-sm" onclick="exporterRapport()">
+                        <i class="fas fa-file-export"></i> <span class="d-none d-md-inline">Exporter</span>
                     </button>
-                    <a href="../../auth/logout.php" class="nav-link">
-                        <i class="fas fa-sign-out-alt"></i>
-                        <span>Déconnexion</span>
-                    </a>
+                    <button class="btn btn-primary btn-sm" onclick="imprimerRapport()">
+                        <i class="fas fa-print"></i> <span class="d-none d-md-inline">Imprimer</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="location.reload()">
+                        <i class="fas fa-sync-alt"></i> <span class="d-none d-md-inline">Actualiser</span>
+                    </button>
                 </div>
             </div>
         </div>
         
-        <!-- Contenu Principal -->
-        <div class="main-content">
-            <!-- En-tête -->
-            <div class="content-header mb-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h2 class="mb-0">
-                            <i class="fas fa-chart-bar me-2"></i>
-                            Rapports de Présence
-                        </h2>
-                        <p class="text-muted mb-0">
-                            <i class="fas fa-building"></i> 
-                            Site: <?php echo $_SESSION['site_name'] ?? 'Non spécifié'; ?> - 
-                            Période: <?php echo $date_debut ? date('d/m/Y', strtotime($date_debut)) . ' au ' . date('d/m/Y', strtotime($date_fin)) : 'Non spécifiée'; ?>
-                        </p>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn btn-export" onclick="exporterRapport()">
-                            <i class="fas fa-file-export"></i> Exporter
-                        </button>
-                        <button class="btn btn-primary" onclick="imprimerRapport()">
-                            <i class="fas fa-print"></i> Imprimer
-                        </button>
-                    </div>
+        <?php if(isset($error)): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <?php endif; ?>
+        
+        <!-- Section 1: Filtres -->
+        <div class="filter-card">
+            <h5 class="mb-3">
+                <i class="fas fa-filter me-2"></i>
+                Filtres
+            </h5>
+            <form method="GET" action="" class="row g-3">
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Période</label>
+                    <select class="form-select form-select-sm" name="periode" onchange="this.form.submit()">
+                        <option value="aujourdhui" <?php echo $periode == 'aujourdhui' ? 'selected' : ''; ?>>Aujourd'hui</option>
+                        <option value="semaine" <?php echo $periode == 'semaine' ? 'selected' : ''; ?>>Cette semaine</option>
+                        <option value="mois" <?php echo $periode == 'mois' ? 'selected' : ''; ?>>Ce mois</option>
+                        <option value="semestre" <?php echo $periode == 'semestre' ? 'selected' : ''; ?>>Ce semestre</option>
+                        <option value="personnalise" <?php echo $periode == 'personnalise' ? 'selected' : ''; ?>>Personnalisée</option>
+                    </select>
                 </div>
-            </div>
-            
-            <?php if(isset($error)): ?>
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error); ?>
-            </div>
-            <?php endif; ?>
-            
-            <!-- Section 1: Filtres -->
-            <div class="filter-card">
-                <h5 class="mb-3">
-                    <i class="fas fa-filter me-2"></i>
-                    Filtres
-                </h5>
-                <form method="GET" action="" class="row g-3">
-                    <div class="col-md-3">
-                        <label class="form-label">Période</label>
-                        <select class="form-select" name="periode" onchange="this.form.submit()">
-                            <option value="aujourdhui" <?php echo $periode == 'aujourdhui' ? 'selected' : ''; ?>>Aujourd'hui</option>
-                            <option value="semaine" <?php echo $periode == 'semaine' ? 'selected' : ''; ?>>Cette semaine</option>
-                            <option value="mois" <?php echo $periode == 'mois' ? 'selected' : ''; ?>>Ce mois</option>
-                            <option value="semestre" <?php echo $periode == 'semestre' ? 'selected' : ''; ?>>Ce semestre</option>
-                            <option value="personnalise" <?php echo $periode == 'personnalise' ? 'selected' : ''; ?>>Personnalisée</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-3">
-                        <label class="form-label">Classe</label>
-                        <select class="form-select" name="classe_id">
-                            <option value="">Toutes les classes</option>
-                            <?php foreach($classes as $classe): ?>
-                            <option value="<?php echo $classe['id']; ?>" <?php echo $classe_id == $classe['id'] ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($classe['nom']); ?>
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <label class="form-label">Statut</label>
-                        <select class="form-select" name="statut">
-                            <option value="">Tous statuts</option>
-                            <option value="present" <?php echo $statut == 'present' ? 'selected' : ''; ?>>Présent</option>
-                            <option value="absent" <?php echo $statut == 'absent' ? 'selected' : ''; ?>>Absent</option>
-                            <option value="retard" <?php echo $statut == 'retard' ? 'selected' : ''; ?>>Retard</option>
-                            <option value="justifie" <?php echo $statut == 'justifie' ? 'selected' : ''; ?>>Justifié</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <label class="form-label">Type</label>
-                        <select class="form-select" name="type_presence">
-                            <option value="">Tous types</option>
-                            <option value="entree_ecole" <?php echo $type_presence == 'entree_ecole' ? 'selected' : ''; ?>>Entrée école</option>
-                            <option value="sortie_ecole" <?php echo $type_presence == 'sortie_ecole' ? 'selected' : ''; ?>>Sortie école</option>
-                            <option value="entree_classe" <?php echo $type_presence == 'entree_classe' ? 'selected' : ''; ?>>Entrée classe</option>
-                            <option value="sortie_classe" <?php echo $type_presence == 'sortie_classe' ? 'selected' : ''; ?>>Sortie classe</option>
-                        </select>
-                    </div>
-                    
-                    <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-search me-2"></i>Appliquer
+                
+                <div class="col-12 col-md-3">
+                    <label class="form-label">Classe</label>
+                    <select class="form-select form-select-sm" name="classe_id">
+                        <option value="">Toutes les classes</option>
+                        <?php foreach($classes as $classe): ?>
+                        <option value="<?php echo $classe['id']; ?>" <?php echo $classe_id == $classe['id'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($classe['nom']); ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-2">
+                    <label class="form-label">Statut</label>
+                    <select class="form-select form-select-sm" name="statut">
+                        <option value="">Tous statuts</option>
+                        <option value="present" <?php echo $statut == 'present' ? 'selected' : ''; ?>>Présent</option>
+                        <option value="absent" <?php echo $statut == 'absent' ? 'selected' : ''; ?>>Absent</option>
+                        <option value="retard" <?php echo $statut == 'retard' ? 'selected' : ''; ?>>Retard</option>
+                        <option value="justifie" <?php echo $statut == 'justifie' ? 'selected' : ''; ?>>Justifié</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-2">
+                    <label class="form-label">Type</label>
+                    <select class="form-select form-select-sm" name="type_presence">
+                        <option value="">Tous types</option>
+                        <option value="entree_ecole" <?php echo $type_presence == 'entree_ecole' ? 'selected' : ''; ?>>Entrée école</option>
+                        <option value="sortie_ecole" <?php echo $type_presence == 'sortie_ecole' ? 'selected' : ''; ?>>Sortie école</option>
+                        <option value="entree_classe" <?php echo $type_presence == 'entree_classe' ? 'selected' : ''; ?>>Entrée classe</option>
+                        <option value="sortie_classe" <?php echo $type_presence == 'sortie_classe' ? 'selected' : ''; ?>>Sortie classe</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <div class="d-flex w-100">
+                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                            <i class="fas fa-search me-1"></i> <span class="d-none d-sm-inline">Appliquer</span>
                         </button>
-                        <a href="rapports_presence.php" class="btn btn-outline-secondary ms-2">
+                        <a href="rapports_presence.php" class="btn btn-outline-secondary btn-sm ms-2">
                             <i class="fas fa-times"></i>
                         </a>
                     </div>
-                </form>
-            </div>
-            
-            <!-- Section 2: Statistiques Principales -->
-            <div class="row mb-4">
-                <div class="col-md-3">
-                    <div class="card kpi-card kpi-present">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h3 class="mb-0"><?php echo $statistiques['total_presents']; ?></h3>
-                                    <p class="text-muted mb-0">Présents</p>
-                                </div>
-                                <div class="stat-icon text-success">
-                                    <i class="fas fa-check-circle"></i>
-                                </div>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Section 2: Statistiques Principales -->
+        <div class="row mb-4">
+            <div class="col-6 col-md-3 mb-3">
+                <div class="card kpi-card kpi-present">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0 stat-value"><?php echo $statistiques['total_presents']; ?></h3>
+                                <p class="text-muted mb-0 small">Présents</p>
                             </div>
-                            <div class="mt-2">
-                                <small class="text-muted">
-                                    <?php echo $statistiques['total_presences'] > 0 ? 
-                                        number_format(($statistiques['total_presents'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
-                                </small>
+                            <div class="stat-icon text-success">
+                                <i class="fas fa-check-circle"></i>
                             </div>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <div class="card kpi-card kpi-absent">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h3 class="mb-0"><?php echo $statistiques['total_absents']; ?></h3>
-                                    <p class="text-muted mb-0">Absents</p>
-                                </div>
-                                <div class="stat-icon text-danger">
-                                    <i class="fas fa-times-circle"></i>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted">
-                                    <?php echo $statistiques['total_presences'] > 0 ? 
-                                        number_format(($statistiques['total_absents'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <div class="card kpi-card kpi-retard">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h3 class="mb-0"><?php echo $statistiques['total_retards']; ?></h3>
-                                    <p class="text-muted mb-0">Retards</p>
-                                </div>
-                                <div class="stat-icon text-warning">
-                                    <i class="fas fa-clock"></i>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted">
-                                    <?php echo $statistiques['total_presences'] > 0 ? 
-                                        number_format(($statistiques['total_retards'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <div class="card kpi-card kpi-justifie">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h3 class="mb-0"><?php echo $statistiques['total_justifies']; ?></h3>
-                                    <p class="text-muted mb-0">Justifiés</p>
-                                </div>
-                                <div class="stat-icon text-info">
-                                    <i class="fas fa-file-alt"></i>
-                                </div>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted">
-                                    <?php echo $statistiques['total_presences'] > 0 ? 
-                                        number_format(($statistiques['total_justifies'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
-                                </small>
-                            </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <?php echo $statistiques['total_presences'] > 0 ? 
+                                    number_format(($statistiques['total_presents'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
+                            </small>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Section 3: Graphiques -->
-            <div class="row mb-4">
-                <div class="col-md-8">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-line me-2"></i>
-                                Évolution des Présences (7 derniers jours)
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="evolutionChart"></canvas>
+            <div class="col-6 col-md-3 mb-3">
+                <div class="card kpi-card kpi-absent">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0 stat-value"><?php echo $statistiques['total_absents']; ?></h3>
+                                <p class="text-muted mb-0 small">Absents</p>
+                            </div>
+                            <div class="stat-icon text-danger">
+                                <i class="fas fa-times-circle"></i>
                             </div>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-pie me-2"></i>
-                                Répartition par Statut
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="statutChart"></canvas>
-                            </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <?php echo $statistiques['total_presences'] > 0 ? 
+                                    number_format(($statistiques['total_absents'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
+                            </small>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Section 4: Top Classes -->
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-trophy me-2"></i>
-                                Top 10 des Classes par Présences
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="classesChart"></canvas>
+            <div class="col-6 col-md-3 mb-3">
+                <div class="card kpi-card kpi-retard">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0 stat-value"><?php echo $statistiques['total_retards']; ?></h3>
+                                <p class="text-muted mb-0 small">Retards</p>
+                            </div>
+                            <div class="stat-icon text-warning">
+                                <i class="fas fa-clock"></i>
                             </div>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5 class="mb-0">
-                                <i class="fas fa-clock me-2"></i>
-                                Présences par Heure de la Journée
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="heureChart"></canvas>
-                            </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <?php echo $statistiques['total_presences'] > 0 ? 
+                                    number_format(($statistiques['total_retards'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
+                            </small>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Section 5: Tableau des Rapports -->
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-table me-2"></i>
-                        Détails des Présences
-                        <span class="badge bg-primary ms-2">
-                            <?php echo count($rapports); ?> enregistrements
-                        </span>
-                    </h5>
-                    <div class="btn-group">
-                        <button class="btn btn-sm btn-outline-primary" onclick="exporterExcel()">
-                            <i class="fas fa-file-excel"></i> Excel
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="exporterPDF()">
-                            <i class="fas fa-file-pdf"></i> PDF
-                        </button>
+            <div class="col-6 col-md-3 mb-3">
+                <div class="card kpi-card kpi-justifie">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h3 class="mb-0 stat-value"><?php echo $statistiques['total_justifies']; ?></h3>
+                                <p class="text-muted mb-0 small">Justifiés</p>
+                            </div>
+                            <div class="stat-icon text-info">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted">
+                                <?php echo $statistiques['total_presences'] > 0 ? 
+                                    number_format(($statistiques['total_justifies'] / $statistiques['total_presences']) * 100, 1) : 0; ?>%
+                            </small>
+                        </div>
                     </div>
                 </div>
-                <div class="card-body">
-                    <?php if(empty($rapports)): ?>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> 
-                        Aucune présence enregistrée avec les filtres actuels.
+            </div>
+        </div>
+        
+        <!-- Section 3: Graphiques -->
+        <div class="row mb-4">
+            <div class="col-lg-8 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Évolution des Présences (7 derniers jours)
+                        </h5>
                     </div>
-                    <?php else: ?>
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="rapportsTable">
-                            <thead>
-                                <tr>
-                                    <th>Date/Heure</th>
-                                    <th>Étudiant</th>
-                                    <th>Matricule</th>
-                                    <th>Classe</th>
-                                    <th>Type</th>
-                                    <th>Statut</th>
-                                    <th>Matière</th>
-                                    <th>Surveillant</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach($rapports as $rapport): ?>
-                                <tr>
-                                    <td><?php echo formatDateFr($rapport['date_heure']); ?></td>
-                                    <td>
-                                        <strong><?php echo htmlspecialchars($rapport['nom'] . ' ' . $rapport['prenom']); ?></strong>
-                                    </td>
-                                    <td><?php echo htmlspecialchars($rapport['matricule']); ?></td>
-                                    <td><?php echo htmlspecialchars($rapport['classe_nom'] ?? 'N/A'); ?></td>
-                                    <td>
-                                        <?php 
-                                        $type_badge = '';
-                                        switch($rapport['type_presence']) {
-                                            case 'entree_ecole':
-                                                $type_badge = '<span class="badge bg-primary">Entrée École</span>';
-                                                break;
-                                            case 'sortie_ecole':
-                                                $type_badge = '<span class="badge bg-secondary">Sortie École</span>';
-                                                break;
-                                            case 'entree_classe':
-                                                $type_badge = '<span class="badge bg-info">Entrée Classe</span>';
-                                                break;
-                                            case 'sortie_classe':
-                                                $type_badge = '<span class="badge bg-warning">Sortie Classe</span>';
-                                                break;
-                                            default:
-                                                $type_badge = '<span class="badge bg-secondary">' . htmlspecialchars($rapport['type_presence']) . '</span>';
-                                        }
-                                        echo $type_badge;
-                                        ?>
-                                    </td>
-                                    <td><?php echo getStatutBadge($rapport['statut']); ?></td>
-                                    <td><?php echo htmlspecialchars($rapport['matiere_nom'] ?? '-'); ?></td>
-                                    <td><?php echo htmlspecialchars($rapport['surveillant_nom'] ?? 'Auto'); ?></td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary" 
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="evolutionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-chart-pie me-2"></i>
+                            Répartition par Statut
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="statutChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 4: Top Classes et Heures -->
+        <div class="row mb-4">
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-trophy me-2"></i>
+                            Top 10 des Classes par Présences
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="classesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0 h6">
+                            <i class="fas fa-clock me-2"></i>
+                            Présences par Heure de la Journée
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="heureChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Section 5: Tableau des Rapports -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center py-3">
+                <h5 class="mb-0 h6">
+                    <i class="fas fa-table me-2"></i>
+                    Détails des Présences
+                    <span class="badge bg-primary ms-2">
+                        <?php echo count($rapports); ?> enregistrements
+                    </span>
+                </h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-success" onclick="exporterExcel()">
+                        <i class="fas fa-file-excel"></i> <span class="d-none d-sm-inline">Excel</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="exporterPDF()">
+                        <i class="fas fa-file-pdf"></i> <span class="d-none d-sm-inline">PDF</span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-3">
+                <?php if(empty($rapports)): ?>
+                <div class="alert alert-info mb-0">
+                    <i class="fas fa-info-circle"></i> 
+                    Aucune présence enregistrée avec les filtres actuels.
+                </div>
+                <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0" id="rapportsTable">
+                        <thead>
+                            <tr>
+                                <th>Date/Heure</th>
+                                <th class="d-none d-sm-table-cell">Étudiant</th>
+                                <th>Matricule</th>
+                                <th class="d-none d-md-table-cell">Classe</th>
+                                <th>Type</th>
+                                <th>Statut</th>
+                                <th class="d-none d-lg-table-cell">Matière</th>
+                                <th class="d-none d-xl-table-cell">Surveillant</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach($rapports as $rapport): ?>
+                            <tr>
+                                <td><?php echo formatDateFr($rapport['date_heure'], 'H:i'); ?></td>
+                                <td class="d-none d-sm-table-cell">
+                                    <small><strong><?php echo htmlspecialchars($rapport['nom'] . ' ' . $rapport['prenom']); ?></strong></small>
+                                </td>
+                                <td><?php echo htmlspecialchars($rapport['matricule']); ?></td>
+                                <td class="d-none d-md-table-cell"><?php echo htmlspecialchars($rapport['classe_nom'] ?? 'N/A'); ?></td>
+                                <td>
+                                    <?php 
+                                    $type_badge = '';
+                                    switch($rapport['type_presence']) {
+                                        case 'entree_ecole':
+                                            $type_badge = '<span class="badge bg-primary">Entrée</span>';
+                                            break;
+                                        case 'sortie_ecole':
+                                            $type_badge = '<span class="badge bg-secondary">Sortie</span>';
+                                            break;
+                                        case 'entree_classe':
+                                            $type_badge = '<span class="badge bg-info">E. Classe</span>';
+                                            break;
+                                        case 'sortie_classe':
+                                            $type_badge = '<span class="badge bg-warning">S. Classe</span>';
+                                            break;
+                                        default:
+                                            $type_badge = '<span class="badge bg-secondary">' . htmlspecialchars($rapport['type_presence']) . '</span>';
+                                    }
+                                    echo $type_badge;
+                                    ?>
+                                </td>
+                                <td><?php echo getStatutBadge($rapport['statut']); ?></td>
+                                <td class="d-none d-lg-table-cell"><?php echo htmlspecialchars($rapport['matiere_nom'] ?? '-'); ?></td>
+                                <td class="d-none d-xl-table-cell"><?php echo htmlspecialchars($rapport['surveillant_nom'] ?? 'Auto'); ?></td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-outline-primary" 
                                                 onclick="voirDetailPresence(<?php echo $rapport['id']; ?>)">
                                             <i class="fas fa-eye"></i>
                                         </button>
-                                        <button class="btn btn-sm btn-outline-warning" 
+                                        <button class="btn btn-outline-warning" 
                                                 onclick="modifierPresence(<?php echo $rapport['id']; ?>)">
                                             <i class="fas fa-edit"></i>
                                         </button>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                    <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
                 </div>
+                <?php endif; ?>
             </div>
+        </div>
+        
+        <!-- Footer Mobile -->
+        <div class="d-block d-md-none mt-4 pt-3 border-top text-center">
+            <small class="text-muted">
+                <?php echo $_SESSION['user_name'] ?? 'Surveillant'; ?> - 
+                <?php echo date('d/m/Y H:i'); ?>
+            </small>
         </div>
     </div>
     
@@ -1099,10 +1258,51 @@ try {
     
     <!-- Scripts JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     
     <script>
+    // Gestion du sidebar mobile
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const hamburgerBtn = document.getElementById('hamburgerBtn');
+    const mainContent = document.getElementById('mainContent');
+    
+    function toggleSidebar() {
+        sidebar.classList.toggle('active');
+        sidebarOverlay.classList.toggle('active');
+        document.body.classList.toggle('sidebar-open');
+    }
+    
+    function closeSidebar() {
+        sidebar.classList.remove('active');
+        sidebarOverlay.classList.remove('active');
+        document.body.classList.remove('sidebar-open');
+    }
+    
+    // Événements
+    hamburgerBtn.addEventListener('click', toggleSidebar);
+    sidebarOverlay.addEventListener('click', closeSidebar);
+    
+    // Fermer le sidebar en cliquant sur un lien (mobile)
+    document.querySelectorAll('.sidebar-nav .nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth < 769) {
+                closeSidebar();
+            }
+        });
+    });
+    
+    // Ajuster le padding du main content pour le header mobile
+    function adjustContentPadding() {
+        if (window.innerWidth < 769) {
+            mainContent.style.paddingTop = '80px';
+        } else {
+            mainContent.style.paddingTop = '20px';
+        }
+    }
+    
     // Fonction pour basculer entre mode sombre et clair
     function toggleTheme() {
         const html = document.documentElement;
@@ -1112,30 +1312,35 @@ try {
         html.setAttribute('data-theme', newTheme);
         document.cookie = `isgi_theme=${newTheme}; max-age=${30*24*60*60}; path=/`;
         
-        const button = event.target.closest('button');
-        if (button) {
-            const icon = button.querySelector('i');
+        // Mettre à jour le bouton
+        const buttons = document.querySelectorAll('button[onclick="toggleTheme()"]');
+        buttons.forEach(button => {
             if (newTheme === 'dark') {
                 button.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
             } else {
                 button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
             }
-        }
+        });
     }
     
     // Initialiser le thème
     document.addEventListener('DOMContentLoaded', function() {
+        // Ajuster le padding
+        adjustContentPadding();
+        window.addEventListener('resize', adjustContentPadding);
+        
+        // Thème
         const theme = document.cookie.replace(/(?:(?:^|.*;\s*)isgi_theme\s*=\s*([^;]*).*$)|^.*$/, "$1") || 'light';
         document.documentElement.setAttribute('data-theme', theme);
         
-        const themeButton = document.querySelector('button[onclick="toggleTheme()"]');
-        if (themeButton) {
+        const themeButtons = document.querySelectorAll('button[onclick="toggleTheme()"]');
+        themeButtons.forEach(button => {
             if (theme === 'dark') {
-                themeButton.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
+                button.innerHTML = '<i class="fas fa-sun"></i> <span>Mode Clair</span>';
             } else {
-                themeButton.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
+                button.innerHTML = '<i class="fas fa-moon"></i> <span>Mode Sombre</span>';
             }
-        }
+        });
         
         // Initialiser les graphiques
         initializeCharts();
@@ -1170,7 +1375,8 @@ try {
                             borderColor: '#27ae60',
                             backgroundColor: 'rgba(39, 174, 96, 0.1)',
                             fill: true,
-                            tension: 0.4
+                            tension: 0.4,
+                            borderWidth: 2
                         },
                         {
                             label: 'Absents',
@@ -1178,7 +1384,8 @@ try {
                             borderColor: '#e74c3c',
                             backgroundColor: 'rgba(231, 76, 60, 0.1)',
                             fill: true,
-                            tension: 0.4
+                            tension: 0.4,
+                            borderWidth: 2
                         },
                         {
                             label: 'Retards',
@@ -1186,7 +1393,8 @@ try {
                             borderColor: '#f39c12',
                             backgroundColor: 'rgba(243, 156, 18, 0.1)',
                             fill: true,
-                            tension: 0.4
+                            tension: 0.4,
+                            borderWidth: 2
                         }
                     ]
                 },
@@ -1196,14 +1404,36 @@ try {
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                },
+                                padding: 10,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            bodyFont: {
+                                size: window.innerWidth < 768 ? 10 : 12
+                            }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Nombre d\'étudiants'
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                }
                             }
                         }
                     }
@@ -1242,6 +1472,13 @@ try {
                     plugins: {
                         legend: {
                             position: 'right',
+                            labels: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                },
+                                padding: 10,
+                                usePointStyle: true
+                            }
                         },
                         tooltip: {
                             callbacks: {
@@ -1251,6 +1488,9 @@ try {
                                     const percentage = Math.round((value / total) * 100);
                                     return `${context.label}: ${value} (${percentage}%)`;
                                 }
+                            },
+                            bodyFont: {
+                                size: window.innerWidth < 768 ? 10 : 12
                             }
                         }
                     }
@@ -1288,9 +1528,17 @@ try {
                     scales: {
                         x: {
                             beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Nombre de présences'
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                }
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                }
                             }
                         }
                     }
@@ -1318,7 +1566,8 @@ try {
                             borderColor: '#27ae60',
                             backgroundColor: 'rgba(39, 174, 96, 0.1)',
                             fill: true,
-                            tension: 0.4
+                            tension: 0.4,
+                            borderWidth: 2
                         },
                         {
                             label: 'Sorties',
@@ -1326,7 +1575,8 @@ try {
                             borderColor: '#e74c3c',
                             backgroundColor: 'rgba(231, 76, 60, 0.1)',
                             fill: true,
-                            tension: 0.4
+                            tension: 0.4,
+                            borderWidth: 2
                         }
                     ]
                 },
@@ -1336,20 +1586,36 @@ try {
                     plugins: {
                         legend: {
                             position: 'top',
+                            labels: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                },
+                                padding: 10,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            bodyFont: {
+                                size: window.innerWidth < 768 ? 10 : 12
+                            }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Nombre d\'étudiants'
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                }
                             }
                         },
                         x: {
-                            title: {
-                                display: true,
-                                text: 'Heure de la journée'
+                            ticks: {
+                                font: {
+                                    size: window.innerWidth < 768 ? 10 : 12
+                                }
                             }
                         }
                     }
@@ -1357,6 +1623,13 @@ try {
             });
         }
     }
+    
+    // Redimensionner les graphiques quand la fenêtre change
+    window.addEventListener('resize', function() {
+        if (typeof initializeCharts === 'function') {
+            initializeCharts();
+        }
+    });
     
     // Initialiser DataTable
     function initializeDataTable() {
@@ -1371,7 +1644,8 @@ try {
                 dom: '<"row"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6"p>>',
                 columnDefs: [
                     { orderable: false, targets: [8] }
-                ]
+                ],
+                responsive: true
             });
         }
     }

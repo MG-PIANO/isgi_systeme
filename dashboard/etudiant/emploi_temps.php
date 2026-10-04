@@ -163,6 +163,7 @@ try {
                  WHERE edt.classe_id = ? 
                  AND edt.annee_academique_id = ?
                  AND edt.site_id = ?
+                 AND (edt.publie = 1 OR edt.publie IS NULL)
                  ORDER BY FIELD(edt.jour_semaine, 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'), 
                           edt.heure_debut",
                 [$classe_id, $annee_academique_id, $site_id]);
@@ -920,10 +921,10 @@ try {
                         <div class="card-body">
                             <?php if(empty($emploi_du_temps)): ?>
                             <div class="alert alert-info text-center py-5">
-                                <i class="fas fa-calendar-times fa-3x mb-3"></i>
-                                <h4>Aucun cours planifié</h4>
-                                <p class="mb-0">Votre emploi du temps n'a pas encore été configuré.</p>
-                                <p>Contactez l'administration pour plus d'informations.</p>
+                                <i class="fas fa-lock fa-3x mb-3 text-warning"></i>
+                                <h4>Emploi du temps non publié ou en préparation</h4>
+                                <p class="mb-1">L'emploi du temps officiel de votre classe est actuellement en cours d'élaboration par la Direction des Affaires Académiques (DAC).</p>
+                                <p class="text-muted small">Il apparaîtra automatiquement dès que le DAC aura procédé à sa publication officielle.</p>
                             </div>
                             <?php else: ?>
                             <div class="table-responsive">
