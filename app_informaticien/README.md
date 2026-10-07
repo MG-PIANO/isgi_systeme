@@ -20,16 +20,18 @@ npm run build:android
 
 L'APK de test est généré sous `dist/ISGI-Informaticien-debug.apk`. Il contient l'application desktop adaptée aux écrans tactiles Android : navigation mobile, sélection de fichiers sur le téléphone, génération PDF/QR et connexion Supabase. C'est un APK de débogage ; une version de production doit être signée avant distribution publique.
 
-Sur Android, le premier démarrage demande l'URL Supabase et la clé publique `anon` dans **Paramètres**, puis une connexion avec un profil Informaticien autorisé. La page web du studio photo par QR reste une interface web HTTPS distincte.
+L'URL du projet ISGI et sa clé publique sont intégrées comme dans les autres applications : l'utilisateur n'a pas à configurer Supabase. Connecte-toi avec un compte Supabase Auth dont le profil dans `public.utilisateurs` a un rôle Informaticien (ou un rôle administrateur) et le statut `actif`. La page web du studio photo par QR reste une interface web HTTPS distincte.
 
-Configure l'URL du projet Supabase et sa clé `anon` dans **Paramètres**, puis connecte-toi avec un compte Supabase Auth dont le profil dans `public.utilisateurs` a un rôle `informaticien` (ou un rôle administrateur) et le statut `actif`.
+L'application utilise le même projet Supabase que les autres applications ISGI et vérifie automatiquement le profil et le rôle du compte à la connexion.
 
 ## Préparation Supabase
 
 1. Exécuter le script de médiathèque `supabase_videos.sql` à la racine du dépôt s'il n'a pas déjà été appliqué. Il crée le bucket privé `videos-isgi`, les tables de vidéos et leurs règles d'accès.
-2. Exécuter `supabase_photo_setup.sql` dans le SQL Editor Supabase. Il ajoute aussi les règles pour qu'un Informaticien puisse supprimer uniquement ses propres vidéos.
-3. Vérifier que `public.classes` et les tables étudiants/classe utilisées dans le projet sont accessibles en lecture aux comptes Informaticien.
+2. Exécuter `supabase_photo_setup.sql` dans le SQL Editor Supabase. Il configure les photos, crée `public.informaticien_badges` et `public.informaticien_parametres` avec leurs politiques RLS, et autorise la suppression des vidéos appartenant au compte.
+3. Vérifier que `public.classes` et `public.etudiants` sont accessibles en lecture aux comptes Informaticien. Les listes du formulaire de badge utilisent les filières et niveaux présents dans les fiches d'étudiants et les classes; aucune table `filieres` ou `niveaux` séparée n'est requise dans Supabase.
 4. Créer le compte dans Supabase Auth et le profil correspondant dans `public.utilisateurs` avec un rôle autorisé et `statut = 'actif'`.
+
+Si les journaux indiquent `Could not find the table 'public.informaticien_badges' in the schema cache`, l'étape 2 n'a pas encore été exécutée (ou le cache PostgREST n'a pas été actualisé). La connexion est conservée et les tables étudiants/classes restent consultables; les fonctions de badges et paramètres partagés nécessitent la migration.
 
 Après création de l'utilisateur Auth dans le tableau de bord, son profil peut être ajouté avec :
 
@@ -42,9 +44,13 @@ ON CONFLICT (id) DO UPDATE
 SET role = 'informaticien', statut = 'actif';
 ```
 
-Les photos sont stockées dans le bucket privé `student-photos`. La fonction SQL ne permet de modifier que `photo_url`, et seulement à un compte Informaticien actif ou administrateur.
+Les étudiants, classes, badges et paramètres partagés (année par défaut et nom du directeur) sont chargés depuis Supabase à chaque connexion. L'historique des badges est enregistré dans `public.informaticien_badges`; ces données métier ne sont plus enregistrées dans `localStorage`. Seul le dossier de sortie des PDF reste une préférence propre à cet ordinateur.
 
-Les vidéos sont téléversées dans le bucket privé `videos-isgi` et publiées dans `public.videos`. Les classes de publication sont chargées depuis `public.classes`; si la table n'est pas disponible, elles sont déduites uniquement des champs de classe présents sur les étudiants synchronisés. Aucune liste de classes fictive n'est générée.
+Le QR code encode un objet JSON versionné (`type: ISGI_STUDENT`) avec le matricule, le nom et le prénom de l'étudiant. Les applications d'inscription Comptabilité, DAC et Secrétaire-DAC affichent et permettent de télécharger ce QR dès l'enregistrement, puis dans les détails de l'étudiant. Les parcours web DAC (ajout manuel et import CSV), Gestionnaire et validation des demandes affichent également le QR à la création. Le créateur de badges régénère le même contenu à partir de la fiche étudiant; il est imprimé sur le recto et inclus dans les exports PNG/PDF ainsi que dans les badges en lot. Ces informations peuvent être lues par une application de scan QR standard; le QR ne contient ni photo ni coordonnées privées. Le fichier `renderer/qrcode.bundle.js` est le bundle navigateur du générateur QR; il est régénéré par `npm run build:qrcode` et avant la compilation de l'installateur.
+
+Les photos sont stockées dans le bucket privé `student-photos`. La fonction SQL `update_student_photo` ne modifie que `photo_url`, et seulement pour un compte Informaticien actif ou administrateur.
+
+Les vidéos et miniatures sont téléversées dans le bucket privé `videos-isgi` et publiées dans `public.videos`. Les fichiers vidéo sont envoyés en flux depuis l'application desktop; les URLs signées permettent leur lecture sans rendre le bucket public. Une erreur d'accès aux tables ou aux buckets est affichée et n'est pas remplacée par des données locales ou fictives.
 
 ## Studio photo téléphone
 
@@ -52,4 +58,4 @@ Le contenu du dossier `mobile-photo/` est un mini-site statique à publier en HT
 
 Avant le déploiement, renseigne `supabaseUrl` et la clé publique `anon` dans `mobile-photo/config.js`, puis publie les quatre fichiers du dossier (`index.html`, `app.js`, `style.css`, `config.js`) à la racine de ce sous-domaine. Ne place jamais de clé `service_role` dans ce site.
 
-Le téléphone doit ouvrir l'URL HTTPS, se connecter avec le même compte Informaticien, cadrer/valider la photo et l'envoyer. L'application desktop détecte ensuite le changement de `photo_url` dans Supabase et actualise le badge.
+Le téléphone ouvre l'URL HTTPS et envoie les photos avec le même compte Informaticien. Depuis le desktop, synchronise les données pour afficher les photos actualisées.

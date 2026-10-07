@@ -10,6 +10,8 @@ ini_set('display_errors', 1);
 
 // Démarrer la session
 session_start();
+$studentQrFlash = $_SESSION['student_qr_flash'] ?? null;
+unset($_SESSION['student_qr_flash']);
 
 // Vérifier la connexion et le rôle
 if (!isset($_SESSION['user_id'])) {
@@ -25,6 +27,7 @@ if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 3) {
 
 // Inclure la configuration
 @include_once ROOT_PATH . '/config/database.php';
+require_once ROOT_PATH . '/includes/student_qr.php';
 
 // Vérifier si la connexion à la base de données est disponible
 if (!class_exists('Database')) {
@@ -382,6 +385,13 @@ try {
                 
                 $db->commit();
                 $message_type = 'success';
+                if ($action === 'valider') {
+                    $_SESSION['student_qr_flash'] = [
+                        'matricule' => $matricule,
+                        'nom' => $demande['nom'] ?? '',
+                        'prenom' => $demande['prenom'] ?? ''
+                    ];
+                }
                 
                 // Rediriger
                 header("Location: demandes.php?message=" . urlencode($message) . "&type=success");
@@ -828,6 +838,9 @@ try {
                 <?php echo nl2br(htmlspecialchars($message)); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
+            <?php endif; ?>
+            <?php if($studentQrFlash): ?>
+                <?php echo isgi_student_qr_card($studentQrFlash); ?>
             <?php endif; ?>
             
             <!-- Onglets de filtrage rapide -->

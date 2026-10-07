@@ -1,6 +1,8 @@
 -- ═══════════════════════════════════════════════════════════════════
 --  ISGI Système — Vidéothèque avec Contrôle d'Accès par CLASSE
 --  Exécuter dans Supabase SQL Editor
+--  Si le portail étudiant est installé, réexécuter ensuite
+--  supabase_portal_accounts.sql pour restaurer ses politiques RLS strictes.
 -- ═══════════════════════════════════════════════════════════════════
 
 -- ─── 0. Assurer les colonnes dans public.utilisateurs ─────────────

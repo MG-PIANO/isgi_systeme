@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Search, Plus, X, Eye, Download, UserPlus } from 'lucide-react';
+import { Search, Plus, X, Eye, Download, UserPlus, QrCode } from 'lucide-react';
 import { db, logAction } from '../../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { exportToPDF } from '../../utils/pdfExport';
 import { supabase } from '../../db/supabaseClient';
+import StudentIdentityQr, { type StudentQrIdentity } from './StudentIdentityQr';
 
 const OPTION_FILIERES: Record<string, string[]> = {
   "Gestion et Administration": [
@@ -43,6 +44,8 @@ export default function InscriptionsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [viewingEtudiant, setViewingEtudiant] = useState<any>(null);
+  const [registeredEtudiant, setRegisteredEtudiant] = useState<StudentQrIdentity | null>(null);
+  const [matriculeError, setMatriculeError] = useState('');
 
   const initialFormData = {
     nom: '', prenom: '', sexe: 'M', date_naissance: '', lieu_naissance: '',
@@ -111,8 +114,20 @@ export default function InscriptionsPage() {
   };
 
   const handleOpenModal = () => {
-    setFormData(initialFormData);
+    let settings: Record<string, unknown> = {};
+    try {
+      settings = JSON.parse(localStorage.getItem('isgi_settings') || '{}');
+    } catch (error) {
+      console.error('Impossible de lire les paramètres DAC:', error);
+    }
+    setFormData({
+      ...initialFormData,
+      annee_academique: typeof settings.anneeAcademique === 'string' && settings.anneeAcademique
+        ? settings.anneeAcademique
+        : initialFormData.annee_academique
+    });
     setActiveTab(0);
+    setMatriculeError('');
     setIsModalOpen(true);
   };
 
@@ -124,8 +139,27 @@ export default function InscriptionsPage() {
       return;
     }
 
-    const count = await db.etudiants.count();
-    const newMatricule = `ISGI-2627-${(count + 1).toString().padStart(4, '0')}`;
+    let settings: Record<string, unknown> = {};
+    try {
+      settings = JSON.parse(localStorage.getItem('isgi_settings') || '{}');
+    } catch (error) {
+      console.error('Impossible de lire les paramètres DAC:', error);
+    }
+    const matriculePrefix = typeof settings.matriculePrefix === 'string' && settings.matriculePrefix.trim()
+      ? settings.matriculePrefix.trim().toUpperCase()
+      : 'ISGI-2627-';
+    if (!/^[A-Z0-9]+(?:-[A-Z0-9]+)*-$/.test(matriculePrefix)) {
+      setMatriculeError('Le préfixe matricule est invalide. Corrigez-le dans les paramètres du DAC (ex. ISGI-2627-).');
+      return;
+    }
+    setMatriculeError('');
+    const existingStudents = await db.etudiants.toArray();
+    const lastSequence = existingStudents.reduce((highest, student) => {
+      if (!student.matricule.startsWith(matriculePrefix)) return highest;
+      const sequence = Number(student.matricule.slice(matriculePrefix.length));
+      return Number.isInteger(sequence) ? Math.max(highest, sequence) : highest;
+    }, 0);
+    const newMatricule = `${matriculePrefix}${(lastSequence + 1).toString().padStart(4, '0')}`;
     const newId = crypto.randomUUID();
 
     const etudiantData = {
@@ -172,12 +206,18 @@ export default function InscriptionsPage() {
     };
 
     await db.etudiants.add(etudiantData);
+    const registeredStudent = {
+      matricule: newMatricule,
+      nom: formData.nom,
+      prenom: formData.prenom
+    };
 
     // Sync Supabase en arrière-plan
     supabase.from('etudiants').insert([etudiantData]).then(() => {}, () => {});
 
     await logAction('Inscription Étudiant', 'Inscriptions', `Nouvel étudiant inscrit : ${newMatricule} - ${formData.nom} ${formData.prenom} (${formData.vague || 'Jour'})`);
 
+    setRegisteredEtudiant(registeredStudent);
     setIsModalOpen(false);
     setActiveTab(0);
   };
@@ -332,6 +372,7 @@ export default function InscriptionsPage() {
             </div>
 
             <form onSubmit={handleNextOrSubmit} className="flex flex-col flex-1 min-h-0">
+              {matriculeError && <p role="alert" className="mx-6 mt-4 rounded-lg bg-error-container p-3 text-sm text-on-error-container">{matriculeError}</p>}
               <div className="overflow-y-auto p-4 md:p-6 flex-1 min-h-0">
 
                 {/* TAB 1: IDENTITÉ */}
@@ -586,7 +627,35 @@ export default function InscriptionsPage() {
                   </div>
                 </div>
               </div>
+              <div className="mt-6 border-t border-outline-variant pt-6">
+                <h4 className="mb-4 text-center text-base font-bold text-primary">Code QR d'identification</h4>
+                <StudentIdentityQr student={viewingEtudiant} />
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {registeredEtudiant && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-on-surface/60">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-on-surface">Inscription enregistrée</h3>
+                <p className="mt-1 text-sm text-on-surface-variant">Le QR d'identification est créé avec l'étudiant.</p>
+              </div>
+              <button onClick={() => setRegisteredEtudiant(null)} className="rounded-full p-2 hover:bg-surface-container-highest" aria-label="Fermer">
+                <X className="h-5 w-5 text-on-surface-variant" />
+              </button>
+            </div>
+            <div className="mb-4 flex items-center justify-center gap-2 text-primary">
+              <QrCode className="h-5 w-5" />
+              <span className="font-semibold">{registeredEtudiant.matricule}</span>
+            </div>
+            <StudentIdentityQr student={registeredEtudiant} />
+            <button onClick={() => setRegisteredEtudiant(null)} className="mt-5 w-full rounded-full border border-outline-variant px-4 py-2 font-medium text-on-surface hover:bg-surface-container-highest">
+              Terminer
+            </button>
           </div>
         </div>
       )}

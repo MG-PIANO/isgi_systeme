@@ -17,6 +17,7 @@ import { ParametresPage } from './components/parametres/ParametresPage'
 import { MessengerPage } from './components/messenger/MessengerPage'
 import { EmploiDuTempsConsultationPage } from './components/emploi_du_temps/EmploiDuTempsConsultationPage'
 import { CalendrierConsultationPage } from './components/calendrier/CalendrierConsultationPage'
+import { AccountRequestsPage } from './components/accounts/AccountRequestsPage'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { LoginPage } from './components/auth/LoginPage'
 import { Navigate } from 'react-router-dom'
@@ -52,6 +53,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="suivi-mensuel" element={<SuiviMensuelPage />} />
             <Route path="rapports-financiers" element={<RapportsFinanciersPage />} />
             <Route path="suivi-etudiants" element={<SuiviEtudiantsPage />} />
+            <Route path="demandes-comptes" element={<AccountRequestsPage />} />
             <Route path="parametres" element={<ParametresPage />} />
           </Route>
         </Routes>

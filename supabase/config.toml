@@ -1,0 +1,5 @@
+[functions.portal-api]
+verify_jwt = false
+
+[functions.portal-staff]
+verify_jwt = true

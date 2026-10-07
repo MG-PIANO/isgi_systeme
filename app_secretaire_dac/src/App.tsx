@@ -19,6 +19,8 @@ import { SujetsProjetsPage } from './components/sujets/SujetsProjetsPage';
 import { VideothequePage } from './components/videotheque/VideothequePage';
 import { LoginPage } from './components/auth/LoginPage';
 import { syncFromSupabase } from './db/db';
+import { supabase } from './db/supabaseClient';
+import { AccountRequestsPage } from './components/accounts/AccountRequestsPage';
 
 export function App() {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -26,24 +28,55 @@ export function App() {
   const [initializing, setInitializing] = useState<boolean>(true);
 
   useEffect(() => {
-    // Vérifier session utilisateur
-    try {
-      const savedUser = localStorage.getItem('secretaire_dac_user');
-      if (savedUser) {
-        setCurrentUser(JSON.parse(savedUser));
+    let mounted = true;
+    const restoreSession = async () => {
+      try {
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
+        if (!session) {
+          localStorage.removeItem('secretaire_dac_user');
+          return;
+        }
+        const { data: profile, error: profileError } = await supabase
+          .from('utilisateurs')
+          .select('id, nom_complet, role, statut')
+          .eq('id', session.user.id)
+          .maybeSingle();
+        if (profileError) throw profileError;
+        if (!profile || profile.statut === 'bloque' || !['secretaire_dac', 'secretariat', 'admin', 'admin_principal'].includes(profile.role)) {
+          await supabase.auth.signOut();
+          localStorage.removeItem('secretaire_dac_user');
+          return;
+        }
+        const user = {
+          id: profile.id,
+          nom: profile.nom_complet || 'Secrétaire DAC',
+          role: profile.role,
+        };
+        localStorage.setItem('secretaire_dac_user', JSON.stringify(user));
+        await syncFromSupabase();
+        if (mounted) setCurrentUser(user);
+      } catch (error) {
+        console.error('Restauration de la session Secrétaire DAC impossible:', error);
+        localStorage.removeItem('secretaire_dac_user');
+      } finally {
+        if (mounted) setInitializing(false);
       }
-    } catch {}
-
-    // Synchronisation en tâche de fond avec Supabase
-    syncFromSupabase().finally(() => {
-      setInitializing(false);
-    });
+    };
+    void restoreSession();
+    return () => { mounted = false; };
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) console.error('Déconnexion Supabase impossible:', error);
     localStorage.removeItem('secretaire_dac_user');
     setCurrentUser(null);
   };
+
+  if (initializing) {
+    return <div className="min-h-screen grid place-items-center text-on-surface-variant">Vérification de la session…</div>;
+  }
 
   if (!currentUser) {
     return <LoginPage onLoginSuccess={(user) => setCurrentUser(user)} />;
@@ -85,6 +118,8 @@ export function App() {
         return <BulletinsPage />;
       case 'parametres':
         return <ParametresPage />;
+      case 'demandes_comptes':
+        return <AccountRequestsPage />;
       default:
         return <DashboardPage onNavigate={(tab) => setCurrentTab(tab)} />;
     }

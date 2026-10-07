@@ -22,7 +22,12 @@ import { extraireMatriculeDepuisQR, traiterScanEtudiant } from '../../services/s
 import type { Etudiant, PointageAcces, ScanProcessResult } from '../../types';
 import { formaterHeure } from '../../lib/utils';
 
-export const ScannerPage: React.FC = () => {
+interface ScannerPageProps {
+  surveillantId: string;
+  surveillantNom: string;
+}
+
+export const ScannerPage: React.FC<ScannerPageProps> = ({ surveillantId, surveillantNom }) => {
   const [saisieMatricule, setSaisieMatricule] = useState('');
   const [etudiantsList, setEtudiantsList] = useState<Etudiant[]>([]);
   const [resultatDernierScan, setResultatDernierScan] = useState<ScanProcessResult | null>(null);
@@ -121,7 +126,8 @@ export const ScannerPage: React.FC = () => {
     // Appliquer le moteur logique
     const resultat = traiterScanEtudiant(etudiant, pointageExistant, {
       appareil: 'pc',
-      surveillantNom: 'Surveillant Général',
+      surveillantId,
+      surveillantNom,
       heureLimiteArrivee: heureLimite
     });
 

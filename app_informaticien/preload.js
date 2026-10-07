@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   minimize: () => ipcRenderer.send('window-minimize'),
   maximize: () => ipcRenderer.send('window-maximize'),
   close: () => ipcRenderer.send('window-close'),
+  setTheme: (theme) => ipcRenderer.send('set-theme', theme),
 
   // Badge photo
   selectPhoto: () => ipcRenderer.invoke('select-photo'),
@@ -17,7 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Vidéos
   selectVideo: () => ipcRenderer.invoke('select-video'),
-  readVideo: (path) => ipcRenderer.invoke('read-video', path),
+  uploadVideo: (data) => ipcRenderer.invoke('upload-video', data),
 
   // Dossier
   selectOutputDir: () => ipcRenderer.invoke('select-output-dir'),
@@ -25,4 +26,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // App info
   getVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
+
+  // Templates & QR
+  getTemplateImages: () => ipcRenderer.invoke('get-template-images'),
+  saveCustomTemplate: (side, dataBase64) => ipcRenderer.invoke('save-custom-template', { side, dataBase64 }),
+  resetCustomTemplate: (side) => ipcRenderer.invoke('reset-custom-template', { side }),
+  selectTemplateImage: () => ipcRenderer.invoke('select-template-image'),
+  generateQR: (text, options) => ipcRenderer.invoke('generate-qr', { text, options }),
 });

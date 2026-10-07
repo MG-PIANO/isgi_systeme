@@ -25,6 +25,7 @@ if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] != 3) {
 
 // Inclure la configuration
 @include_once ROOT_PATH . '/config/database.php';
+require_once ROOT_PATH . '/includes/student_qr.php';
 
 // Vérifier si la connexion à la base de données est disponible
 if (!class_exists('Database')) {
@@ -81,6 +82,7 @@ try {
     // Variables
     $error = null;
     $success = null;
+    $createdStudentQr = null;
     $inscriptions = array();
     $sites = array();
     $filieres = array();
@@ -273,6 +275,11 @@ try {
             
             $db->commit();
             $success = "Inscription réussie ! Étudiant créé avec le matricule: <strong>$matricule</strong>";
+            $createdStudentQr = [
+                'matricule' => $matricule,
+                'nom' => $nom,
+                'prenom' => $prenom
+            ];
             
         } catch (Exception $e) {
             $db->rollBack();
@@ -881,6 +888,10 @@ try {
                 <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
+            <?php endif; ?>
+
+            <?php if($createdStudentQr): ?>
+                <?php echo isgi_student_qr_card($createdStudentQr); ?>
             <?php endif; ?>
             
             <!-- Filtres -->

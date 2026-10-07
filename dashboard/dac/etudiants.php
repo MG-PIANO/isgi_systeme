@@ -5,6 +5,8 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 session_start();
+$importedStudentsQr = $_SESSION['imported_students_qr'] ?? [];
+unset($_SESSION['imported_students_qr']);
 if (!isset($_SESSION['user_id']) || $_SESSION['role_id'] != 5) {
     header('Location: ' . ROOT_PATH . '/auth/login.php');
     exit();
@@ -14,6 +16,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role_id'] != 5) {
 // CONFIGURATION BASE DE DONNÉES
 // ============================================
 @include_once ROOT_PATH . '/config/database.php';
+require_once ROOT_PATH . '/includes/student_qr.php';
 
 try {
     if (class_exists('Database')) {
@@ -1257,6 +1260,20 @@ try {
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
             <?php endif; ?>
+            <?php if($importedStudentsQr): ?>
+            <details class="content-card mb-4">
+                <summary class="card-body fw-bold" style="cursor:pointer">
+                    Codes QR des <?php echo count($importedStudentsQr); ?> étudiants importés
+                </summary>
+                <div class="card-body row g-3">
+                    <?php foreach($importedStudentsQr as $importedStudentQr): ?>
+                    <div class="col-sm-6 col-lg-4">
+                        <?php echo isgi_student_qr_card($importedStudentQr); ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </details>
+            <?php endif; ?>
             
             <?php if(isset($error)): ?>
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -1271,6 +1288,9 @@ try {
                 case 'view': ?>
                     <!-- Vue détaillée d'un étudiant -->
                     <div class="row fade-in">
+                        <div class="col-12">
+                            <?php echo isgi_student_qr_card($etudiant); ?>
+                        </div>
                         <div class="col-md-4">
                             <div class="content-card">
                                 <div class="card-body text-center">

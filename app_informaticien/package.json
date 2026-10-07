@@ -8,6 +8,8 @@
     "scripts": {
         "start": "electron .",
         "dev": "electron . --dev",
+        "build:qrcode": "esbuild node_modules/qrcode/lib/browser.js --bundle --format=iife --global-name=QRCode --outfile=renderer/qrcode.bundle.js",
+        "prebuild:setup": "npm run build:qrcode",
         "build:setup": "electron-builder --win nsis --publish never",
         "build:android": "node scripts/build-android.cjs"
     },
@@ -18,6 +20,7 @@
             "output": "C:\\Users\\pc\\Downloads\\isgi_setup_informaticien"
         },
         "win": {
+            "icon": "assets/icon.ico",
             "target": [
                 {
                     "target": "nsis",

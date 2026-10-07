@@ -7,15 +7,17 @@ import {
   RefreshCw, 
   Bell, 
   UserCircle2,
-  Calendar
+  Calendar,
+  LogOut
 } from 'lucide-react';
 import { synchroniserAvecSupabase } from '../../db/db';
 
 interface NavbarProps {
   surveillantNom?: string;
+  onLogout: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ surveillantNom = 'M. KOUAME - Surveillant Général' }) => {
+export const Navbar: React.FC<NavbarProps> = ({ surveillantNom = 'Surveillant Général', onLogout }) => {
   const [heureActuelle, setHeureActuelle] = useState('');
   const [dateActuelle, setDateActuelle] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
@@ -117,13 +119,22 @@ export const Navbar: React.FC<NavbarProps> = ({ surveillantNom = 'M. KOUAME - Su
         {/* Profil */}
         <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
-            SG
+            {surveillantNom.split(/\s+/).slice(0, 2).map((part) => part.charAt(0)).join('').toUpperCase()}
           </div>
           <div className="hidden lg:block text-left">
             <div className="text-xs font-semibold text-white leading-tight">{surveillantNom}</div>
             <div className="text-[10px] text-slate-400">Poste de Commandement</div>
           </div>
         </div>
+        <button
+          onClick={onLogout}
+          title="Déconnexion"
+          aria-label="Déconnexion"
+          className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 transition hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-300"
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="hidden sm:inline">Déconnexion</span>
+        </button>
       </div>
     </header>
   );

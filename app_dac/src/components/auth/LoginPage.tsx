@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { LogIn, Loader2, AlertCircle, Sparkles, UserPlus } from 'lucide-react';
+import { LogIn, Loader2, AlertCircle, UserPlus } from 'lucide-react';
 import { supabase } from '../../db/supabaseClient';
-import { logAction } from '../../db/db';
+import { logAction, syncFromSupabase } from '../../db/db';
 import { RegisterModal } from './RegisterModal';
 
 interface LoginPageProps {
@@ -21,51 +21,42 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     setLoading(true);
 
     try {
-      // 1. Recherche dans utilisateurs
-      const { data: users } = await supabase
-        .from('utilisateurs')
-        .select('*')
-        .eq('email', email.trim())
-        .limit(1);
-
-      if (users && users.length > 0) {
-        const found = users[0];
-        const userObj = {
-          id: found.id,
-          nom: found.nom_complet || found.nom || 'Directeur Académique',
-          role: found.role || 'dac'
-        };
-        localStorage.setItem('dac_user', JSON.stringify(userObj));
-        await logAction('Connexion DAC', 'Authentification', `Connexion de ${userObj.nom}`);
-        onLoginSuccess(userObj);
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (authError || !authData.user) {
+        setError('Identifiants incorrects.');
         return;
       }
 
-      // 2. Mode direct DAC
+      const { data: profile, error: profileError } = await supabase
+        .from('utilisateurs')
+        .select('id, nom_complet, role, statut')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      if (!profile || profile.statut === 'bloque' || !['dac', 'direction_dac', 'admin', 'admin_principal'].includes(profile.role)) {
+        await supabase.auth.signOut();
+        setError("Accès refusé. Cette application est réservée à la Direction des Affaires Académiques.");
+        return;
+      }
+
       const userObj = {
-        id: 'dac_default',
-        nom: email.includes('@') ? email.split('@')[0].toUpperCase() : email.toUpperCase() || 'Directeur Académique',
-        role: 'dac'
+        id: profile.id,
+        nom: profile.nom_complet || 'Directeur Académique',
+        role: profile.role
       };
       localStorage.setItem('dac_user', JSON.stringify(userObj));
       await logAction('Connexion DAC', 'Authentification', `Connexion de ${userObj.nom}`);
+      await syncFromSupabase();
       onLoginSuccess(userObj);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erreur de connexion:', err);
       setError('Impossible de se connecter au serveur. Vérifiez vos identifiants.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemo = () => {
-    const userObj = {
-      id: 'dac_demo',
-      nom: 'Directeur Académique (DAC)',
-      role: 'dac'
-    };
-    localStorage.setItem('dac_user', JSON.stringify(userObj));
-    onLoginSuccess(userObj);
   };
 
   return (
@@ -140,14 +131,6 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <span>Créer un compte utilisateur</span>
             </button>
 
-            <button
-              type="button"
-              onClick={handleDemo}
-              className="text-xs text-on-surface-variant hover:text-primary font-medium inline-flex items-center gap-1.5 transition-colors"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span>Accès direct Démonstration DAC</span>
-            </button>
           </div>
         </form>
       </div>

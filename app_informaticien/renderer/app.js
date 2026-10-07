@@ -5,13 +5,33 @@
 
 // ── State ──────────────────────────────────────────────
 let currentPhoto = null; // { base64: '...', ext: 'jpg' }
-let badgeDB = JSON.parse(localStorage.getItem('isgi_badges') || '[]');
-let videoDB = JSON.parse(localStorage.getItem('isgi_videos') || '[]');
-let etudiantsDB = JSON.parse(localStorage.getItem('isgi_etudiants') || '[]');
+let badgeDB = [];
+let videoDB = [];
+let etudiantsDB = [];
+let academicClasses = [];
 let currentVideoPath = null;
 let currentThumbBase64 = null;
 let batchStudents = [];
-let appConfig = JSON.parse(localStorage.getItem('isgi_config') || '{}');
+const badgeTextFields = {
+  nom:      { label: 'Nom',              x: 360, y: 1077, maxWidth: 600, fontSize: 26, fontFamily: 'Arial', bold: true, color: '#ffffff', align: 'left' },
+  prenom:   { label: 'Prénom',           x: 360, y: 1135, maxWidth: 600, fontSize: 26, fontFamily: 'Arial', bold: true, color: '#ffffff', align: 'left' },
+  lieu:     { label: 'Lieu de naissance',x: 360, y: 1195, maxWidth: 600, fontSize: 24, fontFamily: 'Arial', bold: true, color: '#ffffff', align: 'left' },
+  filiere:  { label: 'Filière',          x: 360, y: 1253, maxWidth: 600, fontSize: 24, fontFamily: 'Arial', bold: true, color: '#ffffff', align: 'left' },
+  niveau:   { label: 'Niveau',           x: 360, y: 1314, maxWidth: 380, fontSize: 24, fontFamily: 'Arial', bold: true, color: '#ffffff', align: 'left' },
+  matricule:{ label: 'Matricule',        x: 535, y: 1417, maxWidth: 410, fontSize: 30, fontFamily: 'Arial', bold: true, color: '#ffffff', align: 'center' }
+};
+const badgePhotoFrame = { x: 322, y: 400, width: 426, height: 452 };
+let badgePhotoTransform = { zoom: 1, offsetX: 0, offsetY: 0 };
+let selectedBadgeElement = 'nom';
+let badgeDragState = null;
+const sharedSupabaseConfig = {
+  supabaseUrl: 'https://vbdhmgrysrerlmgumafx.supabase.co',
+  supabaseKey: 'sb_publishable_sqJUSK-p5mF2Acy_bhxhAQ_nt_t6Fax'
+};
+let appConfig = {
+  ...JSON.parse(localStorage.getItem('isgi_config') || '{}'),
+  ...sharedSupabaseConfig
+};
 
 // Studio State
 let activeStudentId = null;
@@ -23,23 +43,111 @@ let webcamStream = null;
 
 // Preload Official Templates
 const templateRectoImg = new Image();
+templateRectoImg.crossOrigin = 'anonymous';
 templateRectoImg.src = './images/badge_recto.png';
 const templateVersoImg = new Image();
+templateVersoImg.crossOrigin = 'anonymous';
 templateVersoImg.src = './images/badge_verso.png';
+let templateImagesLoaded = false;
+
+// Custom templates state — data URLs loaded from userData at startup
+let customTemplates = { recto: null, verso: null };
+
+async function loadOfficialTemplates() {
+  if (templateImagesLoaded) return;
+  if (window.electronAPI && window.electronAPI.getTemplateImages) {
+    try {
+      const templates = await window.electronAPI.getTemplateImages();
+      if (templates?.recto) {
+        templateRectoImg.src = templates.recto;
+        customTemplates.recto = templates.recto;
+        // Sync settings page preview & status
+        const prevRecto = document.getElementById('previewTemplateRecto');
+        if (prevRecto) prevRecto.src = templates.recto;
+        const statusRecto = document.getElementById('statusBadgeRecto');
+        if (statusRecto) { statusRecto.textContent = 'Modèle Personnalisé'; statusRecto.className = 'template-status-badge status-custom'; }
+        const btnResetRecto = document.getElementById('btnResetTemplateRecto');
+        if (btnResetRecto) btnResetRecto.style.display = '';
+        document.getElementById('templateBoxRecto')?.classList.add('has-custom');
+      }
+      if (templates?.verso) {
+        templateVersoImg.src = templates.verso;
+        customTemplates.verso = templates.verso;
+        const versoEl = document.getElementById('badgeOfficialVersoImg');
+        if (versoEl) versoEl.src = templates.verso;
+        // Sync settings page preview & status
+        const prevVerso = document.getElementById('previewTemplateVerso');
+        if (prevVerso) prevVerso.src = templates.verso;
+        const statusVerso = document.getElementById('statusBadgeVerso');
+        if (statusVerso) { statusVerso.textContent = 'Modèle Personnalisé'; statusVerso.className = 'template-status-badge status-custom'; }
+        const btnResetVerso = document.getElementById('btnResetTemplateVerso');
+        if (btnResetVerso) btnResetVerso.style.display = '';
+        document.getElementById('templateBoxVerso')?.classList.add('has-custom');
+      }
+      templateImagesLoaded = true;
+    } catch (e) {
+      console.warn('Fallback aux images de templates locales:', e);
+      templateImagesLoaded = true;
+    }
+  } else {
+    templateImagesLoaded = true;
+  }
+}
+
+// ── Gestion Cache Photos Étudiants (persistance hors-ligne & redémarrage) ──
+function getLocalStudentPhotos() {
+  try {
+    return JSON.parse(localStorage.getItem('isgi_student_photos') || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveLocalStudentPhoto(student, base64) {
+  if (!student || !base64) return;
+  try {
+    const photos = getLocalStudentPhotos();
+    if (student.matricule) photos[student.matricule] = base64;
+    if (student.id) photos[String(student.id)] = base64;
+    localStorage.setItem('isgi_student_photos', JSON.stringify(photos));
+  } catch (e) {
+    console.warn('Erreur sauvegarde photo localStorage:', e);
+  }
+}
+
+function removeLocalStudentPhoto(student) {
+  if (!student) return;
+  try {
+    const photos = getLocalStudentPhotos();
+    if (student.matricule) delete photos[student.matricule];
+    if (student.id) delete photos[String(student.id)];
+    localStorage.setItem('isgi_student_photos', JSON.stringify(photos));
+  } catch (e) {
+    console.warn('Erreur suppression photo localStorage:', e);
+  }
+}
+
+// NOTE: photos are synchronisées vers Supabase Storage (voir updateStudentPhotoInSupabase)
+// Le localStorage est uniquement un cache de session pour affichage sans rechargement
 
 // ── Init ───────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // App version
+  // Initialiser le thème (clair ou sombre)
+  initTheme();
+
+  // Charger les modèles officiels en Base64 pour éviter de souiller le canvas
+  await loadOfficialTemplates();
+
+  // App version / Web browser mode
   if (window.electronAPI) {
     const v = await window.electronAPI.getVersion();
     document.getElementById('appVersion').textContent = `v${v}`;
     document.getElementById('aboutVersion').textContent = v;
+  } else {
+    document.querySelectorAll('.desktop-window-control').forEach(el => el.style.display = 'none');
   }
 
-  // Load config
-  if (appConfig.supabaseUrl) document.getElementById('supabase-url').value = appConfig.supabaseUrl;
-  if (appConfig.supabaseKey) document.getElementById('supabase-key').value = appConfig.supabaseKey;
-  if (appConfig.directeur) document.getElementById('param-directeur').value = appConfig.directeur;
+  // Load local app preferences; the ISGI Supabase project is shared with the other apps.
   if (appConfig.outputDir) document.getElementById('param-output-dir').value = appConfig.outputDir;
 
   // Initialize official badge studio
@@ -52,6 +160,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Check connection
   checkSupabaseConnection();
+  await restoreAuthSession();
 });
 
 // ── Navigation ─────────────────────────────────────────
@@ -86,7 +195,7 @@ function updateDashboardStats() {
 // ── Recent Badges ──────────────────────────────────────
 function renderRecentBadges() {
   const container = document.getElementById('recentBadges');
-  const recent = [...badgeDB].reverse().slice(0, 5);
+  const recent = badgeDB.slice(0, 5);
 
   if (!recent.length) {
     container.innerHTML = '<div class="empty-state-sm">Aucun badge récent</div>';
@@ -108,14 +217,174 @@ function renderRecentBadges() {
 // ══ OFFICIAL BADGE STUDIO ═════════════════════════════
 
 async function initBadgeStudio() {
+  initBadgeEditor();
   renderBadgeStudioStudents();
 
-  // If no student is selected, select the first one if available
+  // Select only students loaded from the academic database.
   if (!activeStudentId && etudiantsDB.length > 0) {
     selectStudentForBadge(etudiantsDB[0].id || etudiantsDB[0].matricule);
   } else {
     renderOfficialBadgeCanvas();
   }
+}
+
+function initBadgeEditor() {
+  const canvas = document.getElementById('badgeOfficialCanvas');
+  if (!canvas || canvas.dataset.editorReady) return;
+  canvas.dataset.editorReady = 'true';
+  canvas.addEventListener('pointerdown', startBadgeElementDrag);
+  canvas.addEventListener('pointermove', moveBadgeElementDrag);
+  canvas.addEventListener('pointerup', finishBadgeElementDrag);
+  canvas.addEventListener('pointercancel', finishBadgeElementDrag);
+  syncBadgeEditorControls();
+}
+
+function setBadgeEditorTarget(target) {
+  selectedBadgeElement = target;
+  syncBadgeEditorControls();
+  renderOfficialBadgeCanvas();
+}
+
+function syncBadgeEditorControls() {
+  const targetSelect = document.getElementById('badge-editor-target');
+  const textTools = document.getElementById('badge-text-tools');
+  const photoTools = document.getElementById('badge-photo-tools');
+  const isText = Object.hasOwn(badgeTextFields, selectedBadgeElement);
+  if (targetSelect) targetSelect.value = selectedBadgeElement;
+  textTools?.classList.toggle('hidden', !isText);
+  photoTools?.classList.toggle('hidden', selectedBadgeElement !== 'photo');
+  if (!isText) return;
+
+  const field = badgeTextFields[selectedBadgeElement];
+  document.getElementById('badge-editor-font').value = field.fontFamily;
+  document.getElementById('badge-editor-size').value = field.fontSize;
+  document.getElementById('badge-editor-color').value = field.color;
+  document.getElementById('badge-editor-bold').checked = field.bold;
+  document.getElementById('badge-editor-align').value = field.align;
+}
+
+function updateSelectedBadgeTextStyle() {
+  const field = badgeTextFields[selectedBadgeElement];
+  if (!field) return;
+  field.fontFamily = document.getElementById('badge-editor-font').value;
+  field.fontSize = Math.max(10, Math.min(72, Number(document.getElementById('badge-editor-size').value) || field.fontSize));
+  field.color = document.getElementById('badge-editor-color').value;
+  field.bold = document.getElementById('badge-editor-bold').checked;
+  field.align = document.getElementById('badge-editor-align').value;
+  renderOfficialBadgeCanvas();
+}
+
+function moveSelectedBadgeElement(direction) {
+  const field = badgeTextFields[selectedBadgeElement];
+  if (!field) return;
+  const step = 10;
+  if (direction === 'left') field.x -= step;
+  if (direction === 'right') field.x += step;
+  if (direction === 'up') field.y -= step;
+  if (direction === 'down') field.y += step;
+  renderOfficialBadgeCanvas();
+}
+
+function updateBadgePhotoZoom(value) {
+  badgePhotoTransform.zoom = Math.max(1, Math.min(2.5, Number(value) || 1));
+  renderOfficialBadgeCanvas();
+}
+
+function resetBadgePhotoTransform() {
+  badgePhotoTransform = { zoom: 1, offsetX: 0, offsetY: 0 };
+  const zoomInput = document.getElementById('badge-photo-zoom');
+  if (zoomInput) zoomInput.value = '1';
+  renderOfficialBadgeCanvas();
+}
+
+function getBadgeCanvasPoint(event) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  return {
+    x: (event.clientX - rect.left) * event.currentTarget.width / rect.width,
+    y: (event.clientY - rect.top) * event.currentTarget.height / rect.height
+  };
+}
+
+function getBadgeTextBounds(ctx, field, text) {
+  const font = `${field.bold ? 'bold ' : ''}${field.fontSize}px "${field.fontFamily}", Arial, sans-serif`;
+  ctx.font = font;
+  const width = Math.min(field.maxWidth, ctx.measureText(text || field.label).width);
+  const left = field.align === 'center' ? field.x - width / 2
+    : field.align === 'right' ? field.x - width
+      : field.x;
+  return { left, top: field.y - field.fontSize * 0.8, width, height: field.fontSize * 1.4 };
+}
+
+function hitTestBadgeElement(point) {
+  const photo = badgePhotoFrame;
+  if (currentPhoto && point.x >= photo.x && point.x <= photo.x + photo.width &&
+      point.y >= photo.y && point.y <= photo.y + photo.height) return 'photo';
+
+  const canvas = document.getElementById('badgeOfficialCanvas');
+  const ctx = canvas.getContext('2d');
+  const values = getBadgeStudentFromForm();
+  const fields = Object.keys(badgeTextFields).reverse();
+  for (const name of fields) {
+    const field = badgeTextFields[name];
+    const text = name === 'matricule' && values.matricule
+      ? `N°ISGI : ${values.matricule}`
+      : values[name] || '';
+    const bounds = getBadgeTextBounds(ctx, field, text);
+    if (point.x >= bounds.left - 8 && point.x <= bounds.left + bounds.width + 8 &&
+        point.y >= bounds.top - 5 && point.y <= bounds.top + bounds.height + 5) return name;
+  }
+  return null;
+}
+
+function startBadgeElementDrag(event) {
+  const point = getBadgeCanvasPoint(event);
+  const hit = hitTestBadgeElement(point);
+  if (!hit) return;
+  selectedBadgeElement = hit;
+  syncBadgeEditorControls();
+  badgeDragState = {
+    pointerId: event.pointerId,
+    x: point.x,
+    y: point.y,
+    originX: hit === 'photo' ? badgePhotoTransform.offsetX : badgeTextFields[hit].x,
+    originY: hit === 'photo' ? badgePhotoTransform.offsetY : badgeTextFields[hit].y
+  };
+  event.currentTarget.setPointerCapture(event.pointerId);
+  event.currentTarget.classList.add('badge-canvas-dragging');
+  renderOfficialBadgeCanvas();
+}
+
+function moveBadgeElementDrag(event) {
+  if (!badgeDragState || event.pointerId !== badgeDragState.pointerId) return;
+  const point = getBadgeCanvasPoint(event);
+  if (selectedBadgeElement === 'photo') {
+    badgePhotoTransform.offsetX = badgeDragState.originX + point.x - badgeDragState.x;
+    badgePhotoTransform.offsetY = badgeDragState.originY + point.y - badgeDragState.y;
+  } else {
+    const field = badgeTextFields[selectedBadgeElement];
+    field.x = badgeDragState.originX + point.x - badgeDragState.x;
+    field.y = badgeDragState.originY + point.y - badgeDragState.y;
+  }
+  renderOfficialBadgeCanvas();
+}
+
+function finishBadgeElementDrag(event) {
+  if (!badgeDragState || event.pointerId !== badgeDragState.pointerId) return;
+  badgeDragState = null;
+  event.currentTarget.classList.remove('badge-canvas-dragging');
+  syncBadgeEditorControls();
+  renderOfficialBadgeCanvas();
+}
+
+function getBadgeStudentFromForm() {
+  return {
+    nom: (document.getElementById('badge-nom')?.value || '').trim().toUpperCase(),
+    prenom: (document.getElementById('badge-prenom')?.value || '').trim(),
+    lieu: (document.getElementById('badge-lieu')?.value || '').trim(),
+    filiere: (document.getElementById('badge-filiere')?.value || '').trim(),
+    niveau: (document.getElementById('badge-niveau')?.value || '').trim(),
+    matricule: (document.getElementById('badge-matricule')?.value || '').trim().toUpperCase()
+  };
 }
 
 // ── Students List & Search in Studio ───────────────────
@@ -137,12 +406,6 @@ function renderBadgeStudioStudents() {
 
   const search = (document.getElementById('badgeStudentSearch')?.value || '').toLowerCase().trim();
 
-  // Generate initial mock students if database is totally empty
-  if (!etudiantsDB.length) {
-    etudiantsDB = generateDemoStudents('', '', 8);
-    localStorage.setItem('isgi_etudiants', JSON.stringify(etudiantsDB));
-  }
-
   const filtered = etudiantsDB.filter(s => {
     const textMatch = !search ||
       `${s.nom} ${s.prenom} ${s.matricule} ${s.filiere}`.toLowerCase().includes(search);
@@ -156,14 +419,15 @@ function renderBadgeStudioStudents() {
   if (countEl) countEl.textContent = filtered.length;
 
   if (!filtered.length) {
-    listEl.innerHTML = '<div class="empty-state-sm">Aucun étudiant trouvé</div>';
+    listEl.innerHTML = '<div class="empty-state-sm">Aucun étudiant réel trouvé dans la base académique.</div>';
     return;
   }
 
   listEl.innerHTML = filtered.map(s => {
     const isAct = s.id === activeStudentId || s.matricule === document.getElementById('badge-matricule')?.value;
     const hasPhoto = !!s.photo;
-    const photoSrc = s.photo ? (s.photo.startsWith('data:') || s.photo.startsWith('http') ? s.photo : `../${s.photo}`) : null;
+    const rawSrc = s.photo ? (s.photo.startsWith('data:') || s.photo.startsWith('http') ? s.photo : `../${s.photo}`) : null;
+    const photoSrc = rawSrc ? normalizeStorageUrl(rawSrc) : null;
 
     return `
       <div class="badge-student-item ${isAct ? 'active' : ''}" onclick="selectStudentForBadge('${s.id || s.matricule}')">
@@ -189,18 +453,27 @@ function selectStudentForBadge(idOrMat) {
   if (!student) return;
 
   activeStudentId = student.id || student.matricule;
+  badgePhotoTransform = { zoom: 1, offsetX: 0, offsetY: 0 };
+  const zoomInput = document.getElementById('badge-photo-zoom');
+  if (zoomInput) zoomInput.value = '1';
 
   if (document.getElementById('badge-nom')) document.getElementById('badge-nom').value = student.nom || '';
   if (document.getElementById('badge-prenom')) document.getElementById('badge-prenom').value = student.prenom || '';
   if (document.getElementById('badge-matricule')) document.getElementById('badge-matricule').value = student.matricule || '';
-  if (document.getElementById('badge-lieu')) document.getElementById('badge-lieu').value = student.lieu || 'Brazzaville';
+  if (document.getElementById('badge-lieu')) document.getElementById('badge-lieu').value = student.lieu || '';
   if (document.getElementById('badge-filiere') && student.filiere) document.getElementById('badge-filiere').value = student.filiere;
   if (document.getElementById('badge-niveau') && student.niveau) document.getElementById('badge-niveau').value = student.niveau;
 
+  // Restaurer depuis le cache local si la photo n'est pas encore attachée en mémoire
+  if (!student.photo) {
+    const cached = getLocalStudentPhotos();
+    student.photo = (student.matricule && cached[student.matricule]) || (student.id && cached[String(student.id)]) || null;
+  }
+
   if (student.photo) {
-    setStudentPhotoData(student.photo, false);
+    setStudentPhotoData(student.photo, false, false);
   } else {
-    clearStudentPhoto(false);
+    clearStudentPhoto(false, false);
   }
 
   renderBadgeStudioStudents();
@@ -210,15 +483,19 @@ function selectStudentForBadge(idOrMat) {
 // ── Photo Handling ─────────────────────────────────────
 async function selectStudentPhoto() {
   if (!window.electronAPI) {
-    // Browser fallback
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e) => {
+    input.accept = 'image/jpeg,image/png,image/webp';
+    input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
       const reader = new FileReader();
-      reader.onload = (evt) => setStudentPhotoData(evt.target.result);
+      reader.onload = async (evt) => {
+        const saved = await setStudentPhotoData(evt.target.result);
+        if (saved && !getCurrentBadgeStudent()) {
+          toast('Photo ajoutée à l’aperçu du badge.', 'success');
+        }
+      };
       reader.readAsDataURL(file);
     };
     input.click();
@@ -227,10 +504,19 @@ async function selectStudentPhoto() {
 
   const result = await window.electronAPI.selectPhoto();
   if (!result) return;
-  setStudentPhotoData(`data:image/${result.ext};base64,${result.base64}`);
+  const saved = await setStudentPhotoData(`data:image/${result.ext};base64,${result.base64}`);
+  if (saved && !getCurrentBadgeStudent()) {
+    toast('Photo ajoutée à l’aperçu du badge.', 'success');
+  }
 }
 
-function setStudentPhotoData(base64Data, notify = true) {
+function getCurrentBadgeStudent(matricule = document.getElementById('badge-matricule')?.value) {
+  return etudiantsDB.find(student =>
+    student.matricule === matricule && (!activeStudentId || student.id === activeStudentId)
+  );
+}
+
+function setStudentPhotoData(base64Data, notify = true, persist = true) {
   currentPhoto = {
     base64: base64Data,
     ext: 'jpeg'
@@ -240,28 +526,106 @@ function setStudentPhotoData(base64Data, notify = true) {
   const emptyIcon = document.getElementById('photoEmptyIcon');
 
   if (thumb && emptyIcon) {
-    thumb.src = base64Data.startsWith('data:') ? base64Data : `data:image/jpeg;base64,${base64Data}`;
+    const rawThumb = base64Data.startsWith('data:') || base64Data.startsWith('http')
+      ? base64Data
+      : `data:image/jpeg;base64,${base64Data}`;
+    thumb.src = normalizeStorageUrl(rawThumb);
     thumb.classList.remove('hidden');
     emptyIcon.classList.add('hidden');
   }
 
-  // Update in local DB for this student
-  const mat = document.getElementById('badge-matricule')?.value;
-  if (mat) {
-    const student = etudiantsDB.find(s => s.matricule === mat || s.id === activeStudentId);
-    if (student) {
-      student.photo = base64Data;
-      student.has_photo = true;
-      localStorage.setItem('isgi_etudiants', JSON.stringify(etudiantsDB));
-      renderBadgeStudioStudents();
+  const student = getCurrentBadgeStudent();
+  if (student) {
+    // Mettre à jour l'objet en mémoire et le cache de session
+    student.photo = base64Data;
+    saveLocalStudentPhoto(student, base64Data);
+  }
+
+  if (persist && student) {
+    return updateStudentPhotoInSupabase(student, base64Data)
+      .then((signedUrl) => {
+        // Garder le base64Data localement : cela évite le canvas tainted (cross-origin)
+        // et garantit que la photo reste visible après redémarrage de l'appli
+        student.photo = base64Data;
+        saveLocalStudentPhoto(student, base64Data);
+        currentPhoto.base64 = base64Data;
+        renderBadgeStudioStudents();
+        renderOfficialBadgeCanvas();
+        if (notify) toast('Photo enregistrée dans Supabase.', 'success');
+        return true;
+      })
+      .catch(error => {
+        console.warn('Synchronisation Supabase échouée — photo conservée en session:', error);
+        renderBadgeStudioStudents();
+        if (notify) toast(`Photo affichée mais non sauvegardée : ${error.message}`, 'error');
+        return false;
+      });
+  }
+
+  renderBadgeStudioStudents();
+  renderOfficialBadgeCanvas();
+  return Promise.resolve(true);
+}
+
+async function updateStudentPhotoInSupabase(student, dataUrl) {
+  const previousPath = student.photoPath;
+  let nextPath = null;
+  let signedNextPhoto = null;
+
+  if (dataUrl) {
+    // 1. Redimensionner la photo à max 1600px
+    const source = new Image();
+    await new Promise((resolve, reject) => {
+      source.onload = resolve;
+      source.onerror = () => reject(new Error('La photo sélectionnée est illisible.'));
+      source.src = dataUrl.startsWith('data:') || dataUrl.startsWith('http')
+        ? dataUrl
+        : `data:image/jpeg;base64,${dataUrl}`;
+    });
+    const scale = Math.min(1, 1600 / Math.max(source.naturalWidth || 1, source.naturalHeight || 1));
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = Math.round(source.naturalWidth * scale);
+    offCanvas.height = Math.round(source.naturalHeight * scale);
+    offCanvas.getContext('2d').drawImage(source, 0, 0, offCanvas.width, offCanvas.height);
+    const imageBlob = await new Promise(resolve => offCanvas.toBlob(resolve, 'image/jpeg', 0.88));
+    if (!imageBlob) throw new Error('La conversion de la photo a échoué.');
+
+    // 2. Téléverser vers Supabase Storage (bucket : student-photos)
+    nextPath = `photos/${student.id || student.matricule}/${Date.now()}.jpg`;
+    const encodedPath = nextPath.split('/').map(encodeURIComponent).join('/');
+    await supabaseRequest(`/storage/v1/object/student-photos/${encodedPath}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+      body: imageBlob
+    });
+
+    // 3. Obtenir l'URL signée (1 heure)
+    signedNextPhoto = await getSignedStorageUrl('student-photos', nextPath);
+  }
+
+  // 4. Mettre à jour la colonne photo_url dans la table etudiants
+  await supabaseRequest(`/rest/v1/etudiants?id=eq.${student.id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({ photo_url: nextPath })
+  });
+
+  student.photoPath = nextPath;
+  student.photo = signedNextPhoto || null;
+
+  // 5. Supprimer l'ancienne photo du Storage si elle a changé
+  if (previousPath && previousPath !== nextPath) {
+    try {
+      await deleteStorageObjects('student-photos', [previousPath]);
+    } catch (e) {
+      console.warn('Nettoyage ancienne photo ignoré:', e);
     }
   }
 
-  renderOfficialBadgeCanvas();
-  if (notify) toast('Photo mise à jour sur le badge !', 'success');
+  return signedNextPhoto;
 }
 
-function clearStudentPhoto(notify = true) {
+function clearStudentPhoto(notify = true, persist = true) {
   currentPhoto = null;
   const thumb = document.getElementById('photoThumbImg');
   const emptyIcon = document.getElementById('photoEmptyIcon');
@@ -272,19 +636,27 @@ function clearStudentPhoto(notify = true) {
   }
   if (emptyIcon) emptyIcon.classList.remove('hidden');
 
-  const mat = document.getElementById('badge-matricule')?.value;
-  if (mat) {
-    const student = etudiantsDB.find(s => s.matricule === mat || s.id === activeStudentId);
-    if (student) {
-      delete student.photo;
-      student.has_photo = false;
-      localStorage.setItem('isgi_etudiants', JSON.stringify(etudiantsDB));
-      renderBadgeStudioStudents();
-    }
+  const student = getCurrentBadgeStudent();
+  if (student) {
+    student.photo = null;
+    removeLocalStudentPhoto(student);
   }
 
+  if (persist && student?.photoPath) {
+    updateStudentPhotoInSupabase(student, null)
+      .then(() => {
+        renderBadgeStudioStudents();
+        if (notify) toast('Photo supprimée de la base de données.', 'success');
+      })
+      .catch(error => {
+        console.warn('Suppression Supabase non effectuée:', error);
+      });
+  } else if (notify) {
+    toast(student ? 'Photo retirée du badge.' : 'Photo retirée du badge.', 'info');
+  }
+
+  renderBadgeStudioStudents();
   renderOfficialBadgeCanvas();
-  if (notify) toast('Photo retirée du badge', 'info');
 }
 
 // ── Smartphone Studio QR Modal & Polling ───────────────
@@ -293,8 +665,8 @@ function startPhonePhotoSession() {
   const prenom = (document.getElementById('badge-prenom')?.value || '').trim();
   const matricule = (document.getElementById('badge-matricule')?.value || '').trim();
 
-  if (!matricule) {
-    toast('Veuillez d\'abord sélectionner un étudiant ou saisir son matricule', 'info');
+  if (!matricule || !getCurrentBadgeStudent(matricule)) {
+    toast('Sélectionnez un étudiant réel de la base avant la capture mobile.', 'info');
     return;
   }
 
@@ -339,12 +711,14 @@ function startPhonePhotoSession() {
         clearInterval(phonePollInterval);
         phonePollInterval = null;
 
-        setStudentPhotoData(data.base64);
+        const saved = await setStudentPhotoData(data.base64);
 
         if (statusText) {
-          statusText.innerHTML = '<span style="color:#10b981;font-weight:700">✓ Photo reçue avec succès !</span>';
+          statusText.innerHTML = saved
+            ? '<span style="color:#10b981;font-weight:700">✓ Photo reçue et enregistrée !</span>'
+            : '<span style="color:#ef4444;font-weight:700">Photo reçue, mais non enregistrée dans la base.</span>';
         }
-        toast('Photo reçue du smartphone et appliquée au badge !', 'success');
+        if (!saved) return;
 
         setTimeout(() => {
           closePhonePhotoModal();
@@ -417,7 +791,6 @@ function captureWebcamPhoto() {
   const base64Data = canvas.toDataURL('image/jpeg', 0.92);
   closeWebcamModal();
   setStudentPhotoData(base64Data);
-  toast('Photo capturée par webcam !', 'success');
 }
 
 // ── Switch Recto / Verso ───────────────────────────────
@@ -446,24 +819,20 @@ function updateBadgeCanvas() {
   renderOfficialBadgeCanvas();
 }
 
-async function renderOfficialBadgeCanvas() {
-  const canvas = document.getElementById('badgeOfficialCanvas');
+async function renderOfficialBadgeCanvas(canvas = document.getElementById('badgeOfficialCanvas'), showSelection = true) {
   if (!canvas) return;
-
   const student = {
-    nom: (document.getElementById('badge-nom')?.value || '').trim().toUpperCase(),
-    prenom: (document.getElementById('badge-prenom')?.value || '').trim(),
-    matricule: (document.getElementById('badge-matricule')?.value || '').trim().toUpperCase(),
-    lieu: (document.getElementById('badge-lieu')?.value || '').trim(),
-    filiere: (document.getElementById('badge-filiere')?.value || '').trim(),
-    niveau: (document.getElementById('badge-niveau')?.value || '').trim(),
-    annee: (document.getElementById('badge-annee')?.value || '').trim(),
+    ...getBadgeStudentFromForm(),
+    annee: (document.getElementById('badge-annee')?.value || '').trim()
   };
-
-  await renderBadgeToCanvas(canvas, student, currentPhoto);
+  await renderBadgeToCanvas(canvas, student, currentPhoto, { showSelection });
 }
 
-async function renderBadgeToCanvas(canvas, student, photoObj) {
+async function renderBadgeToCanvas(canvas, student, photoObj, {
+  showSelection = false,
+  photoTransform = badgePhotoTransform,
+  textFields = badgeTextFields
+} = {}) {
   const ctx = canvas.getContext('2d');
 
   // Ensure template image is ready
@@ -478,123 +847,215 @@ async function renderBadgeToCanvas(canvas, student, photoObj) {
   ctx.clearRect(0, 0, 1063, 1535);
   ctx.drawImage(templateRectoImg, 0, 0, 1063, 1535);
 
-  // 2. Draw Rounded Student Photo (x: 322, y: 400, w: 426, h: 452, radius: 28)
+  // 2. Draw the photo crop in the template's photo frame.
   if (photoObj && photoObj.base64) {
-    await drawRoundedPhoto(ctx, photoObj, 322, 400, 426, 452, 28);
+    await drawRoundedPhoto(ctx, photoObj, badgePhotoFrame, photoTransform, 28);
   }
 
-  // 3. Draw Student Texts (Aligned at x = 360, color white bold)
-  ctx.fillStyle = '#FFFFFF';
+  // 3. Draw editable text layers at their configured positions.
   ctx.textBaseline = 'middle';
-
-  function drawFitText(text, x, y, maxW, fontStyle) {
-    ctx.font = fontStyle;
-    if (!text) return;
-    let t = text;
-    while (ctx.measureText(t).width > maxW && t.length > 3) {
-      t = t.substring(0, t.length - 2) + '…';
+  const textBounds = {};
+  for (const name of ['nom', 'prenom', 'lieu', 'filiere', 'niveau', 'matricule']) {
+    const field = textFields[name];
+    if (!field) continue;
+    const value = name === 'matricule' && student.matricule
+      ? `N°ISGI : ${student.matricule}`
+      : student[name] || '';
+    if (name === 'matricule') {
+      ctx.fillStyle = '#FF6B00';
+      ctx.fillRect(330, 1364, 420, 90);
     }
-    ctx.fillText(t, x, y);
+    ctx.font = `${field.bold ? 'bold ' : ''}${field.fontSize}px "${field.fontFamily}", Arial, sans-serif`;
+    ctx.fillStyle = field.color;
+    ctx.textAlign = field.align;
+    let text = value;
+    while (text && ctx.measureText(text).width > field.maxWidth && text.length > 3) {
+      text = `${text.slice(0, -2)}…`;
+    }
+    if (text) ctx.fillText(text, field.x, field.y, field.maxWidth);
+    textBounds[name] = getBadgeTextBounds(ctx, field, text);
   }
-
-  // NOM(S) : at y = 1072
-  drawFitText(student.nom || '—', 360, 1072, 600, 'bold 26px "Segoe UI", Arial, sans-serif');
-
-  // PRÉNOM(S) : at y = 1130
-  drawFitText(student.prenom || '—', 360, 1130, 600, 'bold 26px "Segoe UI", Arial, sans-serif');
-
-  // NÉ(E) LE LIEU : at y = 1188
-  drawFitText(student.lieu || '—', 360, 1188, 600, 'bold 24px "Segoe UI", Arial, sans-serif');
-
-  // FILIÈRE : at y = 1246
-  drawFitText(student.filiere || '—', 360, 1246, 600, 'bold 24px "Segoe UI", Arial, sans-serif');
-
-  // NIVEAU : at y = 1304
-  drawFitText(student.niveau || '—', 360, 1304, 380, 'bold 24px "Segoe UI", Arial, sans-serif');
-
-  // N°ISGI : [matricule] at y = 1410 (Orange Banner)
-  if (student.matricule) {
-    drawFitText(`N°ISGI : ${student.matricule}`, 360, 1410, 410, 'bold 30px "Segoe UI", Arial, sans-serif');
-  }
+  ctx.textAlign = 'start';
 
   // 4. Draw QR Code in white square (x: 770, y: 1295, w: 195, h: 195)
-  const qrContent = student.matricule || 'ISGI-BADGE';
-  await drawQRCodeOnCanvas(ctx, qrContent, 772, 1297, 191, 191);
+  const qrContent = buildBadgeQrPayload(student);
+  if (qrContent) {
+    await drawQRCodeOnCanvas(ctx, qrContent, 772, 1297, 191, 191);
+  }
+  if (showSelection) drawBadgeSelection(ctx, textBounds);
 }
 
-function drawRoundedPhoto(ctx, photoObj, x, y, w, h, radius) {
+function buildBadgeQrPayload(student) {
+  const matricule = (student?.matricule || '').trim();
+  const nom = (student?.nom || '').trim();
+  const prenom = (student?.prenom || '').trim();
+  if (!matricule && !nom && !prenom) {
+    return 'ISGI-BADGE-ETUDIANT';
+  }
+
+  return JSON.stringify({
+    type: 'ISGI_STUDENT',
+    version: 1,
+    matricule: matricule.toUpperCase(),
+    nom: nom.toUpperCase(),
+    prenom
+  });
+}
+
+function drawBadgeSelection(ctx, textBounds) {
+  ctx.save();
+  ctx.strokeStyle = '#22d3ee';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([10, 7]);
+  if (selectedBadgeElement === 'photo') {
+    const frame = badgePhotoFrame;
+    ctx.strokeRect(frame.x - 3, frame.y - 3, frame.width + 6, frame.height + 6);
+  } else {
+    const bounds = textBounds[selectedBadgeElement];
+    if (bounds) ctx.strokeRect(bounds.left - 8, bounds.top - 5, bounds.width + 16, bounds.height + 10);
+  }
+  ctx.restore();
+}
+
+function drawRoundedPhoto(ctx, photoObj, frame, transform, radius) {
   return new Promise((resolve) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    const src = photoObj.base64.startsWith('data:') || photoObj.base64.startsWith('http')
+      ? photoObj.base64
+      : `data:image/${photoObj.ext || 'jpeg'};base64,${photoObj.base64}`;
+    if (!src.startsWith('data:')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => {
-      ctx.save();
-      ctx.beginPath();
-      if (ctx.roundRect) {
-        ctx.roundRect(x, y, w, h, radius);
-      } else {
-        // Fallback rounded rect
-        ctx.moveTo(x + radius, y);
-        ctx.arcTo(x + w, y, x + w, y + h, radius);
-        ctx.arcTo(x + w, y + h, x, y + h, radius);
-        ctx.arcTo(x, y + h, x, y, radius);
-        ctx.arcTo(x, y, x + w, y, radius);
-        ctx.closePath();
+      try {
+        ctx.save();
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(frame.x, frame.y, frame.width, frame.height, radius);
+        } else {
+          ctx.moveTo(frame.x + radius, frame.y);
+          ctx.arcTo(frame.x + frame.width, frame.y, frame.x + frame.width, frame.y + frame.height, radius);
+          ctx.arcTo(frame.x + frame.width, frame.y + frame.height, frame.x, frame.y + frame.height, radius);
+          ctx.arcTo(frame.x, frame.y + frame.height, frame.x, frame.y, radius);
+          ctx.arcTo(frame.x, frame.y, frame.x + frame.width, frame.y, radius);
+          ctx.closePath();
+        }
+        ctx.clip();
+
+        const coverScale = Math.max(frame.width / img.width, frame.height / img.height);
+        const drawW = img.width * coverScale * transform.zoom;
+        const drawH = img.height * coverScale * transform.zoom;
+        const maxOffsetX = Math.max(0, (drawW - frame.width) / 2);
+        const maxOffsetY = Math.max(0, (drawH - frame.height) / 2);
+        const offsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, transform.offsetX));
+        const offsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, transform.offsetY));
+        const drawX = frame.x + (frame.width - drawW) / 2 + offsetX;
+        const drawY = frame.y + (frame.height - drawH) / 2 + offsetY;
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+        ctx.restore();
+      } catch (err) {
+        console.warn('Erreur rendu photo sur canvas:', err);
       }
-      ctx.clip();
-
-      // Cover aspect scaling
-      const imgRatio = img.width / img.height;
-      const targetRatio = w / h;
-      let drawW, drawH, drawX, drawY;
-
-      if (imgRatio > targetRatio) {
-        drawH = h;
-        drawW = h * imgRatio;
-        drawX = x - (drawW - w) / 2;
-        drawY = y;
-      } else {
-        drawW = w;
-        drawH = w / imgRatio;
-        drawX = x;
-        drawY = y - (drawH - h) / 2;
-      }
-
-      ctx.drawImage(img, drawX, drawY, drawW, drawH);
-      ctx.restore();
       resolve();
     };
     img.onerror = resolve;
-    const src = photoObj.base64.startsWith('data:')
-      ? photoObj.base64
-      : `data:image/${photoObj.ext || 'jpeg'};base64,${photoObj.base64}`;
     img.src = src;
   });
 }
 
-function drawQRCodeOnCanvas(ctx, text, x, y, w, h) {
-  return new Promise((resolve) => {
-    if (typeof QRCode === 'undefined') return resolve();
-    const tempCanvas = document.createElement('canvas');
-    QRCode.toCanvas(tempCanvas, text, {
-      width: w,
-      margin: 1,
-      color: { dark: '#003087', light: '#ffffff' }
-    }, (err) => {
-      if (!err) {
-        ctx.drawImage(tempCanvas, x, y, w, h);
+async function drawQRCodeOnCanvas(ctx, text, x, y, w, h) {
+  if (!text) return;
+
+  // 1. Rendu vectoriel direct ultra-rapide (zéro canvas temporaire, zéro taint, 100% net)
+  const qrLib = (typeof QRCode !== 'undefined' && QRCode) || window.QRCode;
+  if (qrLib && typeof qrLib.create === 'function') {
+    try {
+      const qrData = qrLib.create(text, { errorCorrectionLevel: 'M' });
+      const moduleCount = qrData.modules.size;
+      const margin = 1;
+      const totalCount = moduleCount + margin * 2;
+      const cellSize = w / totalCount;
+
+      ctx.save();
+      // Fond blanc du QR
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x, y, w, h);
+
+      // Modules bleu foncé ISGI (#003087)
+      ctx.fillStyle = '#003087';
+      for (let r = 0; r < moduleCount; r++) {
+        for (let c = 0; c < moduleCount; c++) {
+          if (qrData.modules.get(r, c)) {
+            const px = Math.round(x + (c + margin) * cellSize);
+            const py = Math.round(y + (r + margin) * cellSize);
+            const pw = Math.ceil(cellSize);
+            const ph = Math.ceil(cellSize);
+            ctx.fillRect(px, py, pw, ph);
+          }
+        }
       }
-      resolve();
-    });
-  });
+      ctx.restore();
+      return;
+    } catch (err) {
+      console.warn('Génération QR vectorielle directe échouée:', err);
+    }
+  }
+
+  // 2. Repli avec l'API Electron native si disponible
+  if (window.electronAPI && window.electronAPI.generateQR) {
+    try {
+      const dataUrl = await window.electronAPI.generateQR(text, {
+        width: w,
+        margin: 1,
+        color: { dark: '#003087', light: '#ffffff' }
+      });
+      if (dataUrl) {
+        await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, x, y, w, h);
+            resolve();
+          };
+          img.onerror = resolve;
+          img.src = dataUrl;
+        });
+        return;
+      }
+    } catch (e) {
+      console.warn('Génération QR native échouée, essai avec QRCode navigateur:', e);
+    }
+  }
+
+  // 3. Repli toCanvas
+  if (qrLib && typeof qrLib.toCanvas === 'function') {
+    try {
+      await new Promise((resolve) => {
+        const tempCanvas = document.createElement('canvas');
+        qrLib.toCanvas(tempCanvas, text, {
+          width: w,
+          margin: 1,
+          color: { dark: '#003087', light: '#ffffff' }
+        }, (err) => {
+          if (!err) {
+            ctx.drawImage(tempCanvas, x, y, w, h);
+          }
+          resolve();
+        });
+      });
+    } catch (e) {
+      console.warn('Génération QR toCanvas échouée:', e);
+    }
+  }
 }
 
 // ── Export PNG HD (300 DPI) ────────────────────────────
 async function exportBadgePNG() {
   const nom = (document.getElementById('badge-nom')?.value || 'ETUDIANT').trim();
   const prenom = (document.getElementById('badge-prenom')?.value || '').trim();
-  const canvas = document.getElementById('badgeOfficialCanvas');
-  if (!canvas) return;
-
+  const canvas = document.createElement('canvas');
+  canvas.width = 1063;
+  canvas.height = 1535;
+  await renderOfficialBadgeCanvas(canvas, false);
   const imageBase64 = canvas.toDataURL('image/png', 1.0);
 
   if (window.electronAPI && window.electronAPI.saveImage) {
@@ -617,14 +1078,21 @@ async function exportBadgePNG() {
 }
 
 // ── Direct Print ───────────────────────────────────────
-function printBadge() {
-  const canvas = document.getElementById('badgeOfficialCanvas');
+async function printBadge() {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    toast('Autorisez les fenêtres contextuelles pour imprimer le badge.', 'error');
+    return;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = 1063;
+  canvas.height = 1535;
+  await renderOfficialBadgeCanvas(canvas, false);
   if (!canvas) return;
   const rectoData = canvas.toDataURL('image/png');
   const versoImg = document.getElementById('badgeOfficialVersoImg');
   const versoData = versoImg ? versoImg.src : './images/badge_verso.png';
 
-  const printWindow = window.open('', '_blank');
   printWindow.document.write(`
     <!DOCTYPE html>
     <html>
@@ -653,6 +1121,32 @@ function printBadge() {
   printWindow.document.close();
 }
 
+async function getVersoArrayBuffer() {
+  if (templateVersoImg.src && templateVersoImg.src.startsWith('data:image/')) {
+    const b64 = templateVersoImg.src.split(',')[1];
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+  const versoResponse = await fetch('./images/badge_verso.png');
+  return await versoResponse.arrayBuffer();
+}
+
+function uint8ArrayToBase64(bytes) {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(bytes).toString('base64');
+  }
+  let binary = '';
+  const len = bytes.byteLength;
+  const chunkSize = 8192;
+  for (let i = 0; i < len; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, len));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
 // ── Generate Badge PDF (Official Recto + Verso) ────────
 async function generateBadgePDF() {
   const nom = (document.getElementById('badge-nom')?.value || '').trim();
@@ -671,12 +1165,14 @@ async function generateBadgePDF() {
   showLoading('Génération du badge officiel PDF...');
 
   try {
-    const canvas = document.getElementById('badgeOfficialCanvas');
+    const canvas = document.createElement('canvas');
+    canvas.width = 1063;
+    canvas.height = 1535;
+    await renderOfficialBadgeCanvas(canvas, false);
     const rectoPngBase64 = canvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
 
     // Fetch Verso image bytes
-    const versoResponse = await fetch('./images/badge_verso.png');
-    const versoBuffer = await versoResponse.arrayBuffer();
+    const versoBuffer = await getVersoArrayBuffer();
 
     const { PDFDocument, rgb } = PDFLib;
     const pdfDoc = await PDFDocument.create();
@@ -727,7 +1223,7 @@ async function generateBadgePDF() {
     });
 
     const pdfBytes = await pdfDoc.save();
-    const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
+    const pdfBase64 = uint8ArrayToBase64(pdfBytes);
 
     if (window.electronAPI && window.electronAPI.savePDF) {
       const result = await window.electronAPI.savePDF({
@@ -735,7 +1231,7 @@ async function generateBadgePDF() {
         studentName: `${nom}_${prenom}`
       });
       if (result && result.success) {
-        saveBadgeToDB({ nom, prenom, matricule, lieu, filiere, niveau, annee });
+        await saveBadgeToDB({ nom, prenom, matricule, lieu, filiere, niveau, annee });
         toast(`Badge PDF sauvegardé : ${result.filePath}`, 'success');
       }
     } else {
@@ -745,7 +1241,7 @@ async function generateBadgePDF() {
       a.href = url;
       a.download = `Badge_ISGI_${nom}_${prenom}.pdf`;
       a.click();
-      saveBadgeToDB({ nom, prenom, matricule, lieu, filiere, niveau, annee });
+      await saveBadgeToDB({ nom, prenom, matricule, lieu, filiere, niveau, annee });
       toast('Badge PDF téléchargé !', 'success');
     }
   } catch (err) {
@@ -756,20 +1252,74 @@ async function generateBadgePDF() {
   }
 }
 
-// ── Save to Database & LocalStorage ────────────────────
-function saveBadgeToDB(student) {
+// ── Save badge history to Supabase ─────────────────────
+async function saveBadgeToDB(student) {
   const badge = {
-    id: `badge-${Date.now()}`,
     ...student,
     dateGeneration: new Date().toISOString(),
   };
+  const savedRows = await supabaseRequest('/rest/v1/informaticien_badges', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify([{
+      etudiant_id: etudiantsDB.find(item => item.matricule === student.matricule)?.id || null,
+      nom: badge.nom,
+      prenom: badge.prenom,
+      matricule: badge.matricule,
+      lieu_naissance: badge.lieu,
+      filiere: badge.filiere,
+      niveau: badge.niveau,
+      annee_academique: badge.annee,
+      date_generation: badge.dateGeneration
+    }])
+  });
+  const saved = savedRows?.[0];
+  if (!saved?.id) throw new Error('Le badge n’a pas été confirmé par la base de données.');
+  badge.id = saved.id;
   badgeDB.unshift(badge);
-  localStorage.setItem('isgi_badges', JSON.stringify(badgeDB));
   updateDashboardStats();
   renderRecentBadges();
+  renderBadgeTable();
 }
 
-function saveBadge() {
+async function saveBatchBadgesToDB(students, annee) {
+  const dateGeneration = new Date().toISOString();
+  const rows = await supabaseRequest('/rest/v1/informaticien_badges', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify(students.map(student => ({
+      etudiant_id: student.id,
+      nom: student.nom,
+      prenom: student.prenom,
+      matricule: student.matricule,
+      lieu_naissance: student.lieu || null,
+      filiere: student.filiere || null,
+      niveau: student.niveau || null,
+      annee_academique: annee,
+      date_generation: dateGeneration
+    })))
+  });
+  if (!Array.isArray(rows) || rows.length !== students.length) {
+    throw new Error('La base n’a pas confirmé l’enregistrement de tous les badges générés.');
+  }
+  badgeDB.unshift(...rows.map(row => ({
+    id: row.id,
+    studentId: row.etudiant_id,
+    nom: row.nom,
+    prenom: row.prenom,
+    matricule: row.matricule,
+    lieu: row.lieu_naissance || '',
+    filiere: row.filiere || '',
+    niveau: row.niveau || '',
+    annee: row.annee_academique || '',
+    dateGeneration: row.date_generation
+  })));
+  updateDashboardStats();
+  renderRecentBadges();
+  renderBadgeTable();
+}
+
+async function saveBadge() {
   const nom = (document.getElementById('badge-nom')?.value || '').trim();
   const prenom = (document.getElementById('badge-prenom')?.value || '').trim();
   const matricule = (document.getElementById('badge-matricule')?.value || '').trim();
@@ -783,8 +1333,12 @@ function saveBadge() {
     return;
   }
 
-  saveBadgeToDB({ nom, prenom, matricule, lieu, filiere, niveau, annee });
-  toast('Badge enregistré dans la base locale !', 'success');
+  try {
+    await saveBadgeToDB({ nom, prenom, matricule, lieu, filiere, niveau, annee });
+    toast('Badge enregistré dans Supabase.', 'success');
+  } catch (error) {
+    toast(`Impossible d’enregistrer le badge : ${error.message}`, 'error');
+  }
 }
 
 function resetBadgeForm() {
@@ -812,7 +1366,7 @@ async function regenerateBadge(id) {
     document.getElementById('badge-lieu').value = badge.lieu || '';
     document.getElementById('badge-filiere').value = badge.filiere || '';
     document.getElementById('badge-niveau').value = badge.niveau || '';
-    document.getElementById('badge-annee').value = badge.annee || '2026 - 2027';
+    document.getElementById('badge-annee').value = badge.annee || '';
     renderOfficialBadgeCanvas();
   }, 100);
 }
@@ -850,12 +1404,18 @@ function filterBadgeList() {
   renderBadgeTable(document.getElementById('badgeSearch').value);
 }
 
-function deleteBadge(id) {
+async function deleteBadge(id) {
   if (!confirm('Supprimer ce badge de la base ?')) return;
-  badgeDB = badgeDB.filter(b => b.id !== id);
-  localStorage.setItem('isgi_badges', JSON.stringify(badgeDB));
-  renderBadgeTable();
-  updateDashboardStats();
+  try {
+    await supabaseRequest(`/rest/v1/informaticien_badges?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+    badgeDB = badgeDB.filter(b => b.id !== id);
+    renderBadgeTable();
+    updateDashboardStats();
+    renderRecentBadges();
+  } catch (error) {
+    toast(`Impossible de supprimer le badge : ${error.message}`, 'error');
+    return;
+  }
 }
 
 // ══ BATCH GENERATION ═════════════════════════════════
@@ -869,11 +1429,6 @@ function loadBatchStudents() {
     const matchN = !niveau || e.niveau === niveau;
     return matchF && matchN;
   });
-
-  // If no real students, add demo
-  if (!batchStudents.length && (filiere || niveau)) {
-    batchStudents = generateDemoStudents(filiere, niveau, 5);
-  }
 
   const count = batchStudents.length;
   document.getElementById('batchCount').textContent = `${count} étudiant(s) sélectionné(s)`;
@@ -897,24 +1452,14 @@ function loadBatchStudents() {
   `).join('');
 }
 
-function generateDemoStudents(filiere, niveau, n) {
-  const noms = ['NGOMA', 'MBEMBA', 'MOUKALA', 'NZITA', 'BAKALA', 'MOUTOU', 'KIMINOU'];
-  const prenoms = ['Jean', 'Marie', 'Pierre', 'Aline', 'David', 'Sandra', 'Kevin'];
-  return Array.from({length: n}, (_, i) => ({
-    id: `demo-${i}`,
-    nom: noms[i % noms.length],
-    prenom: prenoms[i % prenoms.length],
-    matricule: `ISGI-${new Date().getFullYear()}-${String(i+1).padStart(3,'0')}`,
-    filiere: filiere || 'Informatique de Gestion',
-    niveau: niveau || 'Licence 1',
-    lieu: 'Brazzaville',
-  }));
-}
-
 async function generateBatchPDF() {
   if (!batchStudents.length) return;
 
   const annee = document.getElementById('batch-annee').value;
+  if (!annee) {
+    toast('Sélectionnez une année académique issue de la base.', 'error');
+    return;
+  }
   const filiere = document.getElementById('batch-filiere').value || 'Toutes';
   const progressOverlay = document.getElementById('batchProgress');
   const progressBar = document.getElementById('batchProgressBar');
@@ -927,8 +1472,7 @@ async function generateBatchPDF() {
     const masterPdf = await PDFDocument.create();
 
     // Fetch Verso image bytes
-    const versoResponse = await fetch('./images/badge_verso.png');
-    const versoBuffer = await versoResponse.arrayBuffer();
+    const versoBuffer = await getVersoArrayBuffer();
     const versoImage = await masterPdf.embedPng(versoBuffer);
 
     // Create offscreen canvas for rendering official recto
@@ -937,7 +1481,7 @@ async function generateBatchPDF() {
     offCanvas.height = 1535;
 
     for (let i = 0; i < batchStudents.length; i++) {
-      const student = { ...batchStudents[i], annee, directeur: appConfig.directeur || 'ELESSA FREDERIC' };
+      const student = { ...batchStudents[i], annee, directeur: appConfig.directeur || '' };
 
       // Update progress
       const pct = Math.round(((i + 1) / batchStudents.length) * 100);
@@ -946,7 +1490,9 @@ async function generateBatchPDF() {
 
       // Render official recto canvas for this student
       const photoObj = student.photo ? { base64: student.photo, ext: 'jpeg' } : null;
-      await renderBadgeToCanvas(offCanvas, student, photoObj);
+      await renderBadgeToCanvas(offCanvas, student, photoObj, {
+        photoTransform: { zoom: 1, offsetX: 0, offsetY: 0 }
+      });
       const rectoPngBase64 = offCanvas.toDataURL('image/png').replace(/^data:image\/png;base64,/, '');
       const rectoImage = await masterPdf.embedPng(rectoPngBase64);
 
@@ -983,7 +1529,7 @@ async function generateBatchPDF() {
     }
 
     const pdfBytes = await masterPdf.save();
-    const pdfBase64 = Buffer.from(pdfBytes).toString('base64');
+    const pdfBase64 = uint8ArrayToBase64(pdfBytes);
 
     progressOverlay.classList.add('hidden');
 
@@ -992,13 +1538,20 @@ async function generateBatchPDF() {
         pdfBase64,
         batchName: `${filiere.replace(/\s+/g,'_')}_${annee.replace(' - ','_')}`
       });
-      if (result.success) toast(`${batchStudents.length} badges générés → ${result.filePath}`, 'success');
+      if (result.success) {
+        await saveBatchBadgesToDB(batchStudents, annee);
+        toast(`${batchStudents.length} badges générés et enregistrés dans Supabase → ${result.filePath}`, 'success');
+      }
     } else {
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = `data:application/pdf;base64,${pdfBase64}`;
-      link.download = `Badges_Lot.pdf`;
+      link.href = url;
+      link.download = `Badges_Lot_${filiere.replace(/\s+/g,'_')}.pdf`;
       link.click();
-      toast(`${batchStudents.length} badges générés !`, 'success');
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      await saveBatchBadgesToDB(batchStudents, annee);
+      toast(`${batchStudents.length} badges générés et enregistrés dans Supabase.`, 'success');
     }
   } catch (e) {
     console.error(e);
@@ -1009,33 +1562,6 @@ async function generateBatchPDF() {
 
 // ══ VIDÉOS (publique / classe) ════════════════════════
 
-const ISGI_STRUCTURED_CLASSES = [
-  { id: 'L1_IG', nom: 'Licence 1 — Informatique de Gestion (L1-IG)', filiere: 'Informatique de Gestion', niveau: 'Licence 1' },
-  { id: 'L2_IG', nom: 'Licence 2 — Informatique de Gestion (L2-IG)', filiere: 'Informatique de Gestion', niveau: 'Licence 2' },
-  { id: 'L3_IG', nom: 'Licence 3 — Informatique de Gestion (L3-IG)', filiere: 'Informatique de Gestion', niveau: 'Licence 3' },
-  { id: 'BTS1_IG', nom: 'BTS 1 — Informatique de Gestion (BTS1-IG)', filiere: 'Informatique de Gestion', niveau: 'BTS 1' },
-  { id: 'BTS2_IG', nom: 'BTS 2 — Informatique de Gestion (BTS2-IG)', filiere: 'Informatique de Gestion', niveau: 'BTS 2' },
-  { id: 'L1_RT', nom: 'Licence 1 — Réseaux & Télécommunications (L1-RT)', filiere: 'Réseaux et Télécommunications', niveau: 'Licence 1' },
-  { id: 'L2_RT', nom: 'Licence 2 — Réseaux & Télécommunications (L2-RT)', filiere: 'Réseaux et Télécommunications', niveau: 'Licence 2' },
-  { id: 'L3_RT', nom: 'Licence 3 — Réseaux & Télécommunications (L3-RT)', filiere: 'Réseaux et Télécommunications', niveau: 'Licence 3' },
-  { id: 'BTS1_FC', nom: 'BTS 1 — Finance & Comptabilité (BTS1-FC)', filiere: 'Finance et Comptabilité', niveau: 'BTS 1' },
-  { id: 'BTS2_FC', nom: 'BTS 2 — Finance & Comptabilité (BTS2-FC)', filiere: 'Finance et Comptabilité', niveau: 'BTS 2' },
-  { id: 'L1_FC', nom: 'Licence 1 — Finance & Comptabilité (L1-FC)', filiere: 'Finance et Comptabilité', niveau: 'Licence 1' },
-  { id: 'L2_FC', nom: 'Licence 2 — Finance & Comptabilité (L2-FC)', filiere: 'Finance et Comptabilité', niveau: 'Licence 2' },
-  { id: 'L3_FC', nom: 'Licence 3 — Finance & Comptabilité (L3-FC)', filiere: 'Finance et Comptabilité', niveau: 'Licence 3' },
-  { id: 'L1_MC', nom: 'Licence 1 — Marketing & Commerce (L1-MC)', filiere: 'Marketing et Commerce', niveau: 'Licence 1' },
-  { id: 'L2_MC', nom: 'Licence 2 — Marketing & Commerce (L2-MC)', filiere: 'Marketing et Commerce', niveau: 'Licence 2' },
-  { id: 'L3_MC', nom: 'Licence 3 — Marketing & Commerce (L3-MC)', filiere: 'Marketing et Commerce', niveau: 'Licence 3' },
-  { id: 'L1_GE', nom: 'Licence 1 — Gestion des Entreprises (L1-GE)', filiere: 'Gestion des Entreprises', niveau: 'Licence 1' },
-  { id: 'L2_GE', nom: 'Licence 2 — Gestion des Entreprises (L2-GE)', filiere: 'Gestion des Entreprises', niveau: 'Licence 2' },
-  { id: 'L3_GE', nom: 'Licence 3 — Gestion des Entreprises (L3-GE)', filiere: 'Gestion des Entreprises', niveau: 'Licence 3' },
-  { id: 'L1_DA', nom: 'Licence 1 — Droit des Affaires (L1-DA)', filiere: 'Droit des Affaires', niveau: 'Licence 1' },
-  { id: 'L2_DA', nom: 'Licence 2 — Droit des Affaires (L2-DA)', filiere: 'Droit des Affaires', niveau: 'Licence 2' },
-  { id: 'L3_DA', nom: 'Licence 3 — Droit des Affaires (L3-DA)', filiere: 'Droit des Affaires', niveau: 'Licence 3' },
-  { id: 'M1_INFO', nom: 'Master 1 — Informatique & Systèmes (M1-INFO)', filiere: 'Informatique', niveau: 'Master 1' },
-  { id: 'M2_INFO', nom: 'Master 2 — Informatique & Systèmes (M2-INFO)', filiere: 'Informatique', niveau: 'Master 2' },
-];
-
 let currentVideoTab = 'publique';
 let currentVideoFilter = 'all';
 let currentVisibilite = 'publique';
@@ -1045,27 +1571,25 @@ function initClassDropdowns() {
   const modalSel = document.getElementById('video-classe-select');
   const filterSel = document.getElementById('filter-classe');
 
-  if (modalSel && modalSel.options.length <= 1) {
-    ISGI_STRUCTURED_CLASSES.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.nom;
-      modalSel.appendChild(opt);
-    });
-  }
+  fillClassOptions(modalSel, '-- Choisir une classe --');
+  fillClassOptions(filterSel, '🎓 Toutes les classes');
+}
 
-  if (filterSel && filterSel.options.length <= 1) {
-    ISGI_STRUCTURED_CLASSES.forEach(c => {
-      const opt = document.createElement('option');
-      opt.value = c.id;
-      opt.textContent = c.nom;
-      filterSel.appendChild(opt);
-    });
-  }
+function fillClassOptions(select, placeholder) {
+  if (!select) return;
+  const previous = select.value;
+  select.replaceChildren(new Option(placeholder, ''));
+  academicClasses.forEach(item => {
+    const option = new Option(item.nom, item.id);
+    option.dataset.filiere = item.filiere;
+    option.dataset.niveau = item.niveau;
+    select.add(option);
+  });
+  if (academicClasses.some(item => item.id === previous)) select.value = previous;
 }
 
 function onVideoClasseSelectChange(val) {
-  const found = ISGI_STRUCTURED_CLASSES.find(c => c.id === val);
+  const found = academicClasses.find(c => c.id === val);
   selectedClasseObj = found || null;
   const f = document.getElementById('video-filiere');
   const n = document.getElementById('video-niveau');
@@ -1136,96 +1660,103 @@ async function selectThumbnail() {
   document.getElementById('thumbLabel').textContent = '✓ Miniature sélectionnée';
 }
 
-function addVideo() {
+async function addVideo() {
   const titre = document.getElementById('video-titre').value.trim();
   const desc = document.getElementById('video-desc').value.trim();
   const categorie = document.getElementById('video-categorie').value;
-
   if (!titre) { toast('Le titre est requis', 'error'); return; }
-  if (!currentVideoPath) { toast('Sélectionnez un fichier vidéo', 'error'); return; }
+  if (!currentVideoPath) { toast('Sélectionnez un fichier vidéo.', 'error'); return; }
 
-  let classe_id = null;
-  let classe_nom = null;
-  let classe_filiere = null;
-  let classe_niveau = null;
-
+  let classe = null;
   if (currentVisibilite === 'classe') {
-    const csVal = document.getElementById('video-classe-select')?.value;
-    const found = ISGI_STRUCTURED_CLASSES.find(c => c.id === csVal);
-    classe_filiere = document.getElementById('video-filiere')?.value || (found ? found.filiere : null);
-    classe_niveau  = document.getElementById('video-niveau')?.value  || (found ? found.niveau : null);
-
-    if (found) {
-      classe_id = found.id;
-      classe_nom = found.nom;
-    } else if (classe_filiere && classe_niveau) {
-      classe_id = classe_filiere.substring(0, 3).toUpperCase() + '_' + classe_niveau.replace(/\s+/g, '');
-      classe_nom = `${classe_niveau} — ${classe_filiere}`;
-    } else {
-      toast('Veuillez sélectionner la classe destinataire de la vidéo', 'error');
-      return;
-    }
+    classe = academicClasses.find(item => item.id === document.getElementById('video-classe-select')?.value);
+    if (!classe) { toast('Sélectionnez une classe existante dans la base académique.', 'error'); return; }
   }
 
-  const video = {
-    id: Date.now().toString(),
-    titre, desc, categorie,
-    visibilite: currentVisibilite,
-    classe_id,
-    classe_nom,
-    classe_filiere,
-    classe_niveau,
-    classe_label: currentVisibilite === 'publique'
-      ? '🌐 Publique'
-      : ('🎓 ' + (classe_nom || `${classe_filiere} — ${classe_niveau}`)),
-    path: currentVideoPath,
-    thumb: currentThumbBase64,
-    dateAjout: new Date().toISOString(),
-    publie_par_nom: 'Service Informatique',
-    vues: 0,
+  const session = JSON.parse(localStorage.getItem(authSessionKey) || '{}');
+  const fileName = currentVideoPath.split('\\').pop();
+  const extension = fileName.split('.').pop().toLowerCase();
+  const videoMimeTypes = {
+    mp4: 'video/mp4', webm: 'video/webm', mkv: 'video/x-matroska',
+    avi: 'video/avi', mov: 'video/quicktime'
   };
+  const contentType = videoMimeTypes[extension];
+  if (!contentType) { toast('Format vidéo non pris en charge.', 'error'); return; }
 
-  videoDB.unshift(video);
-  localStorage.setItem('isgi_videos', JSON.stringify(videoDB));
+  const basePath = `${session.userId}/${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  showLoading('Téléversement et publication de la vidéo...');
+  let videoPath = null;
+  let thumbnailPath = null;
+  let videoPublished = false;
+  try {
+    const uploadedVideo = await window.electronAPI.uploadVideo({
+      filePath: currentVideoPath,
+      objectPath: basePath,
+      userId: session.userId,
+      accessToken: await getCurrentAccessToken(),
+      contentType
+    });
+    videoPath = uploadedVideo.storagePath;
 
-  // Sync Supabase en tâche de fond si configuré
-  if (appConfig.supabaseUrl && appConfig.supabaseKey) {
-    try {
-      fetch(`${appConfig.supabaseUrl}/rest/v1/videos`, {
+    if (currentThumbBase64) {
+      const thumbnail = await (await fetch(currentThumbBase64)).blob();
+      const thumbExtension = thumbnail.type === 'image/png' ? 'png' : thumbnail.type === 'image/webp' ? 'webp' : 'jpg';
+      thumbnailPath = `${session.userId}/${Date.now()}-thumb.${thumbExtension}`;
+      const encodedPath = thumbnailPath.split('/').map(encodeURIComponent).join('/');
+      await supabaseRequest(`/storage/v1/object/videos-isgi/${encodedPath}`, {
         method: 'POST',
-        headers: {
-          'apikey': appConfig.supabaseKey,
-          'Authorization': `Bearer ${appConfig.supabaseKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          titre: video.titre,
-          description: video.desc,
-          categorie: video.categorie,
-          visibilite: video.visibilite,
-          classe_id: video.classe_id,
-          classe_nom: video.classe_nom,
-          classe_filiere: video.classe_filiere,
-          classe_niveau: video.classe_niveau,
-          publie_par_nom: video.publie_par_nom,
-          statut: 'publie'
-        })
-      }).catch(err => console.warn('Supabase videos sync:', err));
-    } catch {}
+        headers: { 'Content-Type': thumbnail.type, 'x-upsert': 'false' },
+        body: thumbnail
+      });
+    }
+
+    const responseRows = await supabaseRequest('/rest/v1/videos', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify([{
+        titre,
+        description: desc,
+        categorie,
+        visibilite: currentVisibilite,
+        classe_id: classe?.id || null,
+        classe_nom: classe?.nom || null,
+        classe_filiere: classe?.filiere || null,
+        classe_niveau: classe?.niveau || null,
+        url_video: videoPath,
+        url_miniature: thumbnailPath,
+        publie_par: session.userId,
+        publie_par_nom: document.getElementById('signedInUser')?.textContent || 'Service Informatique',
+        statut: 'publie'
+      }])
+    });
+    if (!responseRows?.[0]?.id) throw new Error('Supabase n’a pas confirmé la publication de la vidéo.');
+    videoPublished = true;
+
+    closeAddVideoModal();
+    await loadSupabaseData();
+    const tabBtn = document.querySelector('[data-tab="' + currentVisibilite + '"]');
+    if (tabBtn) switchVideoTab(currentVisibilite, tabBtn);
+    const where = currentVisibilite === 'publique' ? 'bibliothèque publique' : `classe ${classe.nom}`;
+    toast(`Vidéo « ${titre} » publiée dans la ${where}.`, 'success');
+  } catch (error) {
+    console.error('Publication vidéo impossible:', error);
+    if (!videoPublished) {
+      for (const objectPath of [thumbnailPath, videoPath]) {
+        if (!objectPath) continue;
+        try {
+          await deleteStorageObjects('videos-isgi', [objectPath]);
+        } catch (cleanupError) {
+          console.error(`Nettoyage du stockage impossible (${objectPath}):`, cleanupError);
+        }
+      }
+    }
+    toast(videoPublished
+      ? `Vidéo publiée, mais l’actualisation des données a échoué : ${error.message}`
+      : `Impossible de publier la vidéo : ${error.message}`, 'error');
+  } finally {
+    hideLoading();
   }
-
-  closeAddVideoModal();
-  // Basculer sur le bon onglet
-  const tabBtn = document.querySelector('[data-tab="' + currentVisibilite + '"]');
-  if (tabBtn) switchVideoTab(currentVisibilite, tabBtn);
-  else renderVideoGrid();
-  updateDashboardStats();
-  updateVideoTabCounts();
-  const where = currentVisibilite === 'publique' ? 'bibliothèque publique' : ('classe ' + (classe_nom || classe_filiere));
-  toast('Vidéo "' + titre + '" publiée pour la ' + where, 'success');
 }
-
 function updateVideoTabCounts() {
   const cp = document.getElementById('countPublique');
   const cc = document.getElementById('countClasse');
@@ -1303,13 +1834,31 @@ function renderVideoGrid() {
   `).join('');
 }
 
-function deleteVideo(id) {
+async function deleteVideo(id) {
   if (!confirm('Supprimer cette vidéo de la bibliothèque ?')) return;
-  videoDB = videoDB.filter(v => v.id !== id);
-  localStorage.setItem('isgi_videos', JSON.stringify(videoDB));
-  renderVideoGrid();
-  updateDashboardStats();
-  toast('Vidéo supprimée', 'info');
+  const video = videoDB.find(item => item.id === id);
+  if (!video) return;
+  try {
+    await supabaseRequest(`/rest/v1/videos?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+    videoDB = videoDB.filter(item => item.id !== id);
+    renderVideoGrid();
+    updateDashboardStats();
+    let cleanupFailed = false;
+    for (const objectPath of [video.storagePath, video.thumbnailPath]) {
+      if (!objectPath) continue;
+      try {
+        await deleteStorageObjects('videos-isgi', [objectPath]);
+      } catch (storageError) {
+        cleanupFailed = true;
+        console.error(`Suppression du fichier vidéo impossible (${objectPath}):`, storageError);
+      }
+    }
+    toast(cleanupFailed
+      ? 'Vidéo supprimée de la base; un fichier de stockage n’a pas pu être supprimé.'
+      : 'Vidéo supprimée de Supabase.', cleanupFailed ? 'error' : 'info');
+  } catch (error) {
+    toast(`Impossible de supprimer la vidéo : ${error.message}`, 'error');
+  }
 }
 
 async function playVideo(id) {
@@ -1323,8 +1872,15 @@ async function playVideo(id) {
     video.categorie + ' · ' + (video.classe_label || '🌐 Publique') +
     ' · ' + new Date(video.dateAjout).toLocaleDateString('fr-FR');
 
-  if (video.path) {
-    player.src = video.path.startsWith('http') ? video.path : 'file://' + video.path;
+  if (video.storagePath) {
+    try {
+      player.src = await getSignedStorageUrl('videos-isgi', video.storagePath);
+    } catch (error) {
+      toast(`Impossible de lire la vidéo : ${error.message}`, 'error');
+      return;
+    }
+  } else if (video.path) {
+    player.src = video.path;
   }
 
   modal.classList.remove('hidden');
@@ -1344,12 +1900,6 @@ async function syncEtudiants() {
   const url = appConfig.supabaseUrl;
   const key = appConfig.supabaseKey;
 
-  if (!url || !key) {
-    toast('Configurez d\'abord la connexion Supabase dans Paramètres', 'info');
-    navigate('parametres');
-    return;
-  }
-
   showLoading('Synchronisation avec Supabase...');
   try {
     const response = await fetch(`${url}/rest/v1/etudiants?select=*&order=nom.asc`, {
@@ -1361,41 +1911,10 @@ async function syncEtudiants() {
     });
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-
-    etudiantsDB = data.map(e => ({
-      id: e.id,
-      nom: e.nom || e.last_name || '',
-      prenom: e.prenom || e.first_name || '',
-      matricule: e.matricule || e.numero_isgi || `ISGI-${e.id}`,
-      filiere: e.filiere || '',
-      niveau: e.niveau || '',
-      lieu: e.lieu_naissance || '',
-      photo: e.photo_url || null,
-    }));
-
-    localStorage.setItem('isgi_etudiants', JSON.stringify(etudiantsDB));
-    renderEtudiantsTable();
-    renderBadgeStudioStudents();
-    updateDashboardStats();
+    await loadSupabaseData();
     toast(`${etudiantsDB.length} étudiant(s) synchronisés`, 'success');
   } catch (e) {
-    console.warn('Supabase sync error, trying local endpoint:', e);
-    // Fallback to local WAMP API
-    try {
-      const localRes = await fetch('http://172.16.202.33/isgi_system/ajax/get_all_etudiants.php');
-      const localData = await localRes.json();
-      if (localData && localData.etudiants && localData.etudiants.length > 0) {
-        etudiantsDB = localData.etudiants;
-        localStorage.setItem('isgi_etudiants', JSON.stringify(etudiantsDB));
-        renderEtudiantsTable();
-        renderBadgeStudioStudents();
-        updateDashboardStats();
-        toast(`${etudiantsDB.length} étudiant(s) chargés depuis la base locale`, 'success');
-        return;
-      }
-    } catch (e2) {}
-    toast(`Erreur de synchronisation: ${e.message}`, 'error');
+    toast(`Erreur de synchronisation Supabase : ${e.message}`, 'error');
   } finally {
     hideLoading();
   }
@@ -1408,7 +1927,7 @@ function renderEtudiantsTable(filter = '') {
     : etudiantsDB;
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Cliquer sur "Sync Supabase" pour charger les étudiants</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Aucun étudiant présent dans la base de données.</td></tr>';
     return;
   }
 
@@ -1453,34 +1972,26 @@ function quickBadge(id) {
 
 // ══ PARAMÈTRES ═══════════════════════════════════════
 
-async function saveSupabaseConfig() {
-  appConfig.supabaseUrl = document.getElementById('supabase-url').value.trim();
-  appConfig.supabaseKey = document.getElementById('supabase-key').value.trim();
-  localStorage.setItem('isgi_config', JSON.stringify(appConfig));
-
-  const resultEl = document.getElementById('supabase-test-result');
-  resultEl.classList.remove('hidden', 'success', 'error');
-
+async function saveAppParams() {
+  const directeur = document.getElementById('param-directeur').value.trim();
+  const anneeDefaut = document.getElementById('param-annee').value;
   try {
-    const response = await fetch(`${appConfig.supabaseUrl}/rest/v1/`, {
-      headers: { 'apikey': appConfig.supabaseKey }
+    await supabaseRequest('/rest/v1/informaticien_parametres?on_conflict=id', {
+      method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify([{ id: 'global', directeur, annee_defaut: anneeDefaut || null }])
     });
-    if (response.ok || response.status === 200 || response.status === 400) {
-      resultEl.classList.add('success');
-      resultEl.textContent = '✓ Connexion réussie ! Configuration sauvegardée.';
-      checkSupabaseConnection();
-    } else throw new Error(`HTTP ${response.status}`);
-  } catch (e) {
-    resultEl.classList.add('error');
-    resultEl.textContent = `✗ Erreur : ${e.message}`;
+    appConfig.directeur = directeur;
+    appConfig.anneeDefaut = anneeDefaut;
+    const localConfig = JSON.parse(localStorage.getItem('isgi_config') || '{}');
+    delete localConfig.directeur;
+    delete localConfig.anneeDefaut;
+    localConfig.outputDir = appConfig.outputDir;
+    localStorage.setItem('isgi_config', JSON.stringify(localConfig));
+    toast('Paramètres enregistrés dans Supabase.', 'success');
+  } catch (error) {
+    toast(`Impossible d'enregistrer les paramètres : ${error.message}`, 'error');
   }
-}
-
-function saveAppParams() {
-  appConfig.directeur = document.getElementById('param-directeur').value.trim();
-  appConfig.anneeDefaut = document.getElementById('param-annee').value;
-  localStorage.setItem('isgi_config', JSON.stringify(appConfig));
-  toast('Paramètres sauvegardés', 'success');
 }
 
 async function chooseOutputDir() {
@@ -1493,27 +2004,544 @@ async function chooseOutputDir() {
   }
 }
 
-async function checkSupabaseConnection() {
+function checkSupabaseConnection() {
   const dot = document.getElementById('statusDot');
   const text = document.getElementById('statusText');
+  dot.className = 'status-dot';
+  text.textContent = 'Connexion requise';
+}
 
-  if (!appConfig.supabaseUrl || !appConfig.supabaseKey) {
-    dot.className = 'status-dot offline';
-    text.textContent = 'Non configuré';
-    return;
+function setSupabaseStatus(connected, label) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className = `status-dot ${connected ? 'online' : 'offline'}`;
+  text.textContent = label;
+}
+
+// ══ AUTHENTICATION ════════════════════════════════════
+
+const authSessionKey = 'isgi_auth_session';
+const allowedAuthRoles = ['informaticien', 'informaticiens', 'admin', 'admin_principal'];
+
+function setLoginStatus(message) {
+  const status = document.getElementById('loginStatus');
+  status.textContent = message;
+  status.classList.toggle('hidden', !message);
+}
+
+async function readSupabaseResponse(response) {
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error(`Réponse Supabase illisible (HTTP ${response.status}).`);
   }
 
-  try {
-    const r = await fetch(`${appConfig.supabaseUrl}/rest/v1/`, {
-      headers: { 'apikey': appConfig.supabaseKey }
+  if (!response.ok) {
+    const message = body.msg || body.message || body.error_description || body.error;
+    const error = new Error(message || `Erreur Supabase (HTTP ${response.status}).`);
+    error.status = response.status;
+    error.code = body.code;
+    throw error;
+  }
+
+  return body;
+}
+
+async function getCurrentAccessToken() {
+  const stored = localStorage.getItem(authSessionKey);
+  if (!stored) throw new Error('Connectez-vous pour accéder aux données ISGI.');
+
+  const session = JSON.parse(stored);
+  if (session.expiresAt < Date.now() + 60_000) {
+    const response = await fetch(`${appConfig.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: {
+        apikey: appConfig.supabaseKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ refresh_token: session.refreshToken })
     });
-    if (r.ok || r.status === 400) {
-      dot.className = 'status-dot online';
-      text.textContent = 'Connecté';
-    } else throw new Error();
-  } catch {
-    dot.className = 'status-dot offline';
-    text.textContent = 'Hors ligne';
+    const refreshed = await readSupabaseResponse(response);
+    session.accessToken = refreshed.access_token;
+    session.refreshToken = refreshed.refresh_token;
+    session.expiresAt = Date.now() + (refreshed.expires_in || 3600) * 1000;
+    localStorage.setItem(authSessionKey, JSON.stringify(session));
+  }
+
+  return session.accessToken;
+}
+
+async function supabaseRequest(path, options = {}) {
+  const accessToken = await getCurrentAccessToken();
+  const response = await fetch(`${appConfig.supabaseUrl}${path}`, {
+    ...options,
+    headers: {
+      apikey: appConfig.supabaseKey,
+      Authorization: `Bearer ${accessToken}`,
+      ...(options.body && !(options.body instanceof Blob) ? { 'Content-Type': 'application/json' } : {}),
+      ...options.headers
+    }
+  });
+
+  if (response.status === 204) return null;
+  return readSupabaseResponse(response);
+}
+
+async function fetchSupabaseRows(table, query = 'select=*') {
+  const rows = [];
+  let offset = 0;
+
+  while (true) {
+    const response = await fetch(`${appConfig.supabaseUrl}/rest/v1/${table}?${query}`, {
+      headers: {
+        apikey: appConfig.supabaseKey,
+        Authorization: `Bearer ${await getCurrentAccessToken()}`,
+        Range: `${offset}-${offset + 999}`
+      }
+    });
+    const page = await readSupabaseResponse(response);
+    if (!Array.isArray(page)) throw new Error(`Réponse inattendue pour la table ${table}.`);
+    rows.push(...page);
+    if (page.length < 1000) return rows;
+    offset += page.length;
+  }
+}
+
+async function fetchOptionalSupabaseRows(table, query) {
+  try {
+    return await fetchSupabaseRows(table, query);
+  } catch (error) {
+    const tableMissing = error.status === 404 &&
+      (error.code === 'PGRST205' || error.message.includes(`public.${table}`));
+    if (!tableMissing) throw error;
+    console.warn(`Table public.${table} absente; exécutez la migration SQL de l'application Informaticien.`);
+    return null;
+  }
+}
+
+async function ensureStorageBucket(bucketName) {
+  try {
+    const res = await fetch(`${appConfig.supabaseUrl}/storage/v1/bucket/${bucketName}`, {
+      headers: {
+        apikey: appConfig.supabaseKey,
+        Authorization: `Bearer ${await getCurrentAccessToken()}`
+      }
+    });
+    if (res.status === 404) {
+      await supabaseRequest('/storage/v1/bucket', {
+        method: 'POST',
+        body: JSON.stringify({ id: bucketName, name: bucketName, public: true, fileSizeLimit: 5242880 })
+      });
+      console.log(`Bucket "${bucketName}" créé en accès public dans Supabase Storage.`);
+    }
+  } catch (e) {
+    console.warn(`Vérification/création bucket "${bucketName}" échouée:`, e);
+  }
+}
+
+function normalizeStorageUrl(url) {
+  if (!url) return null;
+  return url.replace(/(\.supabase\.co)\/object\//, '$1/storage/v1/object/');
+}
+
+async function getSignedStorageUrl(bucket, objectPath) {
+  if (!objectPath) return null;
+  if (/^https?:\/\//i.test(objectPath)) return normalizeStorageUrl(objectPath);
+
+  const result = await supabaseRequest(`/storage/v1/object/sign/${bucket}/${objectPath.split('/').map(encodeURIComponent).join('/')}`, {
+    method: 'POST',
+    body: JSON.stringify({ expiresIn: 86400 }) // 24h
+  });
+  const signedPath = result.signedURL || result.signedUrl;
+  if (!signedPath) throw new Error(`Supabase n’a pas renvoyé d’URL de lecture pour ${objectPath}.`);
+  if (signedPath.startsWith('http')) return normalizeStorageUrl(signedPath);
+  const normalizedPath = signedPath.startsWith('/storage/v1')
+    ? signedPath
+    : `/storage/v1${signedPath.startsWith('/') ? '' : '/'}${signedPath}`;
+  return `${appConfig.supabaseUrl}${normalizedPath}`;
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error('Erreur de conversion de l’image'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function getSignedStorageDataUrl(bucket, objectPath) {
+  if (!objectPath) return null;
+  if (objectPath.startsWith('data:')) return objectPath;
+
+  try {
+    const signedUrl = await getSignedStorageUrl(bucket, objectPath);
+    if (!signedUrl) return null;
+    const response = await fetch(signedUrl);
+    if (!response.ok) {
+      console.warn(`Téléchargement de la photo (${objectPath}) : HTTP ${response.status}`);
+      return null;
+    }
+    const blob = await response.blob();
+    return await blobToDataUrl(blob);
+  } catch (error) {
+    console.warn(`Impossible de télécharger la photo (${objectPath}):`, error);
+    return null;
+  }
+}
+
+async function deleteStorageObjects(bucket, objectPaths) {
+  if (!objectPaths.length) return;
+  await supabaseRequest(`/storage/v1/object/${bucket}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ prefixes: objectPaths })
+  });
+}
+
+function fillOptions(selectId, values, placeholder) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const previous = select.value;
+  select.replaceChildren(new Option(placeholder, ''));
+  [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'fr'))
+    .forEach(value => {
+    select.add(new Option(value, value));
+  });
+  if (values.includes(previous)) select.value = previous;
+}
+
+function populateAcademicOptions() {
+  const filieres = [
+    ...academicClasses.map(item => item.filiere),
+    ...etudiantsDB.map(item => item.filiere)
+  ];
+  const niveaux = [
+    ...academicClasses.map(item => item.niveau),
+    ...etudiantsDB.map(item => item.niveau)
+  ];
+  const annees = [
+    ...academicClasses.map(item => item.annee_academique),
+    ...etudiantsDB.map(item => item.annee_academique),
+    appConfig.anneeDefaut
+  ];
+
+  fillOptions('badge-filiere', filieres, '-- Choisir --');
+  fillOptions('badge-niveau', niveaux, '-- Choisir --');
+  fillOptions('badge-annee', annees, '-- Choisir --');
+  fillOptions('batch-filiere', filieres, 'Toutes les filières');
+  fillOptions('batch-niveau', niveaux, 'Tous les niveaux');
+  fillOptions('batch-annee', annees, '-- Choisir une année --');
+  fillOptions('param-annee', annees, '-- Choisir une année --');
+  document.getElementById('param-annee').value = appConfig.anneeDefaut || '';
+  document.getElementById('badge-annee').value ||= appConfig.anneeDefaut || '';
+  document.getElementById('batch-annee').value ||= appConfig.anneeDefaut || '';
+}
+
+async function loadSupabaseData() {
+  showLoading('Chargement des données académiques...');
+  // S'assurer que le bucket de photos existe dans Supabase Storage
+  await ensureStorageBucket('student-photos');
+  try {
+    const [students, classes, badgesResult, videos, parametersResult] = await Promise.all([
+      fetchSupabaseRows('etudiants', 'select=*&order=nom.asc'),
+      fetchSupabaseRows('classes', 'select=*&order=nom.asc'),
+      fetchOptionalSupabaseRows('informaticien_badges', 'select=*&order=date_generation.desc'),
+      fetchSupabaseRows('videos', 'select=*&order=created_at.desc'),
+      fetchOptionalSupabaseRows('informaticien_parametres', 'select=*&id=eq.global')
+    ]);
+    const badges = badgesResult || [];
+    const parameters = parametersResult || [];
+    const missingTables = [
+      ...(badgesResult === null ? ['informaticien_badges'] : []),
+      ...(parametersResult === null ? ['informaticien_parametres'] : [])
+    ];
+    const setupNotice = document.getElementById('supabaseSetupNotice');
+    if (missingTables.length) {
+      setupNotice.textContent = `Migration Supabase requise : table(s) manquante(s) ${missingTables.map(name => `public.${name}`).join(', ')}. Exécutez app_informaticien/supabase_photo_setup.sql dans le SQL Editor Supabase, puis actualisez les données.`;
+      setupNotice.classList.remove('hidden');
+      toast('La connexion fonctionne, mais les tables de l’application manquent. Consultez Paramètres pour appliquer la migration Supabase.', 'error');
+    } else {
+      setupNotice.textContent = '';
+      setupNotice.classList.add('hidden');
+    }
+    appConfig.anneeDefaut = parameters[0]?.annee_defaut || '';
+    appConfig.directeur = parameters[0]?.directeur || '';
+    document.getElementById('param-directeur').value = appConfig.directeur;
+
+    const classesById = new Map(classes.map(item => [String(item.id), item]));
+    const photoLoadFailures = [];
+    const cachedPhotos = getLocalStudentPhotos();
+    etudiantsDB = await Promise.all(students.map(async student => {
+      const photoPath = student.photo_url && !/^https?:\/\//i.test(student.photo_url) && student.photo_url !== 'local' ? student.photo_url : null;
+      let photo = null;
+      if (photoPath) {
+        try {
+          photo = await getSignedStorageDataUrl('student-photos', photoPath);
+        } catch (error) {
+          console.warn(`Chargement de la photo Supabase impossible pour ${student.matricule || student.id}:`, error);
+        }
+      }
+      // Restaurer la photo depuis le cache local si indisponible sur Supabase
+      if (!photo) {
+        if (student.matricule && cachedPhotos[student.matricule]) {
+          photo = cachedPhotos[student.matricule];
+        } else if (student.id && cachedPhotos[String(student.id)]) {
+          photo = cachedPhotos[String(student.id)];
+        }
+      } else {
+        // Mettre en cache local pour affichage immédiat au prochain redémarrage
+        saveLocalStudentPhoto(student, photo);
+      }
+      return {
+        ...student,
+        id: String(student.id),
+        nom: student.nom || student.last_name || '',
+        prenom: student.prenom || student.first_name || '',
+        matricule: student.matricule || '',
+        filiere: student.filiere || classesById.get(String(student.classe_id))?.filiere || '',
+        niveau: student.niveau || classesById.get(String(student.classe_id))?.niveau || '',
+        lieu: student.lieu_naissance || '',
+        annee_academique: student.annee_academique || '',
+        photoPath,
+        photo
+      };
+    }));
+    if (photoLoadFailures.length) {
+      toast(`Impossible de charger ${photoLoadFailures.length} photo(s) étudiant. Les fiches et les badges restent disponibles; vérifiez le stockage Supabase.`, 'error');
+    }
+    academicClasses = classes.map(item => ({
+      id: String(item.id),
+      nom: item.nom || item.code || String(item.id),
+      filiere: item.filiere || '',
+      niveau: item.niveau || '',
+      annee_academique: item.annee_academique || ''
+    }));
+    badgeDB = badges.map(item => ({
+      id: item.id,
+      studentId: item.etudiant_id,
+      nom: item.nom,
+      prenom: item.prenom,
+      matricule: item.matricule,
+      lieu: item.lieu_naissance || '',
+      filiere: item.filiere || '',
+      niveau: item.niveau || '',
+      annee: item.annee_academique || '',
+      dateGeneration: item.date_generation
+    }));
+    videoDB = await Promise.all(videos.map(async item => ({
+      id: item.id,
+      titre: item.titre,
+      desc: item.description || '',
+      categorie: item.categorie,
+      visibilite: item.visibilite,
+      classe_id: item.classe_id,
+      classe_nom: item.classe_nom,
+      classe_filiere: item.classe_filiere,
+      classe_niveau: item.classe_niveau,
+      classe_label: item.visibilite === 'classe' ? `🎓 ${item.classe_nom || item.classe_id}` : '🌐 Publique',
+      storagePath: item.url_video || '',
+      thumbnailPath: item.url_miniature || '',
+      thumb: item.url_miniature ? await getSignedStorageUrl('videos-isgi', item.url_miniature) : '',
+      path: item.url_video ? await getSignedStorageUrl('videos-isgi', item.url_video) : '',
+      dateAjout: item.created_at,
+      publie_par_nom: item.publie_par_nom || '',
+      vues: item.vues || 0
+    })));
+
+    populateAcademicOptions();
+    renderEtudiantsTable();
+    renderBadgeStudioStudents();
+    renderBadgeTable();
+    renderRecentBadges();
+    renderVideoGrid();
+    updateDashboardStats();
+    loadBatchStudents();
+    setSupabaseStatus(true, missingTables.length ? 'Migration requise' : 'Connecté');
+  } catch (error) {
+    setSupabaseStatus(false, error.status === 401 || error.status === 403 ? 'Accès refusé' : 'Erreur Supabase');
+    toast(`Impossible de charger les données Supabase : ${error.message}`, 'error');
+    throw error;
+  } finally {
+    hideLoading();
+  }
+}
+
+async function getAuthorizedProfile(userId, accessToken) {
+  const query = new URLSearchParams({
+    id: `eq.${userId}`,
+    select: 'id,nom_complet,role,statut'
+  });
+  const response = await fetch(`${appConfig.supabaseUrl}/rest/v1/utilisateurs?${query}`, {
+    headers: {
+      apikey: appConfig.supabaseKey,
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  const profiles = await readSupabaseResponse(response);
+  const profile = profiles[0];
+
+  if (!profile) {
+    throw new Error('Aucun profil Informaticien associé à ce compte. Contacte l’administrateur.');
+  }
+  if (profile.statut !== 'actif' || !allowedAuthRoles.includes(profile.role)) {
+    throw new Error('Accès refusé : ce compte n’est pas autorisé dans l’application Informaticien.');
+  }
+
+  return profile;
+}
+
+function showAuthenticatedUser(profile, email, accessToken, refreshToken, expiresAt) {
+  localStorage.setItem(authSessionKey, JSON.stringify({
+    userId: profile.id,
+    name: profile.nom_complet || email,
+    email,
+    accessToken,
+    refreshToken,
+    expiresAt
+  }));
+  document.getElementById('signedInUser').textContent = profile.nom_complet || email;
+  document.getElementById('signedInUser').classList.remove('hidden');
+  document.getElementById('signOutButton').classList.remove('hidden');
+  document.getElementById('authScreen').classList.add('hidden');
+}
+
+function showLoginScreen(message = '') {
+  document.getElementById('signedInUser').classList.add('hidden');
+  document.getElementById('signOutButton').classList.add('hidden');
+  document.getElementById('authScreen').classList.remove('hidden');
+  if (message) setLoginStatus(message);
+}
+
+async function signIn(event) {
+  event.preventDefault();
+  const button = document.getElementById('authSubmit');
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  button.disabled = true;
+  button.textContent = 'Connexion en cours...';
+  setLoginStatus('');
+  let authSession = null;
+
+  try {
+    const response = await fetch(`${appConfig.supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        apikey: appConfig.supabaseKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password })
+    });
+    authSession = await readSupabaseResponse(response);
+    const profile = await getAuthorizedProfile(authSession.user.id, authSession.access_token);
+    const expiresAt = Date.now() + (authSession.expires_in || 3600) * 1000;
+    showAuthenticatedUser(profile, email, authSession.access_token, authSession.refresh_token, expiresAt);
+    setLoginStatus('');
+    try {
+      await loadSupabaseData();
+    } catch (dataError) {
+      console.error('Chargement des données Supabase impossible:', dataError);
+    }
+  } catch (error) {
+    if (authSession?.access_token) {
+      try {
+        const signOutResponse = await fetch(`${appConfig.supabaseUrl}/auth/v1/logout`, {
+          method: 'POST',
+          headers: {
+            apikey: appConfig.supabaseKey,
+            Authorization: `Bearer ${authSession.access_token}`
+          }
+        });
+        if (!signOutResponse.ok) {
+          throw new Error(`HTTP ${signOutResponse.status}`);
+        }
+      } catch (signOutError) {
+        console.error('Impossible de fermer la session du compte non autorisé:', signOutError);
+      }
+    }
+    const message = error.message || 'Connexion impossible. Vérifie ta connexion Internet et réessaie.';
+    if (/invalid login credentials/i.test(message)) {
+      setLoginStatus('Adresse e-mail ou mot de passe incorrect.');
+    } else if (/email not confirmed/i.test(message)) {
+      setLoginStatus('Cette adresse e-mail n’a pas encore été confirmée.');
+    } else {
+      setLoginStatus(message);
+    }
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Se connecter';
+  }
+}
+
+async function restoreAuthSession() {
+  const storedSession = localStorage.getItem(authSessionKey);
+  if (!storedSession) return;
+
+  let authenticated = false;
+  try {
+    const saved = JSON.parse(storedSession);
+    let accessToken = saved.accessToken;
+    let refreshToken = saved.refreshToken;
+    let expiresAt = saved.expiresAt;
+
+    if (expiresAt < Date.now() + 60_000) {
+      const refreshResponse = await fetch(`${appConfig.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          apikey: appConfig.supabaseKey,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      const refreshed = await readSupabaseResponse(refreshResponse);
+      accessToken = refreshed.access_token;
+      refreshToken = refreshed.refresh_token;
+      expiresAt = Date.now() + (refreshed.expires_in || 3600) * 1000;
+    } else {
+      const userResponse = await fetch(`${appConfig.supabaseUrl}/auth/v1/user`, {
+        headers: {
+          apikey: appConfig.supabaseKey,
+          Authorization: `Bearer ${accessToken}`
+        }
+      });
+      const user = await readSupabaseResponse(userResponse);
+      if (user.id !== saved.userId) throw new Error('Session Supabase invalide.');
+    }
+
+    const profile = await getAuthorizedProfile(saved.userId, accessToken);
+    showAuthenticatedUser(profile, saved.email, accessToken, refreshToken, expiresAt);
+    authenticated = true;
+    await loadSupabaseData();
+  } catch (error) {
+    if (authenticated) {
+      console.error('Chargement/restauration des données Supabase impossible:', error);
+      toast(`Données indisponibles : ${error.message}`, 'error');
+      return;
+    }
+    localStorage.removeItem(authSessionKey);
+    showLoginScreen(error.message || 'Ta session a expiré. Reconnecte-toi.');
+  }
+}
+
+async function signOut() {
+  const storedSession = localStorage.getItem(authSessionKey);
+  localStorage.removeItem(authSessionKey);
+  showLoginScreen();
+
+  if (!storedSession) return;
+  try {
+    const saved = JSON.parse(storedSession);
+    const response = await fetch(`${appConfig.supabaseUrl}/auth/v1/logout`, {
+      method: 'POST',
+      headers: {
+        apikey: appConfig.supabaseKey,
+        Authorization: `Bearer ${saved.accessToken}`
+      }
+    });
+    if (!response.ok) throw new Error(`Déconnexion Supabase échouée (HTTP ${response.status}).`);
+  } catch (error) {
+    setLoginStatus(error.message || 'La session locale est fermée, mais la déconnexion Supabase a échoué.');
   }
 }
 
@@ -1537,3 +2565,294 @@ function showLoading(text = 'Chargement...') {
 function hideLoading() {
   document.getElementById('loadingOverlay').classList.add('hidden');
 }
+
+// ══ THÈME CLAIR / SOMBRE ════════════════════════════════
+function initTheme() {
+  const savedTheme = localStorage.getItem('isgi_theme') || localStorage.getItem('theme') || 'dark';
+  applyTheme(savedTheme, false);
+}
+
+function applyTheme(theme, notify = false) {
+  const currentTheme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  try {
+    localStorage.setItem('isgi_theme', currentTheme);
+    localStorage.setItem('theme', currentTheme);
+    document.cookie = `isgi_theme=${currentTheme}; max-age=${30 * 24 * 60 * 60}; path=/`;
+  } catch (e) {}
+
+  if (window.electronAPI && typeof window.electronAPI.setTheme === 'function') {
+    try { window.electronAPI.setTheme(currentTheme); } catch (e) {}
+  }
+
+  // Mettre à jour le bouton supérieur (Titlebar)
+  const topBtn = document.getElementById('themeToggleTitlebarBtn');
+  if (topBtn) {
+    if (currentTheme === 'dark') {
+      topBtn.innerHTML = `
+        <svg class="theme-icon-sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <span class="theme-btn-text">Mode Clair</span>
+      `;
+      topBtn.setAttribute('title', 'Passer en mode clair');
+      topBtn.setAttribute('aria-label', 'Passer en mode clair');
+    } else {
+      topBtn.innerHTML = `
+        <svg class="theme-icon-moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+        <span class="theme-btn-text">Mode Sombre</span>
+      `;
+      topBtn.setAttribute('title', 'Passer en mode sombre');
+      topBtn.setAttribute('aria-label', 'Passer en mode sombre');
+    }
+  }
+
+  // Mettre à jour le bouton de la barre latérale (Sidebar)
+  const sideBtn = document.getElementById('themeToggleSidebarBtn');
+  if (sideBtn) {
+    const isDark = currentTheme === 'dark';
+    sideBtn.innerHTML = `
+      <div class="theme-toggle-sidebar-left">
+        <span class="theme-toggle-icon">
+          ${isDark ? `
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"></circle>
+              <line x1="12" y1="1" x2="12" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="23"></line>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+              <line x1="1" y1="12" x2="3" y2="12"></line>
+              <line x1="21" y1="12" x2="23" y2="12"></line>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            </svg>
+          ` : `
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+          `}
+        </span>
+        <span class="theme-toggle-label">${isDark ? 'Mode Clair' : 'Mode Sombre'}</span>
+      </div>
+      <span class="theme-toggle-badge">${isDark ? 'Nuit' : 'Jour'}</span>
+    `;
+    sideBtn.setAttribute('title', isDark ? 'Passer en mode clair' : 'Passer en mode sombre');
+  }
+
+  // Mettre à jour les cartes d'options dans Paramètres
+  document.querySelectorAll('.theme-card-option').forEach(card => {
+    const themeVal = card.getAttribute('data-theme-value');
+    if (themeVal === currentTheme) {
+      card.classList.add('active');
+    } else {
+      card.classList.remove('active');
+    }
+  });
+
+  if (notify) {
+    toast(currentTheme === 'light' ? 'Mode clair activé' : 'Mode sombre activé', 'info');
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const target = current === 'dark' ? 'light' : 'dark';
+  applyTheme(target, true);
+}
+
+window.toggleTheme = toggleTheme;
+window.applyTheme = applyTheme;
+
+// ═══════════════════════════════════════════════════════
+//  GESTION DES MODÈLES DE BADGES PERSONNALISÉS
+// ═══════════════════════════════════════════════════════
+
+/**
+ * Déclenche la sélection de fichier pour un côté donné ('recto' ou 'verso').
+ */
+function triggerTemplateUpload(side) {
+  const inputId = side === 'recto' ? 'inputTemplateRecto' : 'inputTemplateVerso';
+  const input = document.getElementById(inputId);
+  if (input) input.click();
+}
+
+/**
+ * Appelé quand l'utilisateur sélectionne un fichier image pour remplacer un template.
+ * @param {Event} event - L'événement change du file input
+ * @param {string} side - 'recto' ou 'verso'
+ */
+async function onTemplateFileInputChange(event, side) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  // Vérification taille (max 10 Mo)
+  if (file.size > 10 * 1024 * 1024) {
+    toast('Image trop lourde (max 10 Mo). Veuillez choisir une image plus légère.', 'error');
+    event.target.value = '';
+    return;
+  }
+
+  // Lire l'image comme Data URL
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  // Mettre à jour l'aperçu dans les paramètres
+  const previewId = side === 'recto' ? 'previewTemplateRecto' : 'previewTemplateVerso';
+  const preview = document.getElementById(previewId);
+  if (preview) preview.src = dataUrl;
+
+  // Mettre à jour le statut visuel de la carte
+  const boxId = side === 'recto' ? 'templateBoxRecto' : 'templateBoxVerso';
+  const statusId = side === 'recto' ? 'statusBadgeRecto' : 'statusBadgeVerso';
+  const btnResetId = side === 'recto' ? 'btnResetTemplateRecto' : 'btnResetTemplateVerso';
+  const box = document.getElementById(boxId);
+  const status = document.getElementById(statusId);
+  const btnReset = document.getElementById(btnResetId);
+  if (box) box.classList.add('has-custom');
+  if (status) { status.textContent = 'Modèle Personnalisé'; status.className = 'template-status-badge status-custom'; }
+  if (btnReset) btnReset.style.display = '';
+
+  // Sauvegarder via Electron IPC (persistance dans userData)
+  let saveOk = false;
+  if (window.electronAPI?.saveCustomTemplate) {
+    try {
+      const base64Only = dataUrl.split(',')[1] || dataUrl;
+      const result = await window.electronAPI.saveCustomTemplate({ side, dataBase64: base64Only });
+      saveOk = result?.success;
+    } catch (e) {
+      console.error('Erreur sauvegarde template:', e);
+    }
+  }
+
+  // Mettre à jour la mémoire et l'image de rendu en temps réel
+  if (side === 'recto') {
+    customTemplates.recto = dataUrl;
+    templateRectoImg.src = dataUrl;
+  } else {
+    customTemplates.verso = dataUrl;
+    templateVersoImg.src = dataUrl;
+    const versoEl = document.getElementById('badgeOfficialVersoImg');
+    if (versoEl) versoEl.src = dataUrl;
+  }
+
+  // Rafraîchir le canvas du badge studio si on est sur le côté correspondant
+  if (side === 'recto' && activeBadgeSide === 'recto') {
+    await renderOfficialBadgeCanvas();
+  }
+
+  if (saveOk) {
+    toast(`✅ Modèle ${side === 'recto' ? 'Recto' : 'Verso'} mis à jour avec succès ! Il sera utilisé pour tous les prochains badges.`, 'success');
+  } else {
+    toast(`✅ Modèle ${side === 'recto' ? 'Recto' : 'Verso'} appliqué (session en cours). Relancez l'app pour une persistance complète.`, 'info');
+  }
+
+  // Réinitialiser l'input pour permettre de resélectionner le même fichier
+  event.target.value = '';
+}
+
+/**
+ * Réinitialise le modèle d'un côté au template officiel par défaut.
+ * @param {string} side - 'recto' ou 'verso'
+ */
+async function resetBadgeTemplate(side) {
+  const defaultSrc = side === 'recto' ? './images/badge_recto.png' : './images/badge_verso.png';
+
+  // Supprimer la persistance via IPC
+  if (window.electronAPI?.resetCustomTemplate) {
+    try {
+      await window.electronAPI.resetCustomTemplate({ side });
+    } catch (e) {
+      console.error('Erreur reset template:', e);
+    }
+  }
+
+  // Remettre à jour l'image en mémoire
+  if (side === 'recto') {
+    customTemplates.recto = null;
+    templateRectoImg.src = defaultSrc;
+  } else {
+    customTemplates.verso = null;
+    templateVersoImg.src = defaultSrc;
+    const versoEl = document.getElementById('badgeOfficialVersoImg');
+    if (versoEl) versoEl.src = defaultSrc;
+  }
+
+  // Remettre à jour l'aperçu dans les paramètres
+  const previewId = side === 'recto' ? 'previewTemplateRecto' : 'previewTemplateVerso';
+  const preview = document.getElementById(previewId);
+  if (preview) preview.src = defaultSrc;
+
+  // Remettre le statut à "Standard"
+  const boxId = side === 'recto' ? 'templateBoxRecto' : 'templateBoxVerso';
+  const statusId = side === 'recto' ? 'statusBadgeRecto' : 'statusBadgeVerso';
+  const btnResetId = side === 'recto' ? 'btnResetTemplateRecto' : 'btnResetTemplateVerso';
+  const box = document.getElementById(boxId);
+  const status = document.getElementById(statusId);
+  const btnReset = document.getElementById(btnResetId);
+  if (box) box.classList.remove('has-custom');
+  if (status) { status.textContent = 'Modèle Standard'; status.className = 'template-status-badge status-default'; }
+  if (btnReset) btnReset.style.display = 'none';
+
+  // Rafraîchir le canvas si nécessaire
+  if (side === 'recto' && activeBadgeSide === 'recto') {
+    await renderOfficialBadgeCanvas();
+  }
+
+  toast(`Modèle ${side === 'recto' ? 'Recto' : 'Verso'} réinitialisé au modèle officiel.`, 'info');
+}
+
+window.triggerTemplateUpload = triggerTemplateUpload;
+window.onTemplateFileInputChange = onTemplateFileInputChange;
+window.resetBadgeTemplate = resetBadgeTemplate;
+
+/**
+ * Initialise le drag & drop sur les zones de templates de badges.
+ * Appelé une fois dans DOMContentLoaded.
+ */
+function initTemplateDragDrop() {
+  ['recto', 'verso'].forEach(side => {
+    const zoneId = side === 'recto' ? 'dropZoneRecto' : 'dropZoneVerso';
+    const zone = document.getElementById(zoneId);
+    if (!zone) return;
+
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', () => {
+      zone.classList.remove('dragover');
+    });
+    zone.addEventListener('drop', async e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const file = e.dataTransfer.files?.[0];
+      if (!file || !file.type.startsWith('image/')) {
+        toast('Veuillez déposer une image (PNG, JPG ou WebP).', 'error');
+        return;
+      }
+      // Simuler l'événement change du file input
+      const syntheticEvent = { target: { files: [file], value: '' } };
+      await onTemplateFileInputChange(syntheticEvent, side);
+    });
+  });
+}
+
+// Initialiser le drag & drop une fois le DOM prêt
+document.addEventListener('DOMContentLoaded', () => {
+  // Petit délai pour s'assurer que initBadgeStudio() est terminé
+  setTimeout(initTemplateDragDrop, 500);
+});

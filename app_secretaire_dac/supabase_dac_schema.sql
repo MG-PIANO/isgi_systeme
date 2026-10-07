@@ -1,6 +1,7 @@
 -- ==============================================================================
 -- SCHÉMA COMPLET SUPABASE — ISGI (Institut Supérieur de Gestion et d'Ingénierie)
 -- DIRECTION DES AFFAIRES ACADÉMIQUES (DAC)
+-- Si le portail étudiant est installé, exécuter à nouveau supabase_portal_accounts.sql après ce schéma.
 -- ==============================================================================
 -- Instructions :
 -- 1. Connectez-vous sur votre tableau de bord Supabase (https://supabase.com/dashboard)
@@ -382,5 +383,4 @@ CREATE POLICY "Allow all soumissions_notes" ON public.soumissions_notes FOR ALL 
 
 DROP POLICY IF EXISTS "Allow all notes_provisoires" ON public.notes_provisoires;
 CREATE POLICY "Allow all notes_provisoires" ON public.notes_provisoires FOR ALL USING (true) WITH CHECK (true);
-
 

@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Search, Plus, X, Eye, Download } from 'lucide-react';
+import { Search, Plus, X, Eye, Download, QrCode } from 'lucide-react';
 import { db } from '../../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { exportToPDF } from '../../utils/pdfExport';
+import StudentIdentityQr, { type StudentQrIdentity } from './StudentIdentityQr';
 
 const OPTION_FILIERES: Record<string, string[]> = {
   "Gestion et Administration": [
@@ -44,6 +45,7 @@ export default function InscriptionsPage() {
   const [activeTab, setActiveTab] = useState(0);
 
   const [viewingEtudiant, setViewingEtudiant] = useState<any>(null);
+  const [registeredEtudiant, setRegisteredEtudiant] = useState<StudentQrIdentity | null>(null);
 
   const initialFormData = {
     nom: '', prenom: '', sexe: 'M', date_naissance: '', lieu_naissance: '',
@@ -125,7 +127,13 @@ export default function InscriptionsPage() {
     }
 
     // Sinon, on sauvegarde (dernière étape)
-    const count = await db.etudiants.count();
+    const matriculePrefix = 'ISGI-2627-';
+    const existingStudents = await db.etudiants.toArray();
+    const lastSequence = existingStudents.reduce((highest, student) => {
+      if (!student.matricule.startsWith(matriculePrefix)) return highest;
+      const sequence = Number(student.matricule.slice(matriculePrefix.length));
+      return Number.isInteger(sequence) ? Math.max(highest, sequence) : highest;
+    }, 0);
     
     const etudiantData = {
       nom: formData.nom, prenom: formData.prenom, sexe: formData.sexe,
@@ -164,15 +172,21 @@ export default function InscriptionsPage() {
     };
 
     // Create new
-    const newMatricule = `ISGI-2627-${(count + 1).toString().padStart(4, '0')}`;
-    await db.etudiants.add({
+    const newMatricule = `${matriculePrefix}${(lastSequence + 1).toString().padStart(4, '0')}`;
+    const newStudent = {
       ...etudiantData,
       id: crypto.randomUUID(),
       matricule: newMatricule,
-    });
+    };
+    await db.etudiants.add(newStudent);
 
     setIsModalOpen(false);
     setActiveTab(0);
+    setRegisteredEtudiant({
+      matricule: newMatricule,
+      nom: newStudent.nom,
+      prenom: newStudent.prenom
+    });
 
     // Auto-sync in background without blocking
     import('../../db/sync').then(({ syncData }) => {
@@ -569,7 +583,35 @@ export default function InscriptionsPage() {
                 </div>
 
               </div>
+              <div className="mt-6 border-t border-outline-variant pt-6">
+                <h4 className="mb-4 text-center text-base font-bold text-primary">Code QR d'identification</h4>
+                <StudentIdentityQr student={viewingEtudiant} />
+              </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {registeredEtudiant && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-on-surface/60">
+          <div className="w-full max-w-md rounded-2xl bg-surface-container-lowest p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-on-surface">Inscription enregistrée</h3>
+                <p className="mt-1 text-sm text-on-surface-variant">Le QR d'identification est créé avec l'étudiant.</p>
+              </div>
+              <button onClick={() => setRegisteredEtudiant(null)} className="rounded-full p-2 hover:bg-surface-container-highest" aria-label="Fermer">
+                <X className="h-5 w-5 text-on-surface-variant" />
+              </button>
+            </div>
+            <div className="mb-4 flex items-center justify-center gap-2 text-primary">
+              <QrCode className="h-5 w-5" />
+              <span className="font-semibold">{registeredEtudiant.matricule}</span>
+            </div>
+            <StudentIdentityQr student={registeredEtudiant} />
+            <button onClick={() => setRegisteredEtudiant(null)} className="mt-5 w-full rounded-full border border-outline-variant px-4 py-2 font-medium text-on-surface hover:bg-surface-container-highest">
+              Terminer
+            </button>
           </div>
         </div>
       )}

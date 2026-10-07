@@ -1,6 +1,7 @@
 <?php
 // ajax/valider_demande.php
 require_once '../config/database.php';
+require_once __DIR__ . '/../includes/student_qr.php';
 
 session_start();
 
@@ -124,6 +125,11 @@ try {
         'success' => true,
         'message' => 'Demande validée et compte étudiant créé',
         'matricule' => $matricule,
+        'qr_payload' => isgi_student_qr_payload([
+            'matricule' => $matricule,
+            'nom' => $demande['nom'],
+            'prenom' => $demande['prenom']
+        ]),
         'password' => $password // À supprimer en production
     ]);
     

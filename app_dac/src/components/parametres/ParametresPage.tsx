@@ -20,7 +20,8 @@ export const ParametresPage: React.FC = () => {
     enTeteDirection: "DIRECTION DES AFFAIRES ACADÉMIQUES ET DE LA PÉDAGOGIE (DAC)",
     enTeteSousTitre: "Enseignement Supérieur Technique, Professionnel et Managérial • Agréé par l'État",
     dacNom: "Prof. M. DIALLO",
-    anneeAcademique: "2025-2026",
+    anneeAcademique: "2026-2027",
+    matriculePrefix: "ISGI-2627-",
     pourcentageCC: 40,
     pourcentageExamen: 60,
     titreSignataire1: "Le Secrétaire Général",
@@ -36,13 +37,24 @@ export const ParametresPage: React.FC = () => {
     try {
       const saved = localStorage.getItem('isgi_settings');
       if (saved) {
-        setSettings(prev => ({ ...prev, ...JSON.parse(saved) }));
+        const savedSettings = JSON.parse(saved);
+        if (savedSettings.anneeAcademique === '2025-2026') savedSettings.anneeAcademique = '2026-2027';
+        if (!savedSettings.matriculePrefix) savedSettings.matriculePrefix = 'ISGI-2627-';
+        localStorage.setItem('isgi_settings', JSON.stringify(savedSettings));
+        setSettings(prev => ({ ...prev, ...savedSettings }));
       }
-    } catch {}
+    } catch (error) {
+      console.error('Impossible de charger les paramètres DAC:', error);
+    }
   }, []);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!/^[A-Z0-9]+(?:-[A-Z0-9]+)*-$/.test(String(settings.matriculePrefix || '').trim())) {
+      setToastMessage("Le préfixe matricule doit se terminer par un tiret, par exemple ISGI-2627-.");
+      setTimeout(() => setToastMessage(null), 3500);
+      return;
+    }
     localStorage.setItem('isgi_settings', JSON.stringify(settings));
     logAction('Mise à jour Paramètres', 'Paramètres', 'Modification des paramètres académiques et en-têtes PDF');
     setToastMessage("Paramètres et en-têtes PDF enregistrés avec succès.");
@@ -232,6 +244,20 @@ export const ParametresPage: React.FC = () => {
                 onChange={(e) => setSettings({ ...settings, anneeAcademique: e.target.value })}
                 className="w-full p-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface outline-none focus:ring-2 focus:ring-primary"
               />
+            </div>
+
+            <div>
+              <label className="font-medium text-on-surface block mb-1">Préfixe des matricules *</label>
+              <input
+                type="text"
+                value={settings.matriculePrefix}
+                onChange={(e) => setSettings({ ...settings, matriculePrefix: e.target.value.toUpperCase() })}
+                placeholder="ISGI-2627-"
+                pattern="[A-Z0-9]+(-[A-Z0-9]+)*-"
+                required
+                className="w-full p-2.5 rounded-xl border border-outline-variant bg-surface-container-lowest text-on-surface outline-none focus:ring-2 focus:ring-primary font-mono"
+              />
+              <p className="mt-1 text-on-surface-variant">Exemple généré : {settings.matriculePrefix || 'ISGI-2627-'}0001</p>
             </div>
 
             <div>

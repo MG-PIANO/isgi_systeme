@@ -23,7 +23,8 @@ import {
   MessageSquare,
   FolderKanban,
   FileCheck2,
-  Video
+  Video,
+  UsersRound
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, syncFromSupabase } from '../../db/db';
@@ -109,6 +110,7 @@ export function Layout({ currentTab, onSelectTab, onLogout, children }: LayoutPr
     { id: 'messenger', name: 'Messenger ISGI', icon: MessageSquare, badge: unreadMessagesCount, hasRedDot: unreadMessagesCount > 0 },
     { id: 'sujets', name: 'Sujets d’Examens & Projets', icon: FolderKanban, badge: pendingSujetsCount },
     { id: 'inscriptions', name: 'Inscriptions', icon: UserPlus },
+    { id: 'demandes_comptes', name: 'Demandes comptes étudiants', icon: UsersRound },
     { id: 'etudiants', name: 'Gestion Étudiants', icon: GraduationCap },
     { id: 'cartes', name: 'Cartes d’Étudiants', icon: CreditCard },
     { id: 'calendrier', name: 'Calendrier Académique', icon: CalendarDays },

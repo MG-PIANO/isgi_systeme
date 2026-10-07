@@ -69,6 +69,7 @@ export function Layout() {
     { name: 'Paie Personnel', href: '/paie', icon: Briefcase },
     { name: 'Avances / Emprunts', href: '/emprunts', icon: DollarSign },
     { name: 'Suivi des étudiants', href: '/suivi-etudiants', icon: ClipboardList },
+    { name: 'Demandes comptes étudiants', href: '/demandes-comptes', icon: Users },
     { name: 'Suivi mensuel', href: '/suivi-mensuel', icon: FileSpreadsheet },
     { name: 'Rapports Financiers', href: '/rapports-financiers', icon: PieChart },
     { name: 'Historique', href: '/historique', icon: History }

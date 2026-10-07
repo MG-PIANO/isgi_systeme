@@ -28,6 +28,7 @@ try {
                 
                 $imported = 0;
                 $errors = [];
+                $importedStudentsQr = [];
                 
                 // Préparer la requête d'insertion
                 $query = "INSERT INTO etudiants (site_id, matricule, nom, prenom, numero_cni, date_naissance, 
@@ -75,6 +76,11 @@ try {
                             $_POST['default_classe'] ?? null
                         ]);
                         
+                        $importedStudentsQr[] = [
+                            'matricule' => $matricule,
+                            'nom' => $data[0],
+                            'prenom' => $data[1]
+                        ];
                         $imported++;
                         
                     } catch (Exception $e) {
@@ -83,6 +89,7 @@ try {
                 }
                 
                 fclose($handle);
+                $_SESSION['imported_students_qr'] = $importedStudentsQr;
                 
                 // Préparer le message de résultat
                 $message = "$imported étudiants importés avec succès";
