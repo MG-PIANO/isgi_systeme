@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Search, Plus, X, Eye, Download } from 'lucide-react';
+import { Search, Plus, X, Eye, Download, Pencil } from 'lucide-react';
 import { db } from '../../db/db';
+import { supabase } from '../../db/supabaseClient';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { exportToPDF } from '../../utils/pdfExport';
 
@@ -44,6 +45,7 @@ export default function InscriptionsPage() {
   const [activeTab, setActiveTab] = useState(0);
 
   const [viewingEtudiant, setViewingEtudiant] = useState<any>(null);
+  const [editingEtudiant, setEditingEtudiant] = useState<any>(null);
 
   const initialFormData = {
     nom: '', prenom: '', sexe: 'M', date_naissance: '', lieu_naissance: '',
@@ -110,7 +112,68 @@ export default function InscriptionsPage() {
   };
 
   const handleOpenModal = () => {
+    setEditingEtudiant(null);
     setFormData(initialFormData);
+    setActiveTab(0);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (etudiant: any) => {
+    setEditingEtudiant(etudiant);
+    const docs = (() => {
+      try { return JSON.parse(etudiant.documents_physiques || '{}'); } catch { return {}; }
+    })();
+    setFormData({
+      nom: etudiant.nom || '',
+      prenom: etudiant.prenom || '',
+      sexe: etudiant.sexe || 'M',
+      date_naissance: etudiant.date_naissance || '',
+      lieu_naissance: etudiant.lieu_naissance || '',
+      nationalite: etudiant.nationalite || 'CONGOLAISE',
+      adresse: etudiant.adresse || '',
+      ville: etudiant.ville || 'Brazzaville',
+      pays: etudiant.pays || 'Congo',
+      telephone: etudiant.telephone || '',
+      email: etudiant.email || '',
+      numero_cni: etudiant.numero_cni || '',
+      profession: etudiant.profession || 'Etudiant',
+      situation_matrimoniale: etudiant.situation_matrimoniale || 'Célibataire',
+      nom_pere: etudiant.nom_pere || '',
+      profession_pere: etudiant.profession_pere || '',
+      nom_mere: etudiant.nom_mere || '',
+      profession_mere: etudiant.profession_mere || '',
+      nom_tuteur: etudiant.nom_tuteur || '',
+      profession_tuteur: etudiant.profession_tuteur || '',
+      telephone_tuteur: etudiant.telephone_tuteur || '',
+      lieu_service_tuteur: etudiant.lieu_service_tuteur || '',
+      type_etudiant: etudiant.type_etudiant || 'NORMAL',
+      annee_obtention_bac: etudiant.annee_obtention_bac || new Date().getFullYear(),
+      serie_bac: etudiant.serie_bac || 'A',
+      option: etudiant.option || 'Gestion et Administration',
+      filiere: etudiant.filiere || '',
+      niveau: etudiant.niveau || 'Licence 1',
+      vague: etudiant.vague || 'Jour',
+      cycle_formation: etudiant.cycle_formation || 'Licence',
+      rentree: etudiant.rentree || 'OCTOBRE',
+      annee_academique: etudiant.annee_academique || '2026-2027',
+      site_formation: etudiant.site_formation || 'ISGI',
+      docs_dossier_candidature: docs.dossier_candidature || false,
+      docs_acte_naissance: docs.acte_naissance || false,
+      docs_photos: docs.photos || false,
+      docs_cni: docs.cni || false,
+      docs_rame: docs.rame || false,
+      docs_markers: docs.markers || false,
+      docs_enveloppe: docs.enveloppe || false,
+      docs_diplome: docs.diplome || false,
+      docs_releves_notes: docs.releves_notes || false,
+      docs_frais_inscription: docs.frais_inscription || false,
+      docs_polo: docs.polo || false,
+      docs_carte_etudiant: docs.carte_etudiant || false,
+      docs_frais_stages: docs.frais_stages || false,
+      docs_frais_examens: docs.frais_examens || false,
+      docs_frais_tptd: docs.frais_tptd || false,
+      docs_assurance: docs.assurance || false,
+    });
     setActiveTab(0);
     setIsModalOpen(true);
   };
@@ -124,8 +187,77 @@ export default function InscriptionsPage() {
       return;
     }
 
-    // Sinon, on sauvegarde (dernière étape)
-    const count = await db.etudiants.count();
+    const documents_physiques = JSON.stringify({
+      dossier_candidature: formData.docs_dossier_candidature,
+      acte_naissance: formData.docs_acte_naissance,
+      photos: formData.docs_photos,
+      cni: formData.docs_cni,
+      rame: formData.docs_rame,
+      markers: formData.docs_markers,
+      enveloppe: formData.docs_enveloppe,
+      diplome: formData.docs_diplome,
+      releves_notes: formData.docs_releves_notes,
+      frais_inscription: formData.docs_frais_inscription,
+      polo: formData.docs_polo,
+      carte_etudiant: formData.docs_carte_etudiant,
+      frais_stages: formData.docs_frais_stages,
+      frais_examens: formData.docs_frais_examens,
+      frais_tptd: formData.docs_frais_tptd,
+      assurance: formData.docs_assurance
+    });
+
+    if (editingEtudiant) {
+      const updatedData = {
+        ...editingEtudiant,
+        nom: formData.nom, prenom: formData.prenom, sexe: formData.sexe,
+        date_naissance: formData.date_naissance, lieu_naissance: formData.lieu_naissance,
+        nationalite: formData.nationalite, adresse: formData.adresse, ville: formData.ville,
+        pays: formData.pays, telephone: formData.telephone, email: formData.email,
+        numero_cni: formData.numero_cni, profession: formData.profession,
+        situation_matrimoniale: formData.situation_matrimoniale,
+        nom_pere: formData.nom_pere, profession_pere: formData.profession_pere,
+        nom_mere: formData.nom_mere, profession_mere: formData.profession_mere,
+        nom_tuteur: formData.nom_tuteur, profession_tuteur: formData.profession_tuteur,
+        telephone_tuteur: formData.telephone_tuteur, lieu_service_tuteur: formData.lieu_service_tuteur,
+        type_etudiant: formData.type_etudiant,
+        annee_obtention_bac: formData.annee_obtention_bac,
+        serie_bac: formData.serie_bac,
+        option: formData.option, filiere: formData.filiere, niveau: formData.niveau,
+        vague: formData.vague || 'Jour',
+        cycle_formation: formData.cycle_formation,
+        rentree: formData.rentree,
+        annee_academique: formData.annee_academique,
+        site_formation: formData.site_formation,
+        is_synced: 0 as const,
+        last_modified_at: new Date().toISOString(),
+        documents_physiques
+      };
+
+      await db.etudiants.put(updatedData);
+
+      // Mise à jour distante Supabase
+      supabase.from('etudiants').update(updatedData).eq('id', editingEtudiant.id).then(() => {}, () => {});
+
+      setIsModalOpen(false);
+      setEditingEtudiant(null);
+      setActiveTab(0);
+
+      // Auto-sync in background without blocking
+      import('../../db/sync').then(({ syncData }) => {
+        syncData();
+      });
+      return;
+    }
+
+    // Sinon, on sauvegarde (dernière étape) - Mode création
+    const matriculePrefix = 'ISGI-2627-';
+    const existingStudents = await db.etudiants.toArray();
+    const lastSequence = existingStudents.reduce((highest, student) => {
+      if (!student.matricule?.startsWith(matriculePrefix)) return highest;
+      const sequence = Number(student.matricule.slice(matriculePrefix.length));
+      return Number.isInteger(sequence) ? Math.max(highest, sequence) : highest;
+    }, 0);
+    const newMatricule = `${matriculePrefix}${(lastSequence + 1).toString().padStart(4, '0')}`;
     
     const etudiantData = {
       nom: formData.nom, prenom: formData.prenom, sexe: formData.sexe,
@@ -144,28 +276,10 @@ export default function InscriptionsPage() {
       vague: formData.vague || 'Jour',
       is_synced: 0 as const,
       last_modified_at: new Date().toISOString(),
-      documents_physiques: JSON.stringify({
-        dossier_candidature: formData.docs_dossier_candidature,
-        acte_naissance: formData.docs_acte_naissance,
-        photos: formData.docs_photos,
-        cni: formData.docs_cni,
-        rame: formData.docs_rame,
-        markers: formData.docs_markers,
-        enveloppe: formData.docs_enveloppe,
-        diplome: formData.docs_diplome,
-        releves_notes: formData.docs_releves_notes,
-        frais_inscription: formData.docs_frais_inscription,
-        polo: formData.docs_polo,
-        carte_etudiant: formData.docs_carte_etudiant,
-        frais_stages: formData.docs_frais_stages,
-        frais_examens: formData.docs_frais_examens,
-        frais_tptd: formData.docs_frais_tptd,
-        assurance: formData.docs_assurance
-      })
+      documents_physiques
     };
 
     // Create new
-    const newMatricule = `ISGI-2627-${(count + 1).toString().padStart(4, '0')}`;
     await db.etudiants.add({
       ...etudiantData,
       id: crypto.randomUUID(),
@@ -294,6 +408,9 @@ export default function InscriptionsPage() {
                         <button onClick={() => setViewingEtudiant(etudiant)} className="p-2 text-primary hover:bg-primary-container hover:text-on-primary-container rounded-lg transition-colors" title="Voir les détails">
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button onClick={() => handleOpenEditModal(etudiant)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors" title="Modifier l'étudiant">
+                          <Pencil className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -309,7 +426,9 @@ export default function InscriptionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-on-surface/50">
           <div className="bg-surface-container-lowest rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
             <div className="bg-surface-container-lowest border-b border-outline-variant px-6 py-4 flex justify-between items-center shrink-0">
-              <h3 className="text-xl font-bold text-on-surface">Fiche d'Inscription Complète</h3>
+              <h3 className="text-xl font-bold text-on-surface">
+                {editingEtudiant ? `Modifier l'étudiant (${editingEtudiant.matricule})` : "Fiche d'Inscription Complète"}
+              </h3>
               <button onClick={() => setIsModalOpen(false)} className="p-2 rounded-full hover:bg-surface-container-highest">
                 <X className="w-5 h-5 text-on-surface-variant" />
               </button>
@@ -532,7 +651,7 @@ export default function InscriptionsPage() {
                     </button>
                   ) : (
                     <button type="submit" className="px-6 py-2 rounded-full font-medium bg-primary text-on-primary hover:bg-primary/90 transition-colors shadow-sm">
-                      Valider l'inscription
+                      {editingEtudiant ? 'Enregistrer les modifications' : "Valider l'inscription"}
                     </button>
                   )}
                 </div>
