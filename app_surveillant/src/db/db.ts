@@ -151,101 +151,54 @@ export async function synchroniserAvecSupabase(): Promise<void> {
  * Initialisation des données par défaut si la base locale est vide
  */
 export async function initialiserBaseSurveillant(): Promise<void> {
-  // 1. Initialiser Paramètres
+  // 1. Initialiser Paramètres par défaut
   const paramHeure = await db.parametres.get('heure_limite_arrivee');
   if (!paramHeure) {
     await db.parametres.put({ cle: 'heure_limite_arrivee', valeur: '08:15' });
   }
 
-  // 2. Initialiser Étudiants si vide
-  const etudiantsCount = await db.etudiants.count();
-  if (etudiantsCount === 0) {
-    const defaultStudents: Etudiant[] = [
-      {
-        id: 'etud_001',
-        matricule: 'ISGI-2025-00019',
-        nom: 'DIALLO',
-        prenom: 'Aminata',
-        filiere: 'Génie Logiciel',
-        niveau: 'Licence 2',
-        classe_nom: 'L2 Génie Logiciel',
-        statut: 'actif',
-        photo_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        telephone: '+224 622 10 20 30',
-        email: 'aminata.diallo@isgi-edu.com',
-        nom_tuteur: 'M. Ibrahima DIALLO',
-        telephone_tuteur: '+224 620 55 44 33',
-        qr_code_data: 'ETUDIANT:ISGI-2025-00019|NOM:DIALLO|PRENOM:Aminata|SITE:1'
-      },
-      {
-        id: 'etud_002',
-        matricule: 'ISGI-2025-00042',
-        nom: 'CAMARA',
-        prenom: 'Mohamed Lamine',
-        filiere: 'Réseaux & Télécoms',
-        niveau: 'Licence 3',
-        classe_nom: 'L3 Réseaux & Télécoms',
-        statut: 'actif',
-        photo_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
-        telephone: '+224 621 44 55 66',
-        email: 'mohamed.camara@isgi-edu.com',
-        nom_tuteur: 'Mme. Fatoumata CAMARA',
-        telephone_tuteur: '+224 622 77 88 99',
-        qr_code_data: 'ETUDIANT:ISGI-2025-00042|NOM:CAMARA|PRENOM:Mohamed Lamine|SITE:1'
-      },
-      {
-        id: 'etud_003',
-        matricule: 'ISGI-2025-00088',
-        nom: 'BARRY',
-        prenom: 'Mamadou Oury',
-        filiere: 'Tronc Commun Technologie',
-        niveau: 'Licence 1',
-        classe_nom: 'L1 Tronc Commun Techno',
-        statut: 'actif',
-        photo_url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-        telephone: '+224 628 11 22 33',
-        email: 'mamadou.barry@isgi-edu.com',
-        nom_tuteur: 'M. Boubacar BARRY',
-        telephone_tuteur: '+224 628 99 88 77',
-        qr_code_data: 'ETUDIANT:ISGI-2025-00088|NOM:BARRY|PRENOM:Mamadou Oury|SITE:1'
-      },
-      {
-        id: 'etud_004',
-        matricule: 'ISGI-2025-00105',
-        nom: 'SOUMAH',
-        prenom: 'Mariama',
-        filiere: 'Gestion & Comptabilité',
-        niveau: 'Licence 2',
-        classe_nom: 'L2 Gestion & Finance',
-        statut: 'actif',
-        photo_url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150',
-        telephone: '+224 623 99 00 11',
-        email: 'mariama.soumah@isgi-edu.com',
-        nom_tuteur: 'M. Lansana SOUMAH',
-        telephone_tuteur: '+224 623 44 33 22',
-        qr_code_data: 'ETUDIANT:ISGI-2025-00105|NOM:SOUMAH|PRENOM:Mariama|SITE:1'
-      },
-      {
-        id: 'etud_005',
-        matricule: 'ISGI-2025-00120',
-        nom: 'KOUROUMA',
-        prenom: 'Sékou',
-        filiere: 'Génie Logiciel',
-        niveau: 'Licence 3',
-        classe_nom: 'L3 Génie Logiciel',
-        statut: 'actif',
-        photo_url: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150',
-        telephone: '+224 625 33 22 11',
-        email: 'sekou.kourouma@isgi-edu.com',
-        nom_tuteur: 'M. Moriba KOUROUMA',
-        telephone_tuteur: '+224 625 88 77 66',
-        qr_code_data: 'ETUDIANT:ISGI-2025-00120|NOM:KOUROUMA|PRENOM:Sékou|SITE:1'
-      }
-    ];
-    await db.etudiants.bulkPut(defaultStudents);
+  // 2. Synchroniser TOUJOURS les étudiants depuis Supabase (données réelles)
+  //    On écrase le cache local pour garantir la fraîcheur des données.
+  try {
+    const { data: remoteEtudiants, error: errEtud } = await supabase
+      .from('etudiants')
+      .select('*');
+
+    if (!errEtud && remoteEtudiants && remoteEtudiants.length > 0) {
+      // Vider les anciens enregistrements (données fictives ou obsolètes) puis recharger
+      await db.etudiants.clear();
+      await db.etudiants.bulkPut(
+        remoteEtudiants.map((e) => ({
+          id: String(e.id),
+          matricule: e.matricule ?? '',
+          nom: e.nom ?? '',
+          prenom: e.prenom ?? '',
+          filiere: e.filiere ?? 'Informatique',
+          niveau: e.niveau ?? 'Licence 1',
+          classe_nom:
+            e.classe_nom ?? `${e.filiere ?? 'Informatique'} ${e.niveau ?? 'L1'}`,
+          statut: e.statut ?? 'actif',
+          photo_url: e.photo_url ?? '',
+          telephone: e.telephone ?? '',
+          email: e.email ?? '',
+          nom_tuteur: e.nom_tuteur ?? '',
+          telephone_tuteur: e.telephone_tuteur ?? '',
+          qr_code_data:
+            e.qr_code_data ??
+            `ETUDIANT:${e.matricule}|NOM:${e.nom}|PRENOM:${e.prenom}`,
+        }))
+      );
+      console.log(
+        `[Surveillant] ${remoteEtudiants.length} étudiants synchronisés depuis Supabase.`
+      );
+    } else if (errEtud) {
+      console.warn('[Surveillant] Impossible de charger les étudiants depuis Supabase:', errEtud.message);
+    }
+  } catch (err) {
+    console.warn('[Surveillant] Synchronisation étudiants en mode hors-ligne:', err);
   }
 
-  // 3. Initialiser Salles si vide
+  // 3. Initialiser Salles si vide (données locales suffisantes pour la consultation)
   const sallesCount = await db.salles.count();
   if (sallesCount === 0) {
     const defaultSalles: Salle[] = [
@@ -261,7 +214,7 @@ export async function initialiserBaseSurveillant(): Promise<void> {
     await db.salles.bulkPut(defaultSalles);
   }
 
-  // 4. Initialiser Emplois du Temps de consultation si vide
+  // 4. Initialiser Emplois du Temps si vide (données locales de base)
   const edtCount = await db.emplois_du_temps.count();
   if (edtCount === 0) {
     const defaultEdt: EmploiDuTempsItem[] = [
