@@ -18,7 +18,8 @@ import {
   Settings,
   MessageSquare,
   Clock,
-  CalendarDays
+  CalendarDays,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -71,6 +72,7 @@ export function Layout() {
     { name: 'Suivi des étudiants', href: '/suivi-etudiants', icon: ClipboardList },
     { name: 'Demandes comptes étudiants', href: '/demandes-comptes', icon: Users },
     { name: 'Suivi mensuel', href: '/suivi-mensuel', icon: FileSpreadsheet },
+    { name: 'Prévisions & ROI', href: '/previsions-roi', icon: TrendingUp },
     { name: 'Rapports Financiers', href: '/rapports-financiers', icon: PieChart },
     { name: 'Historique', href: '/historique', icon: History }
   ];

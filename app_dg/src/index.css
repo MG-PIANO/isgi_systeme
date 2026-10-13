@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-surface-container-low: #f2f4f6;
+  --color-secondary: #505f76;
+  --color-outline-variant: #c3c6d7;
+  --color-surface-container-highest: #e0e3e5;
+  --color-on-secondary: #ffffff;
+  --color-surface-bright: #f7f9fb;
+  --color-on-error: #ffffff;
+  --color-on-background: #191c1e;
+  --color-tertiary-fixed-dim: #bec6e0;
+  --color-primary-fixed: #dbe1ff;
+  --color-on-primary: #ffffff;
+  --color-surface-dim: #d8dadc;
+  --color-on-primary-fixed: #00174b;
+  --color-surface-tint: #0053db;
+  --color-background: #f7f9fb;
+  --color-on-error-container: #93000a;
+  --color-surface-variant: #e0e3e5;
+  --color-tertiary-fixed: #dae2fd;
+  --color-on-surface: #191c1e;
+  --color-on-tertiary-fixed-variant: #3f465c;
+  --color-tertiary: #4d556b;
+  --color-tertiary-container: #656d84;
+  --color-outline: #737686;
+  --color-on-tertiary-container: #eef0ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-primary: #004ac6;
+  --color-error-container: #ffdad6;
+  --color-primary-container: #2563eb;
+  --color-on-tertiary-fixed: #131b2e;
+  --color-secondary-fixed: #d3e4fe;
+  --color-primary-fixed-dim: #b4c5ff;
+  --color-secondary-container: #d0e1fb;
+  --color-inverse-on-surface: #eff1f3;
+  --color-on-secondary-fixed: #0b1c30;
+  --color-inverse-primary: #b4c5ff;
+  --color-surface: #f7f9fb;
+  --color-on-secondary-fixed-variant: #38485d;
+  --color-surface-container: #eceef0;
+  --color-on-secondary-container: #54647a;
+  --color-secondary-fixed-dim: #b7c8e1;
+  --color-error: #ba1a1a;
+  --color-inverse-surface: #2d3133;
+  --color-on-tertiary: #ffffff;
+  --color-on-surface-variant: #434655;
+  --color-surface-container-high: #e6e8ea;
+  --color-on-primary-container: #eeefff;
+}
+
+:root.dark {
+  --color-surface-container-low: #1e2022;
+  --color-secondary: #b6c8e3;
+  --color-outline-variant: #434655;
+  --color-surface-container-highest: #333538;
+  --color-on-secondary: #223146;
+  --color-surface-bright: #383a3c;
+  --color-on-error: #690005;
+  --color-on-background: #e2e2e5;
+  --color-tertiary-fixed-dim: #bec6e0;
+  --color-primary-fixed: #dbe1ff;
+  --color-on-primary: #002878;
+  --color-surface-dim: #111415;
+  --color-on-primary-fixed: #00174b;
+  --color-surface-tint: #b4c5ff;
+  --color-background: #191c1e;
+  --color-on-error-container: #ffdad6;
+  --color-surface-variant: #434655;
+  --color-tertiary-fixed: #dae2fd;
+  --color-on-surface: #e2e2e5;
+  --color-on-tertiary-fixed-variant: #3f465c;
+  --color-tertiary: #b1c5ff;
+  --color-tertiary-container: #363e52;
+  --color-outline: #8d909f;
+  --color-on-tertiary-container: #dae2fd;
+  --color-surface-container-lowest: #0c0e10;
+  --color-primary: #b4c5ff;
+  --color-error-container: #93000a;
+  --color-primary-container: #00389c;
+  --color-on-tertiary-fixed: #131b2e;
+  --color-secondary-fixed: #d3e4fe;
+  --color-primary-fixed-dim: #b4c5ff;
+  --color-secondary-container: #38485d;
+  --color-inverse-on-surface: #191c1e;
+  --color-on-secondary-fixed: #0b1c30;
+  --color-inverse-primary: #004ac6;
+  --color-surface: #111415;
+  --color-on-secondary-fixed-variant: #38485d;
+  --color-surface-container: #1d2022;
+  --color-on-secondary-container: #d0e1fb;
+  --color-secondary-fixed-dim: #b7c8e1;
+  --color-error: #ffb4ab;
+  --color-inverse-surface: #e2e2e5;
+  --color-on-tertiary: #1c273c;
+  --color-on-surface-variant: #c3c6d7;
+  --color-surface-container-high: #282a2c;
+  --color-on-primary-container: #dbe1ff;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-background font-sans antialiased;
+  }
+  .sidebar-collapsed main {
+    @apply ml-20;
+  }
+}
+
+@media print {
+  body:has(#print-receipt) * {
+    visibility: hidden;
+  }
+  body:has(#print-receipt) #print-receipt, body:has(#print-receipt) #print-receipt * {
+    visibility: visible;
+  }
+  #print-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 0;
+  }
+  html, body {
+    height: auto;
+    min-height: 0 !important;
+  }
+  #root, main {
+    display: contents;
+  }
+}

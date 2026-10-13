@@ -56,68 +56,90 @@ export const QuickKeypad: React.FC<QuickKeypadProps> = ({ etudiants, onValiderMa
         </button>
       </div>
 
-      {/* Écran d'affichage de la saisie */}
-      <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-2">
-        <div className="text-xs text-slate-400 font-medium">Matricule Étudiant</div>
-        <div className="h-12 flex items-center justify-center font-mono text-2xl font-black text-blue-400 tracking-wider">
-          {saisie || <span className="text-slate-600">ISGI-...</span>}
+      {/* Champ de saisie direct (Nom ou Matricule avec clavier smartphone) */}
+      <div className="space-y-2">
+        <div className="relative">
+          <input
+            type="text"
+            value={saisie}
+            onChange={(e) => setSaisie(e.target.value)}
+            placeholder="Tapez le nom ou matricule..."
+            autoFocus
+            className="w-full px-4 py-3.5 pl-11 rounded-2xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 font-semibold text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+          />
+          <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          {saisie && (
+            <button
+              onClick={effacerTout}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Suggestions rapides en temps réel */}
-      {suggestions.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="text-[11px] font-bold uppercase text-slate-400 px-1">Correspondances trouvées :</div>
-          {suggestions.map((e) => (
+      <div className="flex-1 overflow-y-auto space-y-2 my-2 pr-1 max-h-48">
+        {suggestions.length > 0 ? (
+          suggestions.map((e) => (
             <button
               key={e.id}
               onClick={() => onValiderMatricule(e.matricule)}
               className="w-full flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 active:bg-blue-600 active:text-white text-left transition-all"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-blue-400">
-                  {e.nom.charAt(0)}
+                <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold text-blue-400 shrink-0">
+                  {e.nom.charAt(0)}{e.prenom.charAt(0)}
                 </div>
                 <div>
                   <div className="text-xs font-bold text-white">{e.nom} {e.prenom}</div>
-                  <div className="text-[11px] font-mono text-slate-400">{e.matricule}</div>
+                  <div className="text-[11px] font-mono text-slate-400">{e.matricule} • {e.classe_nom || e.filiere}</div>
                 </div>
               </div>
-              <span className="text-[10px] font-semibold text-slate-400">{e.classe_nom || e.filiere}</span>
+              <span className="text-[10px] font-bold px-2 py-1 bg-blue-500/20 text-blue-400 rounded-lg shrink-0">
+                Pointer
+              </span>
             </button>
-          ))}
-        </div>
-      )}
+          ))
+        ) : (
+          saisie.trim() !== '' && (
+            <div className="text-center py-4 text-xs text-slate-500">
+              Aucun étudiant trouvé pour "{saisie}"
+            </div>
+          )
+        )}
+      </div>
 
-      {/* Pavé Numérique Tactile */}
+      {/* Pavé Numérique Tactile Rapide */}
       <div className="space-y-2">
-        <div className="grid grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-3 gap-2">
           {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((chiffre) => (
             <button
               key={chiffre}
               onClick={() => ajouterTouche(chiffre)}
-              className="h-14 rounded-2xl bg-slate-900 border border-slate-800 active:bg-blue-600 active:scale-95 text-xl font-bold text-white shadow-md flex items-center justify-center transition-all"
+              className="h-11 rounded-xl bg-slate-900 border border-slate-800 active:bg-blue-600 active:scale-95 text-lg font-bold text-white shadow flex items-center justify-center transition-all"
             >
               {chiffre}
             </button>
           ))}
           <button
             onClick={effacerTout}
-            className="h-14 rounded-2xl bg-slate-900/80 border border-slate-800 active:bg-rose-600/30 text-xs font-bold text-rose-400 flex items-center justify-center uppercase tracking-wider"
+            className="h-11 rounded-xl bg-slate-900/80 border border-slate-800 active:bg-rose-600/30 text-xs font-bold text-rose-400 flex items-center justify-center uppercase tracking-wider"
           >
             Reset
           </button>
           <button
             onClick={() => ajouterTouche('0')}
-            className="h-14 rounded-2xl bg-slate-900 border border-slate-800 active:bg-blue-600 active:scale-95 text-xl font-bold text-white shadow-md flex items-center justify-center transition-all"
+            className="h-11 rounded-xl bg-slate-900 border border-slate-800 active:bg-blue-600 active:scale-95 text-lg font-bold text-white shadow flex items-center justify-center transition-all"
           >
             0
           </button>
           <button
             onClick={effacer}
-            className="h-14 rounded-2xl bg-slate-900 border border-slate-800 active:bg-slate-800 text-slate-300 flex items-center justify-center"
+            className="h-11 rounded-xl bg-slate-900 border border-slate-800 active:bg-slate-800 text-slate-300 flex items-center justify-center"
           >
-            <Delete className="w-6 h-6" />
+            <Delete className="w-5 h-5" />
           </button>
         </div>
 
@@ -125,10 +147,10 @@ export const QuickKeypad: React.FC<QuickKeypadProps> = ({ etudiants, onValiderMa
         <button
           onClick={handleValider}
           disabled={!saisie.trim()}
-          className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-extrabold text-base shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
+          className="w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-extrabold text-sm shadow-xl shadow-blue-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
         >
           <Check className="w-5 h-5" />
-          <span>Valider le Matricule</span>
+          <span>Valider ({saisie || 'Saisie'})</span>
         </button>
       </div>
     </div>

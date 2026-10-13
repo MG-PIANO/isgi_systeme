@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Filter, CheckCircle, Clock, X, Info, AlertTriangle, Download, Printer } from 'lucide-react';
+import { Search, Plus, Filter, CheckCircle, Clock, X, Info, AlertTriangle, Download, Printer, Users, CheckCircle2 } from 'lucide-react';
 import { db, type Paiement } from '../../db/db';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { PAYMENT_TYPES, getFinancialStatus, getRecommendedAmount } from '../../utils/pricing';
 import { exportToPDF } from '../../utils/pdfExport';
 import { ReceiptTicket } from './ReceiptTicket';
+import { BatchPaymentModal } from './BatchPaymentModal';
 import { useAuth } from '../../context/AuthContext';
 
 export default function PaiementsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statutFilter, setStatutFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [etudiantSearch, setEtudiantSearch] = useState('');
@@ -191,18 +194,33 @@ export default function PaiementsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+          <span className="text-sm font-bold">{toastMsg}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-on-surface">Paiements</h2>
           <p className="text-on-surface-variant text-sm mt-1">Suivi des paiements de scolarité et divers</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button 
             onClick={handleExportPDF}
             className="flex items-center gap-2 bg-surface-container text-on-surface border border-outline-variant px-4 py-2 rounded-full font-medium hover:bg-surface-container-highest transition-colors"
           >
             <Download className="w-5 h-5" />
             PDF
+          </button>
+          <button 
+            onClick={() => setIsBatchModalOpen(true)}
+            className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-full font-bold hover:bg-emerald-700 transition-colors shadow-sm"
+          >
+            <Users className="w-5 h-5" />
+            Paiement Multiple / Groupé
           </button>
           <button 
             onClick={handleOpenModal}
@@ -519,6 +537,18 @@ export default function PaiementsPage() {
           </div>
         </div>
       )}
+
+      {/* Batch Payment Modal */}
+      <BatchPaymentModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        etudiants={etudiants}
+        userName={user?.name || 'Secrétariat'}
+        onSuccess={(count, total) => {
+          setToastMsg(`✅ ${count} paiements groupés validés pour un total de ${total.toLocaleString('fr-FR')} FCFA !`);
+          setTimeout(() => setToastMsg(null), 5000);
+        }}
+      />
     </div>
   );
 }

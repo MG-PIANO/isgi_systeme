@@ -400,4 +400,59 @@ export interface SoumissionNotes {
   updated_at: string;
 }
 
+// ==============================================================================
+// EMPLOI DU TEMPS SEMESTRIEL OFFICIEL DAC (Format Calendrier Académique par Semaine & Date)
+// ==============================================================================
+export interface DateImportanteCalendrier {
+  id: string;
+  date_periode: string; // ex: "12 octobre 2026", "24 décembre 2026 au 03 janvier 2027"
+  evenement: string;    // ex: "🎓 Début de la rentrée académique", "🎄 Congé de Noël et du Nouvel An"
+}
+
+export interface CreneauCellule {
+  date_jour_label?: string;    // ex: "12 octobre"
+  matiere?: string;            // ex: "Informatique Générale"
+  matiere_id?: string;
+  enseignant?: string;         // ex: "Mr Tertulien"
+  enseignant_id?: string;
+  type?: 'cours' | 'evaluation' | 'tp' | 'conge' | 'examen'; // 'evaluation' -> « Evaluation »
+  texte_personnalise?: string; // ex: "25 décembre 🎄 Congé" ou "22 mars Examens S1"
+  salle?: string;
+}
+
+export interface SemaineEmploiDuTemps {
+  numero: number;              // 1, 2, 3...
+  titre_semaine?: string;      // "Semaine 1", "TRAVAUX PRATIQUES", "CONGÉ D'ÉTUDE"
+  date_debut: string;          // "2026-10-12"
+  date_fin: string;            // "2026-10-18"
+  periode_label: string;       // "12 au 18 octobre 2026"
+  is_special?: boolean;        // si la semaine entière est un bloc spécial (TP, Congé, Examen)
+  special_texte?: string;      // libellé du bloc spécial
+  creneaux_data: {
+    [heure: string]: {
+      [jour: string]: CreneauCellule;
+    };
+  };
+}
+
+export interface EmploiDuTempsSemestriel {
+  id: string;
+  classe_id: string;
+  classe_nom?: string;
+  semestre: string;            // "S1", "S2"
+  annee_academique: string;    // "2026-2027"
+  titre: string;               // "CALENDRIER ACADEMIQUES SEMESTRE 1"
+  date_rentree: string;        // "2026-10-12"
+  nb_semaines: number;         // 25
+  creneaux: string[];          // ["08H00–10H00", "10H15–12H15"]
+  jours_selectionnes: string[]; // ["Lundi", "Mercredi", "Vendredi"]
+  dates_importantes: DateImportanteCalendrier[];
+  semaines: SemaineEmploiDuTemps[];
+  publie: boolean;
+  publie_par?: string;
+  date_publication?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 

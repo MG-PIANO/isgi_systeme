@@ -107,44 +107,174 @@ export async function getStatsAujourdhui(): Promise<StatsJour> {
 
 /**
  * Synchronisation bidirectionnelle avec Supabase
+/**
+ * Synchronisation bidirectionnelle avec Supabase (données réelles)
  */
-export async function synchroniserAvecSupabase(): Promise<void> {
+export async function synchroniserAvecSupabase(): Promise<{ countEtudiants: number; countPointages: number }> {
+  let countEtudiants = 0;
+  let countPointages = 0;
+
   try {
-    // 1. Récupération des étudiants depuis Supabase
+    // 1. Récupération de TOUS les étudiants réels depuis Supabase
     const { data: remoteEtudiants, error: errEtud } = await supabase
       .from('etudiants')
-      .select('*');
+      .select('*')
+      .order('nom', { ascending: true });
 
     if (!errEtud && remoteEtudiants && remoteEtudiants.length > 0) {
-      await db.etudiants.bulkPut(remoteEtudiants.map(e => ({
-        id: String(e.id),
-        matricule: e.matricule,
-        nom: e.nom,
-        prenom: e.prenom,
-        filiere: e.filiere || 'Informatique',
-        niveau: e.niveau || 'Licence 1',
-        classe_nom: e.classe_nom || `${e.filiere || 'Informatique'} ${e.niveau || 'L1'}`,
-        statut: e.statut || 'actif',
-        photo_url: e.photo_url || '',
-        telephone: e.telephone || '',
-        email: e.email || '',
-        qr_code_data: e.qr_code_data || `ETUDIANT:${e.matricule}|NOM:${e.nom}|PRENOM:${e.prenom}`
-      })));
+      countEtudiants = remoteEtudiants.length;
+      
+      const etudiantsMappes: Etudiant[] = remoteEtudiants.map(e => {
+        const filiere = e.filiere || 'Informatique et Technologie';
+        const niveau = e.niveau || 'Licence 1';
+        const classe = e.classe_nom || `${filiere} ${niveau}`;
+
+        return {
+          id: String(e.id),
+          matricule: (e.matricule || '').trim(),
+          nom: (e.nom || '').trim(),
+          prenom: (e.prenom || '').trim(),
+          filiere,
+          niveau,
+          classe_nom: classe,
+          statut: 'actif',
+          photo_url: e.photo_url || '',
+          telephone: e.telephone || '',
+          email: e.email || '',
+          nom_tuteur: e.nom_tuteur || '',
+          telephone_tuteur: e.telephone_tuteur || '',
+          qr_code_data: e.qr_code_data || `ETUDIANT:${e.matricule}|NOM:${e.nom}|PRENOM:${e.prenom}`
+        };
+      });
+
+      // Remplacer proprement le cache local
+      await db.etudiants.clear();
+      await db.etudiants.bulkPut(etudiantsMappes);
+      console.log(`[Surveillant] ${countEtudiants} vrais étudiants synchronisés depuis Supabase.`);
     }
 
-    // 2. Récupération des pointages du jour depuis Supabase
-    const dateJour = getDateAujourdhui();
+    // 2. Récupération des pointages récents (des 60 derniers jours) pour le registre
+    const dateIlYaDeuxMois = new Date();
+    dateIlYaDeuxMois.setDate(dateIlYaDeuxMois.getDate() - 60);
+    const dateDebutSync = dateIlYaDeuxMois.toISOString().split('T')[0];
+
     const { data: remotePointages, error: errPointages } = await supabase
       .from('pointages_acces')
       .select('*')
-      .eq('date_jour', dateJour);
+      .gte('date_jour', dateDebutSync)
+      .order('updated_at', { ascending: false });
 
     if (!errPointages && remotePointages && remotePointages.length > 0) {
+      countPointages = remotePointages.length;
       await db.pointages.bulkPut(remotePointages);
     }
   } catch (err) {
     console.warn('Synchronisation Supabase en mode hors-ligne:', err);
   }
+
+  return { countEtudiants, countPointages };
+}
+
+/**
+ * Recherche d'étudiants par matricule, nom ou prénom (dans Dexie local avec fallback Supabase)
+ */
+export async function rechercherEtudiants(terme: string): Promise<Etudiant[]> {
+  const query = (terme || '').trim().toLowerCase();
+  if (!query) {
+    return await db.etudiants.toArray();
+  }
+
+  // 1. Recherche locale instantanée dans Dexie
+  const tous = await db.etudiants.toArray();
+  const locaux = tous.filter((e) => {
+    const matricule = (e.matricule || '').toLowerCase();
+    const nom = (e.nom || '').toLowerCase();
+    const prenom = (e.prenom || '').toLowerCase();
+    const nomComplet1 = `${nom} ${prenom}`;
+    const nomComplet2 = `${prenom} ${nom}`;
+
+    return (
+      matricule.includes(query) ||
+      nom.includes(query) ||
+      prenom.includes(query) ||
+      nomComplet1.includes(query) ||
+      nomComplet2.includes(query)
+    );
+  });
+
+  if (locaux.length > 0) {
+    return locaux;
+  }
+
+  // 2. Si non trouvé localement, fallback direct Supabase en ligne
+  try {
+    const { data: remote, error } = await supabase
+      .from('etudiants')
+      .select('*')
+      .or(`matricule.ilike.%${query}%,nom.ilike.%${query}%,prenom.ilike.%${query}%`)
+      .limit(15);
+
+    if (!error && remote && remote.length > 0) {
+      const formates: Etudiant[] = remote.map((e) => ({
+        id: String(e.id),
+        matricule: (e.matricule || '').trim(),
+        nom: (e.nom || '').trim(),
+        prenom: (e.prenom || '').trim(),
+        filiere: e.filiere || 'Informatique',
+        niveau: e.niveau || 'Licence 1',
+        classe_nom: e.classe_nom || `${e.filiere || 'Informatique'} ${e.niveau || 'L1'}`,
+        statut: 'actif',
+        photo_url: e.photo_url || '',
+        telephone: e.telephone || '',
+        email: e.email || '',
+        nom_tuteur: e.nom_tuteur || '',
+        telephone_tuteur: e.telephone_tuteur || '',
+        qr_code_data: e.qr_code_data || `ETUDIANT:${e.matricule}|NOM:${e.nom}|PRENOM:${e.prenom}`
+      }));
+
+      // Mettre en cache dans Dexie
+      await db.etudiants.bulkPut(formates);
+      return formates;
+    }
+  } catch (err) {
+    console.warn('Erreur recherche fallback Supabase:', err);
+  }
+
+  return [];
+}
+
+/**
+ * Récupère les pointages d'une période donnée (entre dateDebut et dateFin incluses)
+ */
+export async function getPointagesParPeriode(dateDebut: string, dateFin: string): Promise<PointageAcces[]> {
+  try {
+    // 1. Tenter la synchronisation Supabase pour cette période
+    const { data: remote, error } = await supabase
+      .from('pointages_acces')
+      .select('*')
+      .gte('date_jour', dateDebut)
+      .lte('date_jour', dateFin)
+      .order('date_jour', { ascending: false });
+
+    if (!error && remote && remote.length > 0) {
+      await db.pointages.bulkPut(remote);
+    }
+  } catch (err) {
+    console.warn('Mode hors-ligne pour la période:', err);
+  }
+
+  // 2. Lecture complète depuis Dexie
+  const pointages = await db.pointages
+    .filter((p) => p.date_jour >= dateDebut && p.date_jour <= dateFin)
+    .toArray();
+
+  // Tri par date décroissante puis heure d'arrivée décroissante
+  return pointages.sort((a, b) => {
+    if (a.date_jour !== b.date_jour) {
+      return b.date_jour.localeCompare(a.date_jour);
+    }
+    return (b.heure_arrivee || '').localeCompare(a.heure_arrivee || '');
+  });
 }
 
 /**
@@ -157,48 +287,10 @@ export async function initialiserBaseSurveillant(): Promise<void> {
     await db.parametres.put({ cle: 'heure_limite_arrivee', valeur: '08:15' });
   }
 
-  // 2. Synchroniser TOUJOURS les étudiants depuis Supabase (données réelles)
-  //    On écrase le cache local pour garantir la fraîcheur des données.
-  try {
-    const { data: remoteEtudiants, error: errEtud } = await supabase
-      .from('etudiants')
-      .select('*');
+  // 2. Synchroniser TOUJOURS les données réelles depuis Supabase
+  await synchroniserAvecSupabase();
 
-    if (!errEtud && remoteEtudiants && remoteEtudiants.length > 0) {
-      // Vider les anciens enregistrements (données fictives ou obsolètes) puis recharger
-      await db.etudiants.clear();
-      await db.etudiants.bulkPut(
-        remoteEtudiants.map((e) => ({
-          id: String(e.id),
-          matricule: e.matricule ?? '',
-          nom: e.nom ?? '',
-          prenom: e.prenom ?? '',
-          filiere: e.filiere ?? 'Informatique',
-          niveau: e.niveau ?? 'Licence 1',
-          classe_nom:
-            e.classe_nom ?? `${e.filiere ?? 'Informatique'} ${e.niveau ?? 'L1'}`,
-          statut: e.statut ?? 'actif',
-          photo_url: e.photo_url ?? '',
-          telephone: e.telephone ?? '',
-          email: e.email ?? '',
-          nom_tuteur: e.nom_tuteur ?? '',
-          telephone_tuteur: e.telephone_tuteur ?? '',
-          qr_code_data:
-            e.qr_code_data ??
-            `ETUDIANT:${e.matricule}|NOM:${e.nom}|PRENOM:${e.prenom}`,
-        }))
-      );
-      console.log(
-        `[Surveillant] ${remoteEtudiants.length} étudiants synchronisés depuis Supabase.`
-      );
-    } else if (errEtud) {
-      console.warn('[Surveillant] Impossible de charger les étudiants depuis Supabase:', errEtud.message);
-    }
-  } catch (err) {
-    console.warn('[Surveillant] Synchronisation étudiants en mode hors-ligne:', err);
-  }
-
-  // 3. Initialiser Salles si vide (données locales suffisantes pour la consultation)
+  // 3. Initialiser Salles si vide
   const sallesCount = await db.salles.count();
   if (sallesCount === 0) {
     const defaultSalles: Salle[] = [
@@ -214,7 +306,7 @@ export async function initialiserBaseSurveillant(): Promise<void> {
     await db.salles.bulkPut(defaultSalles);
   }
 
-  // 4. Initialiser Emplois du Temps si vide (données locales de base)
+  // 4. Initialiser Emplois du Temps si vide
   const edtCount = await db.emplois_du_temps.count();
   if (edtCount === 0) {
     const defaultEdt: EmploiDuTempsItem[] = [

@@ -78,15 +78,23 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
     } catch {}
   };
 
+  const scanCooldownRef = useRef<{ code: string; timestamp: number }>({ code: '', timestamp: 0 });
+
   // Traitement d'un matricule
   const traiterMatricule = async (codeBrut: string) => {
-    setMessageErreur(null);
     const matricule = extraireMatriculeDepuisQR(codeBrut);
     if (!matricule) {
-      setMessageErreur('Code non reconnu.');
-      vibrerEtBiper('erreur');
       return;
     }
+
+    // Protection anti-rebond (ignore si même matricule scanné il y a moins de 3 secondes)
+    const now = Date.now();
+    if (scanCooldownRef.current.code === matricule && (now - scanCooldownRef.current.timestamp) < 3000) {
+      return;
+    }
+    scanCooldownRef.current = { code: matricule, timestamp: now };
+
+    setMessageErreur(null);
 
     const etudiant = await db.etudiants
       .where('matricule')
@@ -114,12 +122,19 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
     onScanResultat(resultat);
   };
 
-  // Initialisation de la Caméra
+  // Initialisation de la Caméra et Détection QR Code
   useEffect(() => {
     let actif = true;
+    let scanInterval: any = null;
 
     const demarrerCamera = async () => {
       try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.warn('API Camera non disponible dans cet environnement');
+          setCameraPrete(false);
+          return;
+        }
+
         if (streamRef.current) {
           streamRef.current.getTracks().forEach(t => t.stop());
         }
@@ -149,10 +164,29 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
+          await videoRef.current.play();
           setCameraPrete(true);
+
+          // Détection automatique continue des QR Codes si BarcodeDetector est disponible
+          if (typeof (window as any).BarcodeDetector !== 'undefined') {
+            try {
+              const detector = new (window as any).BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13'] });
+              scanInterval = setInterval(async () => {
+                if (!actif || !videoRef.current || videoRef.current.readyState < 2) return;
+                try {
+                  const codes = await detector.detect(videoRef.current);
+                  if (codes && codes.length > 0 && codes[0]?.rawValue) {
+                    traiterMatricule(codes[0].rawValue);
+                  }
+                } catch {}
+              }, 300);
+            } catch (err) {
+              console.warn('Erreur BarcodeDetector:', err);
+            }
+          }
         }
       } catch (e) {
+        console.warn('Accès caméra refusé ou non supporté:', e);
         setCameraPrete(false);
       }
     };
@@ -161,6 +195,7 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
 
     return () => {
       actif = false;
+      if (scanInterval) clearInterval(scanInterval);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
       }

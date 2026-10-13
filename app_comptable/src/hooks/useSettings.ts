@@ -12,6 +12,8 @@ export interface Tarifs {
     nouvelle: number;
     reinscription: number;
     carteEtudiant: number;
+    polo?: number;
+    assurance?: number;
   };
   mensualites: Record<string, number>;
   cycleLocal: {
@@ -61,7 +63,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
     inscriptions: {
       nouvelle: 25000,
       reinscription: 20000,
-      carteEtudiant: 5000
+      carteEtudiant: 5000,
+      polo: 10000,
+      assurance: 5000
     },
     mensualites: {
       'Licence 1': 25000,

@@ -8,6 +8,20 @@ import type {
 } from '../types';
 
 /**
+ * Générateur UUID résistant aux environnements WebView (file://) sans crypto.randomUUID
+ */
+export function genererUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
  * Heure limite par défaut pour considérer un étudiant à l'heure (format HH:mm)
  */
 export const DEFAULT_HEURE_LIMITE_ARRIVEE = '08:15';
@@ -107,7 +121,7 @@ export function traiterScanEtudiant(
     const statutArrivee: 'a_l_heure' | 'en_retard' = retard ? 'en_retard' : 'a_l_heure';
 
     const scanLog: ScanLogItem = {
-      id: crypto.randomUUID(),
+      id: genererUUID(),
       timestamp: nowHeure,
       date_heure_iso: nowIso,
       type: 'arrivee',
@@ -118,7 +132,7 @@ export function traiterScanEtudiant(
     };
 
     const nouveauPointage: PointageAcces = {
-      id: crypto.randomUUID(),
+      id: genererUUID(),
       etudiant_id: etudiant.id,
       matricule: etudiant.matricule,
       nom: etudiant.nom,
@@ -181,7 +195,7 @@ export function traiterScanEtudiant(
   }
 
   const scanLog: ScanLogItem = {
-    id: crypto.randomUUID(),
+    id: genererUUID(),
     timestamp: nowHeure,
     date_heure_iso: nowIso,
     type: action,

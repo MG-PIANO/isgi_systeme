@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import type { CalendrierAcademique, EmploiDuTempsItem, Matiere, Personnel } from '../types';
+import type { CalendrierAcademique, EmploiDuTempsItem, Matiere, Personnel, EmploiDuTempsSemestriel } from '../types';
 
 // Helper pour charger l'image du logo ISGI
 async function loadLogoBase64(): Promise<string | null> {
@@ -495,5 +495,276 @@ export async function exporterEmploiDuTempsPDF(
 
   // Téléchargement
   const filename = `Emploi_du_Temps_${classeNom.replace(/\s+/g, '_')}_${semestre}.pdf`;
+  doc.save(filename);
+}
+
+// ==============================================================================
+// 3. EXPORT DU NOUVEAU CALENDRIER ACADÉMIQUE / EMPLOI DU TEMPS OFFICIEL DAC
+//    (Format Officiel Par Semaine et Par Date - Identique au Modèle DAC)
+// ==============================================================================
+export async function exporterEmploiDuTempsOfficielDAC_PDF(emploi: EmploiDuTempsSemestriel) {
+  const isLandscape = (emploi.jours_selectionnes?.length || 3) > 4;
+  const doc = new jsPDF({
+    orientation: isLandscape ? 'landscape' : 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  const marginX = 12;
+
+  // Numéro du semestre pour le titre (ex: "SEMESTRE 1")
+  const semestreNum = emploi.semestre?.replace(/^S/i, '') || '1';
+  const semestreLabel = `SEMESTRE ${semestreNum}`;
+
+  // Nettoyage des emojis pour jsPDF font helvetica
+  const cleanText = (str?: string) => {
+    if (!str) return '';
+    return str
+      .replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // -------------------------------------------------------------
+  // TABLEAU 1 : DATES IMPORTANTES A RETENIR DU CALENDRIER ACADÉMIQUE
+  // -------------------------------------------------------------
+  const datesData = (emploi.dates_importantes || []).map(d => [
+    d.date_periode || '-',
+    cleanText(d.evenement)
+  ]);
+
+  if (datesData.length > 0) {
+    autoTable(doc, {
+      startY: 12,
+      margin: { left: marginX, right: marginX },
+      head: [
+        [
+          {
+            content: `DATES IMPORTANTES A RETENIR DU CALENDRIER ACADEMIQUES POUR\nLE ${semestreLabel}`,
+            colSpan: 2,
+            styles: {
+              halign: 'center',
+              fillColor: [238, 238, 238],
+              textColor: [0, 0, 0],
+              fontStyle: 'bold',
+              fontSize: 10,
+              cellPadding: 3
+            }
+          }
+        ],
+        [
+          { content: 'DATE / PÉRIODE', styles: { halign: 'center', fontStyle: 'bold', fontSize: 9 } },
+          { content: 'ÉVÉNEMENT', styles: { halign: 'center', fontStyle: 'bold', fontSize: 9 } }
+        ]
+      ],
+      body: datesData,
+      theme: 'grid',
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.5,
+        lineColor: [0, 0, 0],
+        lineWidth: 0.25,
+        textColor: [0, 0, 0]
+      },
+      columnStyles: {
+        0: { cellWidth: 50, halign: 'center', fontStyle: 'bold' },
+        1: { halign: 'center' }
+      }
+    });
+  }
+
+  // Position après le premier tableau
+  let currentY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 8 : 15;
+
+  // -------------------------------------------------------------
+  // TITRE DU CALENDRIER ACADÉMIQUE
+  // -------------------------------------------------------------
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(0, 0, 0);
+  doc.text('CALENDRIER ACADEMIQUES', pageWidth / 2, currentY, { align: 'center' });
+
+  currentY += 6;
+  doc.setFontSize(12);
+  doc.text(semestreLabel, pageWidth / 2, currentY, { align: 'center' });
+  currentY += 4;
+
+  // -------------------------------------------------------------
+  // TABLEAU 2 : GRILLE DÉTAILLÉE PAR SEMAINE ET PAR DATE
+  // -------------------------------------------------------------
+  const jours = emploi.jours_selectionnes || ['Lundi', 'Mercredi', 'Vendredi'];
+  const creneaux = emploi.creneaux || ['08H00–10H00', '10H15–12H15'];
+
+  const tableHead = [
+    [
+      { content: 'SEMAINE /\nPÉRIODE', styles: { halign: 'center', valign: 'middle' } },
+      { content: 'HEURE', styles: { halign: 'center', valign: 'middle' } },
+      ...jours.map(j => ({ content: j.toUpperCase(), styles: { halign: 'center', valign: 'middle' } }))
+    ]
+  ];
+
+  const tableBody: any[] = [];
+
+  emploi.semaines.forEach((sem) => {
+    // Si la semaine entière est un bloc spécial (ex: Congé d'étude)
+    if (sem.is_special) {
+      tableBody.push([
+        {
+          content: `${sem.titre_semaine || 'Semaine ' + sem.numero}\n${sem.periode_label || ''}`.trim(),
+          styles: { halign: 'center', valign: 'middle', fontStyle: 'bold' }
+        },
+        { content: '—', styles: { halign: 'center', valign: 'middle' } },
+        {
+          content: cleanText(sem.special_texte || sem.titre_semaine || 'CONGÉ'),
+          colSpan: jours.length,
+          styles: {
+            halign: 'center',
+            valign: 'middle',
+            fontStyle: 'bold',
+            fillColor: [245, 245, 245],
+            fontSize: 9
+          }
+        }
+      ]);
+      return;
+    }
+
+    // Semaine normale avec créneaux
+    creneaux.forEach((cr, crIdx) => {
+      const row: any[] = [];
+
+      // La première colonne "SEMAINE / PÉRIODE" utilise rowSpan
+      if (crIdx === 0) {
+        row.push({
+          content: `${sem.titre_semaine || 'Semaine ' + sem.numero}\n${sem.periode_label || ''}`.trim(),
+          rowSpan: creneaux.length,
+          styles: {
+            halign: 'center',
+            valign: 'middle',
+            fontStyle: 'bold',
+            fontSize: 8.5
+          }
+        });
+      }
+
+      // Colonne HEURE
+      row.push({
+        content: cr,
+        styles: {
+          halign: 'center',
+          valign: 'middle',
+          fontStyle: 'bold',
+          fontSize: 8
+        }
+      });
+
+      // Colonnes pour chaque jour
+      jours.forEach(j => {
+        const cell = sem.creneaux_data?.[cr]?.[j];
+        if (!cell) {
+          row.push({ content: '—', styles: { halign: 'center', valign: 'middle' } });
+          return;
+        }
+
+        // Si texte personnalisé (ex: "25 décembre Congé" ou "22 mars Examens S1")
+        if (cell.texte_personnalise) {
+          row.push({
+            content: cleanText(cell.texte_personnalise),
+            styles: {
+              halign: 'center',
+              valign: 'middle',
+              fontStyle: 'bold',
+              fillColor: cell.type === 'conge' ? [250, 250, 250] : [255, 255, 255]
+            }
+          });
+          return;
+        }
+
+        // Construction du contenu de la case
+        const parts: string[] = [];
+        if (cell.date_jour_label) {
+          parts.push(cell.date_jour_label);
+        }
+        if (cell.type === 'evaluation') {
+          parts.push('« Evaluation »');
+        } else if (cell.type === 'tp') {
+          parts.push('TP');
+        } else if (cell.type === 'examen') {
+          parts.push('Examen');
+        }
+        if (cell.matiere) {
+          parts.push(cleanText(cell.matiere));
+        }
+        if (cell.enseignant) {
+          parts.push(cleanText(cell.enseignant));
+        }
+
+        const cellContent = parts.join('\n');
+        row.push({
+          content: cellContent || '—',
+          styles: {
+            halign: 'center',
+            valign: 'middle',
+            fontStyle: cell.type === 'evaluation' ? 'bold' : 'normal',
+            fontSize: 7.8
+          }
+        });
+      });
+
+      tableBody.push(row);
+    });
+  });
+
+  // Largeurs proportionnelles des colonnes
+  const colWidths: { [key: number]: any } = {
+    0: { cellWidth: isLandscape ? 40 : 36 },
+    1: { cellWidth: isLandscape ? 32 : 28 }
+  };
+  const remainingWidth = (pageWidth - (marginX * 2) - (colWidths[0].cellWidth + colWidths[1].cellWidth));
+  const dayColWidth = remainingWidth / jours.length;
+  jours.forEach((_, idx) => {
+    colWidths[idx + 2] = { cellWidth: dayColWidth };
+  });
+
+  autoTable(doc, {
+    startY: currentY,
+    margin: { left: marginX, right: marginX, bottom: 12 },
+    head: tableHead as any,
+    body: tableBody as any,
+    theme: 'grid',
+    headStyles: {
+      fillColor: [255, 255, 255],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      halign: 'center',
+      valign: 'middle',
+      lineColor: [0, 0, 0],
+      lineWidth: 0.25
+    },
+    styles: {
+      fontSize: 7.8,
+      cellPadding: 2,
+      lineColor: [0, 0, 0],
+      lineWidth: 0.25,
+      textColor: [0, 0, 0],
+      valign: 'middle',
+      overflow: 'linebreak'
+    },
+    columnStyles: colWidths,
+    didDrawPage: (data) => {
+      // Pagination en bas de page
+      const pageStr = `Page ${data.pageNumber}`;
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      doc.text(pageStr, pageWidth - marginX - 10, pageHeight - 6);
+    }
+  });
+
+  // Téléchargement
+  const filename = `Calendrier_Academique_${(emploi.classe_nom || 'Classe').replace(/\s+/g, '_')}_${semestreLabel.replace(/\s+/g, '_')}.pdf`;
   doc.save(filename);
 }

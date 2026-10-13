@@ -25,7 +25,7 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
-  // Enregistrer le raccourci pour les DevTools
+  // Raccourci pour les DevTools en mode dev
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.key === 'F12') {
       mainWindow.webContents.toggleDevTools();

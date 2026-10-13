@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search,
   Filter,
@@ -6,6 +6,7 @@ import {
   Edit,
   Trash2,
   Download,
+  Upload,
   CreditCard,
   Eye,
   AlertTriangle,
@@ -17,7 +18,12 @@ import {
   Check,
   FileText,
   FolderCheck,
-  FileCheck2
+  FileCheck2,
+  FileSpreadsheet,
+  ArrowRight,
+  Plus,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { db, logAction } from '../../db/db';
 import { supabase } from '../../db/supabaseClient';
@@ -104,6 +110,32 @@ const OPTION_FILIERES: Record<string, string[]> = {
 };
 const OPTIONS = Object.keys(OPTION_FILIERES);
 
+function genererUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export interface ExcelChampDiff {
+  champ: string;
+  label: string;
+  ancienneValeur: string;
+  nouvelleValeur: string;
+}
+
+export interface ImportComparisonItem {
+  type: 'update' | 'create' | 'unchanged';
+  ligneExcel: number;
+  etudiantExistant?: Etudiant;
+  etudiantCible: Etudiant;
+  modifications: ExcelChampDiff[];
+}
+
 export const EtudiantsPage: React.FC = () => {
   const [etudiants, setEtudiants] = useState<Etudiant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,6 +163,14 @@ export const EtudiantsPage: React.FC = () => {
   const [editDocsData, setEditDocsData] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // État Importation Excel & Synchronisation intelligente
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importComparison, setImportComparison] = useState<ImportComparisonItem[]>([]);
+  const [isApplyingImport, setIsApplyingImport] = useState(false);
+  const [importFilterTab, setImportFilterTab] = useState<'tous' | 'modifies' | 'nouveaux' | 'inchanges'>('tous');
+  const [importFileName, setImportFileName] = useState('');
 
   useEffect(() => { loadEtudiants(); }, []);
 
@@ -323,19 +363,28 @@ export const EtudiantsPage: React.FC = () => {
   };
 
   const handleExportExcel = () => {
-    const data = filteredEtudiants.map(e => {
+    const data = filteredEtudiants.map((e, index) => {
       const stats = getDossierStats(e);
       return {
+        'N°': index + 1,
+        'ID': e.id,
         'Matricule': e.matricule,
         'Nom': e.nom,
         'Prénom': e.prenom,
         'Vague': e.vague || 'Jour',
-        'Sexe': e.sexe,
+        'Sexe': e.sexe || 'M',
+        'Date de Naissance': e.date_naissance || '',
+        'Lieu de Naissance': e.lieu_naissance || '',
+        'Nationalité': e.nationalite || 'Congolaise',
         'Niveau': e.niveau,
         'Filière': e.filiere,
         'Option': e.option || '',
         'Téléphone': e.telephone || '',
+        'Email': e.email || '',
         'Statut': e.statut || 'Inscrit',
+        'Nom Tuteur': e.nom_tuteur || '',
+        'Téléphone Tuteur': e.telephone_tuteur || '',
+        'Adresse': e.adresse || '',
         'État Dossier': stats.isComplete ? 'Complet (16/16)' : `Incomplet (${stats.count}/16)`,
         'Pièces Fournies': `${stats.count}/${stats.total}`,
         'Taux Dossier': `${stats.percentage}%`
@@ -345,6 +394,246 @@ export const EtudiantsPage: React.FC = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Etudiants');
     XLSX.writeFile(wb, `etudiants_isgi_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setImportFileName(file.name);
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rawRows: Record<string, any>[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      if (rawRows.length === 0) {
+        alert('Le fichier Excel sélectionné est vide.');
+        return;
+      }
+
+      const getVal = (row: Record<string, any>, keys: string[]): string => {
+        const rowKeys = Object.keys(row);
+        for (const target of keys) {
+          const tNorm = target.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+          for (const k of rowKeys) {
+            const kNorm = k.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '');
+            if (kNorm === tNorm || kNorm.includes(tNorm)) {
+              const v = row[k];
+              if (v !== undefined && v !== null && String(v).trim() !== '') {
+                return String(v).trim();
+              }
+            }
+          }
+        }
+        return '';
+      };
+
+      const comparisonResults: ImportComparisonItem[] = [];
+      const claimedStudentIds = new Set<string>();
+      const baseEtudiants = [...etudiants].sort((a, b) => a.matricule.localeCompare(b.matricule));
+
+      rawRows.forEach((row, index) => {
+        const rowId = getVal(row, ['id', 'id_etudiant', 'identifiant']);
+        const rowNumStr = getVal(row, ['n°', 'no', 'num', 'numero', 'ligne']);
+        const rowNum = parseInt(rowNumStr, 10) || (index + 1);
+
+        const matricule = getVal(row, ['matricule', 'numero matricule', 'numéro matricule']);
+        const nom = getVal(row, ['nom', 'nom (s)', 'nom(s)']);
+        const prenom = getVal(row, ['prenom', 'prénom', 'prenom (s)', 'prenom(s)']);
+        const filiere = getVal(row, ['filiere', 'filière', 'cursus']) || 'Génie Logiciel';
+        const niveau = getVal(row, ['niveau', 'niveau d\'etude', 'niveau d\'étude']) || 'Licence 1';
+        const option = getVal(row, ['option', 'domaine']);
+        const vague = getVal(row, ['vague', 'vague d\'etude']) || 'Jour';
+        const sexe = getVal(row, ['sexe', 'genre']) || 'M';
+        const dateNaissance = getVal(row, ['date de naissance', 'date_naissance', 'naissance']);
+        const lieuNaissance = getVal(row, ['lieu de naissance', 'lieu_naissance', 'lieu']);
+        const nationalite = getVal(row, ['nationalite', 'nationalité']) || 'Congolaise';
+        const telephone = getVal(row, ['telephone', 'téléphone', 'tel']);
+        const email = getVal(row, ['email', 'e-mail', 'courriel']);
+        const nomTuteur = getVal(row, ['nom tuteur', 'tuteur', 'information du tuteur', 'nom et prenom du pere']);
+        const telTuteur = getVal(row, ['telephone tuteur', 'téléphone tuteur', 'telephone2', 'telephone4']);
+        const adresse = getVal(row, ['adresse', 'adresse de l\'etudiant']);
+        const statut = (getVal(row, ['statut']) as any) || 'Inscrit';
+
+        if (!matricule && !nom && !prenom) return;
+
+        let existing: Etudiant | undefined = undefined;
+
+        // 1. Identification absolue par ID interne (garantit la détection si le matricule a été modifié)
+        if (rowId) {
+          existing = baseEtudiants.find(e => String(e.id) === String(rowId));
+        }
+
+        // 2. Identification par Matricule
+        if (!existing && matricule) {
+          existing = baseEtudiants.find(e => 
+            !claimedStudentIds.has(e.id) &&
+            e.matricule.trim().toLowerCase() === matricule.toLowerCase()
+          );
+        }
+
+        // 3. Identification par Numéro de ligne (N°) si le matricule a été modifié sur cette ligne
+        if (!existing && rowNum && rowNum <= baseEtudiants.length) {
+          const studentAtLine = baseEtudiants[rowNum - 1];
+          if (studentAtLine && !claimedStudentIds.has(studentAtLine.id)) {
+            existing = studentAtLine;
+          }
+        }
+
+        // 4. Identification par Nom + Prénom
+        if (!existing && nom && prenom) {
+          existing = baseEtudiants.find(e =>
+            !claimedStudentIds.has(e.id) &&
+            e.nom.trim().toLowerCase() === nom.toLowerCase() &&
+            e.prenom.trim().toLowerCase() === prenom.toLowerCase()
+          );
+        }
+
+        if (existing) {
+          claimedStudentIds.add(existing.id);
+          const diffs: ExcelChampDiff[] = [];
+
+          const checkField = (champ: keyof Etudiant, label: string, newVal: string) => {
+            const oldVal = String(existing![champ] || '').trim();
+            const nVal = newVal.trim();
+            if (nVal && oldVal !== nVal) {
+              diffs.push({ champ, label, ancienneValeur: oldVal, nouvelleValeur: nVal });
+            }
+          };
+
+          checkField('matricule', 'Matricule', matricule);
+          checkField('nom', 'Nom', nom);
+          checkField('prenom', 'Prénom', prenom);
+          checkField('vague', 'Vague', vague);
+          checkField('filiere', 'Filière', filiere);
+          checkField('niveau', 'Niveau', niveau);
+          if (option) checkField('option', 'Option', option);
+          if (telephone) checkField('telephone', 'Téléphone', telephone);
+          if (email) checkField('email', 'Email', email);
+          if (sexe) checkField('sexe', 'Sexe', sexe);
+          if (dateNaissance) checkField('date_naissance', 'Date de Naissance', dateNaissance);
+          if (lieuNaissance) checkField('lieu_naissance', 'Lieu de Naissance', lieuNaissance);
+          if (nationalite) checkField('nationalite', 'Nationalité', nationalite);
+          if (nomTuteur) checkField('nom_tuteur', 'Nom Tuteur', nomTuteur);
+          if (telTuteur) checkField('telephone_tuteur', 'Téléphone Tuteur', telTuteur);
+          if (adresse) checkField('adresse', 'Adresse', adresse);
+          if (statut) checkField('statut', 'Statut', statut);
+
+          const updatedStudent: Etudiant = {
+            ...existing,
+            matricule: matricule || existing.matricule,
+            nom: nom || existing.nom,
+            prenom: prenom || existing.prenom,
+            vague: (vague as any) || existing.vague,
+            filiere: filiere || existing.filiere,
+            niveau: niveau || existing.niveau,
+            option: option || existing.option,
+            telephone: telephone || existing.telephone,
+            email: email || existing.email,
+            sexe: (sexe as any) || existing.sexe,
+            date_naissance: dateNaissance || existing.date_naissance,
+            lieu_naissance: lieuNaissance || existing.lieu_naissance,
+            nationalite: nationalite || existing.nationalite,
+            nom_tuteur: nomTuteur || existing.nom_tuteur,
+            telephone_tuteur: telTuteur || existing.telephone_tuteur,
+            adresse: adresse || existing.adresse,
+            statut: statut || existing.statut,
+            last_modified_at: new Date().toISOString()
+          };
+
+          comparisonResults.push({
+            type: diffs.length > 0 ? 'update' : 'unchanged',
+            ligneExcel: rowNum,
+            etudiantExistant: existing,
+            etudiantCible: updatedStudent,
+            modifications: diffs
+          });
+        } else {
+          // Nouvel étudiant ajouté dans le fichier Excel
+          const newStudent: Etudiant = {
+            id: genererUUID(),
+            matricule: matricule || `ISGI-${new Date().getFullYear()}-${String(baseEtudiants.length + comparisonResults.length + 1).padStart(4, '0')}`,
+            nom: nom || 'NOUVEAU',
+            prenom: prenom || 'Etudiant',
+            sexe: (sexe as any) || 'M',
+            date_naissance: dateNaissance || '2000-01-01',
+            lieu_naissance: lieuNaissance || '',
+            nationalite: nationalite || 'Congolaise',
+            telephone: telephone || '',
+            email: email || '',
+            option: option || '',
+            filiere: filiere || 'Génie Logiciel',
+            niveau: niveau || 'Licence 1',
+            vague: (vague as any) || 'Jour',
+            statut: (statut as any) || 'Inscrit',
+            nom_tuteur: nomTuteur || '',
+            telephone_tuteur: telTuteur || '',
+            adresse: adresse || '',
+            documents_physiques: JSON.stringify({}),
+            created_at: new Date().toISOString(),
+            last_modified_at: new Date().toISOString()
+          };
+
+          comparisonResults.push({
+            type: 'create',
+            ligneExcel: rowNum,
+            etudiantCible: newStudent,
+            modifications: []
+          });
+        }
+      });
+
+      setImportComparison(comparisonResults);
+      setImportFilterTab('tous');
+      setIsImportModalOpen(true);
+    } catch (err: any) {
+      alert("Erreur lors de la lecture du fichier Excel : " + err.message);
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    setIsApplyingImport(true);
+    try {
+      const itemsToUpdate = importComparison.filter(i => i.type === 'update');
+      const itemsToCreate = importComparison.filter(i => i.type === 'create');
+      const allTargets = [...itemsToUpdate, ...itemsToCreate].map(i => i.etudiantCible);
+
+      if (allTargets.length === 0) {
+        setIsImportModalOpen(false);
+        showToast("Aucun changement à appliquer.");
+        return;
+      }
+
+      // 1. Sauvegarde locale immédiate dans Dexie
+      await db.etudiants.bulkPut(allTargets);
+
+      // 2. Synchronisation vers Supabase
+      try {
+        await supabase.from('etudiants').upsert(allTargets, { onConflict: 'id' });
+      } catch (errSupabase) {
+        console.warn('Sync Supabase différée:', errSupabase);
+      }
+
+      // 3. Journal d'audit DAC
+      await logAction(
+        'Import Excel',
+        'Étudiants',
+        `Importation de ${importFileName} : ${itemsToUpdate.length} modification(s) et ${itemsToCreate.length} nouvel/nouveaux étudiant(s) synchronisé(s)`
+      );
+
+      // 4. Rafraîchissement
+      await loadEtudiants();
+      setIsImportModalOpen(false);
+      showToast(`Synchronisation réussie : ${itemsToUpdate.length} étudiant(s) mis à jour, ${itemsToCreate.length} ajouté(s).`);
+    } catch (err: any) {
+      alert("Erreur lors de la synchronisation : " + err.message);
+    } finally {
+      setIsApplyingImport(false);
+    }
   };
 
   const handleExportPDF = () => {
@@ -375,9 +664,25 @@ export const EtudiantsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-on-surface">Gestion des Étudiants</h2>
-          <p className="text-on-surface-variant text-sm mt-1">Recherche multicritères, consultation, modification et suppression</p>
+          <p className="text-on-surface-variant text-sm mt-1">Recherche multicritères, consultation, modification, export et import Excel synchronisé</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Input fichier caché pour Import Excel */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelected}
+            accept=".xlsx, .xls, .csv"
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-full font-medium text-sm hover:bg-emerald-700 transition-colors shadow-sm"
+            title="Importer un fichier Excel modifié pour synchroniser les changements et ajouter les nouveaux étudiants"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Importer Excel</span>
+          </button>
           <button onClick={handleExportExcel} className="flex items-center gap-2 px-4 py-2 bg-secondary text-on-secondary rounded-full font-medium text-sm hover:bg-secondary/90 transition-colors">
             <Download className="w-4 h-4" /><span>Excel</span>
           </button>
@@ -1168,6 +1473,261 @@ export const EtudiantsPage: React.FC = () => {
                 className="px-5 py-2 rounded-full bg-error text-on-error text-sm font-medium hover:bg-error/90 transition-colors disabled:opacity-50">
                 {saving ? 'Suppression...' : 'Supprimer définitivement'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== MODAL D'IMPORTATION & SYNCHRONISATION EXCEL ===== */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 bg-on-surface/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface-container-lowest rounded-3xl border border-outline-variant max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-fadeIn">
+            {/* Header */}
+            <div className="p-5 border-b border-outline-variant bg-surface-container-lowest flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                  <FileSpreadsheet className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-on-surface">Synchronisation du Fichier Excel</h3>
+                  <p className="text-xs text-on-surface-variant">
+                    Fichier : <span className="font-semibold text-primary">{importFileName}</span> • {importComparison.length} ligne(s) analysée(s)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-highest transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Statistiques rapides */}
+            <div className="p-4 bg-surface-container border-b border-outline-variant grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
+              {(() => {
+                const countModif = importComparison.filter(i => i.type === 'update').length;
+                const countNew = importComparison.filter(i => i.type === 'create').length;
+                const countSame = importComparison.filter(i => i.type === 'unchanged').length;
+                const total = importComparison.length;
+
+                return (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setImportFilterTab('modifies')}
+                      className={`p-3 rounded-2xl text-left border transition-all ${
+                        importFilterTab === 'modifies' 
+                          ? 'bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-200' 
+                          : 'bg-surface-container-lowest border-outline-variant hover:border-amber-400'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-amber-600">Modifiés</span>
+                        <RefreshCw className="w-4 h-4 text-amber-500" />
+                      </div>
+                      <div className="text-xl font-extrabold mt-1 text-on-surface">{countModif}</div>
+                      <div className="text-[10px] text-on-surface-variant">Lignes avec changements</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setImportFilterTab('nouveaux')}
+                      className={`p-3 rounded-2xl text-left border transition-all ${
+                        importFilterTab === 'nouveaux' 
+                          ? 'bg-emerald-500/15 border-emerald-500 text-emerald-900 dark:text-emerald-200' 
+                          : 'bg-surface-container-lowest border-outline-variant hover:border-emerald-400'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-emerald-600">Nouveaux</span>
+                        <Plus className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div className="text-xl font-extrabold mt-1 text-on-surface">{countNew}</div>
+                      <div className="text-[10px] text-on-surface-variant">À insérer en base</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setImportFilterTab('inchanges')}
+                      className={`p-3 rounded-2xl text-left border transition-all ${
+                        importFilterTab === 'inchanges' 
+                          ? 'bg-blue-500/15 border-blue-500 text-blue-900 dark:text-blue-200' 
+                          : 'bg-surface-container-lowest border-outline-variant hover:border-blue-400'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-blue-600">Inchangés</span>
+                        <Check className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="text-xl font-extrabold mt-1 text-on-surface">{countSame}</div>
+                      <div className="text-[10px] text-on-surface-variant">Déjà synchronisés</div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setImportFilterTab('tous')}
+                      className={`p-3 rounded-2xl text-left border transition-all ${
+                        importFilterTab === 'tous' 
+                          ? 'bg-primary/15 border-primary text-primary' 
+                          : 'bg-surface-container-lowest border-outline-variant hover:border-primary'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-primary">Total Fichier</span>
+                        <FileSpreadsheet className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="text-xl font-extrabold mt-1 text-on-surface">{total}</div>
+                      <div className="text-[10px] text-on-surface-variant">Toutes les lignes</div>
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Corps du tableau comparatif */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {(() => {
+                const filteredItems = importComparison.filter(item => {
+                  if (importFilterTab === 'modifies') return item.type === 'update';
+                  if (importFilterTab === 'nouveaux') return item.type === 'create';
+                  if (importFilterTab === 'inchanges') return item.type === 'unchanged';
+                  return true;
+                });
+
+                if (filteredItems.length === 0) {
+                  return (
+                    <div className="py-12 text-center text-on-surface-variant text-sm">
+                      Aucune ligne dans cette catégorie.
+                    </div>
+                  );
+                }
+
+                return filteredItems.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-2xl border transition-all ${
+                      item.type === 'update'
+                        ? 'bg-amber-500/5 border-amber-500/30'
+                        : item.type === 'create'
+                        ? 'bg-emerald-500/5 border-emerald-500/30'
+                        : 'bg-surface-container border-outline-variant opacity-75'
+                    }`}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-outline-variant/60">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-surface-container-highest text-on-surface-variant font-bold">
+                          Ligne {item.ligneExcel}
+                        </span>
+
+                        {item.type === 'update' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                            <RefreshCw className="w-3 h-3" /> Modification ({item.modifications.length} champ{item.modifications.length > 1 ? 's' : ''})
+                          </span>
+                        )}
+
+                        {item.type === 'create' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                            <Plus className="w-3 h-3" /> Nouvel Étudiant
+                          </span>
+                        )}
+
+                        {item.type === 'unchanged' && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant">
+                            <Check className="w-3 h-3" /> Conforme
+                          </span>
+                        )}
+
+                        <span className="font-bold text-sm text-on-surface">
+                          {item.etudiantCible.nom.toUpperCase()} {item.etudiantCible.prenom}
+                        </span>
+                      </div>
+
+                      <div className="text-xs font-mono text-primary font-bold">
+                        {item.etudiantCible.matricule}
+                      </div>
+                    </div>
+
+                    {/* Affichage des modifications détectées */}
+                    {item.type === 'update' && item.modifications.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <div className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                          Changements détectés :
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {item.modifications.map((m, mIdx) => (
+                            <div key={mIdx} className="p-2.5 rounded-xl bg-surface-container-lowest border border-amber-500/20 text-xs flex items-center justify-between gap-2">
+                              <span className="font-semibold text-on-surface-variant shrink-0">{m.label} :</span>
+                              <div className="flex items-center gap-1.5 font-mono text-[11px] overflow-hidden text-ellipsis">
+                                <span className="line-through text-rose-500 truncate max-w-[120px]">{m.ancienneValeur || '(vide)'}</span>
+                                <ArrowRight className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                <span className="font-bold text-emerald-600 dark:text-emerald-400 truncate max-w-[120px]">{m.nouvelleValeur}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Affichage pour nouveau */}
+                    {item.type === 'create' && (
+                      <div className="mt-2 text-xs text-on-surface-variant flex flex-wrap gap-x-4 gap-y-1">
+                        <span>Filière : <strong className="text-on-surface">{item.etudiantCible.filiere}</strong></span>
+                        <span>Niveau : <strong className="text-on-surface">{item.etudiantCible.niveau}</strong></span>
+                        <span>Vague : <strong className="text-on-surface">{item.etudiantCible.vague || 'Jour'}</strong></span>
+                        {item.etudiantCible.telephone && <span>Tél : <strong className="text-on-surface">{item.etudiantCible.telephone}</strong></span>}
+                      </div>
+                    )}
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* Footer avec Bouton de Confirmation */}
+            <div className="p-4 border-t border-outline-variant bg-surface-container-lowest flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              <div className="text-xs text-on-surface-variant text-center sm:text-left">
+                {(() => {
+                  const toApply = importComparison.filter(i => i.type === 'update' || i.type === 'create').length;
+                  return toApply > 0 ? (
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                      Prêt à synchroniser {toApply} action(s) (Dexie local & Supabase)
+                    </span>
+                  ) : (
+                    <span>Toutes les données du fichier sont déjà à jour.</span>
+                  );
+                })()}
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  disabled={isApplyingImport}
+                  className="px-4 py-2 rounded-full border border-outline-variant hover:bg-surface-container-highest text-sm font-medium transition-colors"
+                >
+                  Annuler
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleConfirmImport}
+                  disabled={isApplyingImport || importComparison.filter(i => i.type === 'update' || i.type === 'create').length === 0}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-600 text-white font-bold text-sm hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/25 disabled:opacity-50"
+                >
+                  {isApplyingImport ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Synchronisation en cours...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Appliquer et Synchroniser ({importComparison.filter(i => i.type === 'update' || i.type === 'create').length})</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

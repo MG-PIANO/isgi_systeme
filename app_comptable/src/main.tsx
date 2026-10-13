@@ -13,6 +13,7 @@ import { PaiePage } from './components/paie/PaiePage'
 import { EmpruntsPage } from './components/emprunts/EmpruntsPage'
 import { PersonnelPage } from './components/personnel/PersonnelPage'
 import { RapportsFinanciersPage } from './components/rapports/RapportsFinanciersPage'
+import { PrevisionsRoiPage } from './components/previsions/PrevisionsRoiPage'
 import { ParametresPage } from './components/parametres/ParametresPage'
 import { MessengerPage } from './components/messenger/MessengerPage'
 import { EmploiDuTempsConsultationPage } from './components/emploi_du_temps/EmploiDuTempsConsultationPage'
@@ -52,6 +53,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <Route path="historique" element={<HistoriquePaiementsPage />} />
             <Route path="suivi-mensuel" element={<SuiviMensuelPage />} />
             <Route path="rapports-financiers" element={<RapportsFinanciersPage />} />
+            <Route path="previsions-roi" element={<PrevisionsRoiPage />} />
             <Route path="suivi-etudiants" element={<SuiviEtudiantsPage />} />
             <Route path="demandes-comptes" element={<AccountRequestsPage />} />
             <Route path="parametres" element={<ParametresPage />} />

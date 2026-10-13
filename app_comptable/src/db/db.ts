@@ -96,7 +96,7 @@ export const seedDatabaseIfEmpty = async () => {
     if (count === 0) {
       const seed = await import('./seed.json');
       if (seed.default && seed.default.length > 0) {
-        await db.etudiants.bulkAdd(seed.default);
+        await db.etudiants.bulkAdd(seed.default as any);
         console.log("Database seeded with", seed.default.length, "students.");
       }
     }

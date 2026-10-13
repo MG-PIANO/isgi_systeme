@@ -21,7 +21,8 @@ import type {
   SujetEvaluation,
   SoumissionNotes,
   NoteProvisoire,
-  PublicationAcademique
+  PublicationAcademique,
+  EmploiDuTempsSemestriel
 } from '../types';
 
 export const db = new Dexie('ISGI_DAC_DB') as Dexie & {
@@ -46,6 +47,7 @@ export const db = new Dexie('ISGI_DAC_DB') as Dexie & {
   soumissions_notes: EntityTable<SoumissionNotes, 'id'>;
   notes_provisoires: EntityTable<NoteProvisoire, 'id'>;
   publications_academiques: EntityTable<PublicationAcademique, 'id'>;
+  emplois_du_temps_semestriels: EntityTable<EmploiDuTempsSemestriel, 'id'>;
 };
 
 // Schéma IndexedDB
@@ -92,6 +94,10 @@ db.version(7).stores({
   publications_academiques: 'id, type, classe_id, semestre, publie',
   emplois_du_temps: 'id, classe_id, matiere_id, enseignant_id, jour_semaine, salle, semestre, annee_academique, statut, publie',
   notes: 'id, classe_id, matiere_id, etudiant_id, semestre, annee_academique, publie'
+});
+
+db.version(8).stores({
+  emplois_du_temps_semestriels: 'id, classe_id, semestre, annee_academique, publie'
 });
 
 /** Helper pour vérifier si un élément académique est officiellement publié par le DAC */

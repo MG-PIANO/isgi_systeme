@@ -23,7 +23,7 @@ export function getAppSettings() {
   
   return {
     tarifs: {
-      inscriptions: { nouvelle: 25000, reinscription: 20000, carteEtudiant: 5000 },
+      inscriptions: { nouvelle: 25000, reinscription: 20000, carteEtudiant: 5000, polo: 10000, assurance: 5000 },
       mensualites: { 'Licence 1': 25000, 'Licence 2': 30000, 'Licence 3': 35000 },
       cycleLocal: {
         gestion: { 'Licence 1': 250000, 'Licence 2': 300000, 'Licence 3': 350000 },
@@ -101,8 +101,49 @@ export function getRecommendedAmount(etudiant: Etudiant | undefined, typePaiemen
   if (typePaiement === 'Frais de stage') {
     return isIndustrie ? (tarifs.cycleLocal.industrieFrais?.s2_stage || 35000) : (tarifs.cycleLocal.gestionFrais?.s2_stage || 35000);
   }
+  if (typePaiement === 'Frais de Polo') return (tarifs.inscriptions as any)?.polo || 10000;
+  if (typePaiement === "Frais d'assurance") return (tarifs.inscriptions as any)?.assurance || 5000;
   
   return 0;
+}
+
+export function isPaymentTypeInscription(type?: string): boolean {
+  if (!type) return false;
+  const t = type.toUpperCase();
+  return t.includes('INSCRIPTION') || t.includes('DOSSIER') || t.includes('REINSCRIPTION');
+}
+
+export function isPaymentTypePolo(type?: string): boolean {
+  if (!type) return false;
+  const t = type.toUpperCase();
+  return t.includes('POLO') || t.includes('TENUE');
+}
+
+export function isPaymentTypeCarte(type?: string): boolean {
+  if (!type) return false;
+  const t = type.toUpperCase();
+  return t.includes('CARTE');
+}
+
+export function isPaymentTypeAssurance(type?: string): boolean {
+  if (!type) return false;
+  const t = type.toUpperCase();
+  return t.includes('ASSURANCE');
+}
+
+export function isPaymentTypeFournitures(type?: string): boolean {
+  if (!type) return false;
+  const t = type.toUpperCase();
+  return t.includes('MARQUEUR') || t.includes('RAME');
+}
+
+export function isPaymentTypeScolarite(type?: string): boolean {
+  if (!type) return true;
+  const t = type.toUpperCase();
+  if (isPaymentTypeInscription(type) || isPaymentTypePolo(type) || isPaymentTypeCarte(type) || isPaymentTypeAssurance(type) || isPaymentTypeFournitures(type)) {
+    return false;
+  }
+  return t.includes('SCOLAIRE') || t.includes('MENSUAL') || t.includes('TRANCHE') || t.includes('SCOLARITE');
 }
 
 export function getExpectedMonths(rentree: string, currentDate: Date = new Date(), anneeAcademique?: string): number {
@@ -113,8 +154,8 @@ export function getExpectedMonths(rentree: string, currentDate: Date = new Date(
   const startYear = parseInt(anneeAcademique.split('-')[0]) || new Date().getFullYear();
   const isJanvier = rentree && rentree.toUpperCase().includes('JANV');
   
-  // Date de début des cours
-  const startMonth = isJanvier ? 0 : 9; // Janvier = 0, Octobre = 9
+  // Date de début des cours (Octobre = 9, Janvier = 0)
+  const startMonth = isJanvier ? 0 : 9;
   const actualStartYear = isJanvier ? startYear + 1 : startYear;
   
   const startDate = new Date(actualStartYear, startMonth, 1);
@@ -124,14 +165,15 @@ export function getExpectedMonths(rentree: string, currentDate: Date = new Date(
     return 0;
   }
   
-  // Différence en mois (ex: de Octobre 2026 à Novembre 2026 = 1)
+  // Différence en mois (ex: en Octobre = 0, en Novembre = 1, en Décembre = 2...)
   const monthDiff = (currentDate.getFullYear() - startDate.getFullYear()) * 12 + (currentDate.getMonth() - startDate.getMonth());
   
+  // RÈGLE ISGI : L'étudiant règle le mois M jusqu'au 5 du mois suivant (M+1) !
+  // En Octobre (monthDiff == 0), l'échéance court jusqu'au 5 Novembre : 0 mois d'arriéré.
+  // En Novembre (monthDiff == 1), jusqu'au 5 Novembre : 0 mois. Après le 5 Novembre : 1 mois (Octobre dû).
   let expected = monthDiff;
-  
-  // Le mois en cours est dû si on a dépassé le 5 du mois
-  if (currentDate.getDate() > 5) {
-    expected += 1;
+  if (currentDate.getDate() <= 5) {
+    expected = Math.max(0, expected - 1);
   }
   
   // Cap at 10 months (durée de l'année scolaire)
@@ -162,3 +204,4 @@ export function getFinancialStatus(etudiant: Etudiant, totalScolaritePaye: numbe
     isEnRetard: arrieres > 0
   };
 }
+

@@ -34,14 +34,31 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(true);
         settings.setAllowContentAccess(true);
+        settings.setAllowFileAccessFromFileURLs(true);
+        settings.setAllowUniversalAccessFromFileURLs(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
 
-        webView.setWebViewClient(new WebViewClient());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        }
 
-        // Accord automatique des permissions matérielles (Caméra) au WebRTC
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                android.util.Log.e("ISGI_WEBVIEW", "Erreur: " + description + " pour URL: " + failingUrl);
+            }
+        });
+
+        // Accord automatique des permissions matérielles (Caméra) au WebRTC et console logs
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(android.webkit.ConsoleMessage consoleMessage) {
+                android.util.Log.d("ISGI_CONSOLE", consoleMessage.message() + " [" + consoleMessage.sourceId() + ":" + consoleMessage.lineNumber() + "]");
+                return true;
+            }
+
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 runOnUiThread(() -> {
@@ -52,6 +69,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        // Charger l'application immédiatement
+        chargerApplication();
+
         // Vérification et demande des permissions Android au démarrage
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(
@@ -59,8 +79,6 @@ public class MainActivity extends AppCompatActivity {
                 new String[]{Manifest.permission.CAMERA, Manifest.permission.VIBRATE},
                 CAMERA_PERMISSION_REQUEST_CODE
             );
-        } else {
-            chargerApplication();
         }
     }
 

@@ -1321,6 +1321,16 @@ $today_stats = getTodayStats();
         setTimeout(() => {
             location.reload();
         }, 120000); // 2 minutes
+        
+        // Récupérer les données initiales (étudiants, si nécessaire)
+        fetch('ajax/get_initial_data.php')
+          .then(r => r.json())
+          .then(data => {
+            if (data.success) {
+              const students = data.students;
+              // utiliser students
+            }
+          });
     </script>
 </body>
 </html>

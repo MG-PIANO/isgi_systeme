@@ -14,6 +14,8 @@ export const App: React.FC = () => {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [heureStr, setHeureStr] = useState('');
+  const [appPrete, setAppPrete] = useState(false);
+  const [erreurInit, setErreurInit] = useState<string | null>(null);
 
   const [resultatScan, setResultatScan] = useState<ScanProcessResult | null>(null);
   const [isKeypadOpen, setIsKeypadOpen] = useState(false);
@@ -23,14 +25,26 @@ export const App: React.FC = () => {
   const [pointagesJour, setPointagesJour] = useState<PointageAcces[]>([]);
 
   useEffect(() => {
-    // Initialisation base et synchro
-    initialiserBaseSurveillant().then(() => {
-      chargerDonnees();
-    });
+    // Initialisation base et synchro — entourée d'un try/catch pour éviter l'écran blanc
+    initialiserBaseSurveillant()
+      .then(() => {
+        chargerDonnees();
+        setAppPrete(true);
+      })
+      .catch((err) => {
+        console.error('Erreur initialisation:', err);
+        // On affiche quand même l'app — l'erreur sera visible mais l'UI s'affiche
+        setErreurInit('Connexion hors-ligne. Données locales utilisées.');
+        setAppPrete(true);
+      });
+
+    // Init heure immédiatement (pas de délai d'affichage)
+    const now = new Date();
+    setHeureStr(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
 
     const clock = setInterval(() => {
-      const now = new Date();
-      setHeureStr(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
+      const n = new Date();
+      setHeureStr(n.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
     }, 1000);
 
     const onOnline = () => setIsOnline(true);
@@ -51,19 +65,25 @@ export const App: React.FC = () => {
       setEtudiants(etuds);
       const points = await getPointagesParDate(getDateAujourdhui());
       setPointagesJour(points);
-    } catch {}
+    } catch (err) {
+      console.warn('Erreur chargement données:', err);
+    }
   };
 
   const handleValiderMatriculeKeypad = async (code: string) => {
     setIsKeypadOpen(false);
     const matricule = extraireMatriculeDepuisQR(code);
-    const etudiant = await db.etudiants.where('matricule').equalsIgnoreCase(matricule).first();
-    if (etudiant) {
-      const pointageExistant = pointagesJour.find(p => p.matricule.toLowerCase() === etudiant.matricule.toLowerCase());
-      const res = traiterScanEtudiant(etudiant, pointageExistant, { appareil: 'mobile' });
-      await db.pointages.put(res.pointage);
-      setResultatScan(res);
-      chargerDonnees();
+    try {
+      const etudiant = await db.etudiants.where('matricule').equalsIgnoreCase(matricule).first();
+      if (etudiant) {
+        const pointageExistant = pointagesJour.find(p => p.matricule.toLowerCase() === etudiant.matricule.toLowerCase());
+        const res = traiterScanEtudiant(etudiant, pointageExistant, { appareil: 'mobile' });
+        await db.pointages.put(res.pointage);
+        setResultatScan(res);
+        chargerDonnees();
+      }
+    } catch (err) {
+      console.warn('Erreur validation matricule:', err);
     }
   };
 
