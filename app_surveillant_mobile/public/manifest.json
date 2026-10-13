@@ -1,0 +1,18 @@
+{
+  "name": "ISGI Surveillance Portique",
+  "short_name": "ISGI Scan",
+  "description": "Application Web Mobile de Contrôle et Pointage d'Accès Étudiants ISGI",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/logo.jpg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

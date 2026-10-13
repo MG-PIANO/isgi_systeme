@@ -4,7 +4,15 @@ import { MobileScanner } from './components/MobileScanner';
 import { ResultOverlay } from './components/ResultOverlay';
 import { QuickKeypad } from './components/QuickKeypad';
 import { TodayFlowList } from './components/TodayFlowList';
-import { initialiserBaseSurveillant, db, getPointagesParDate, synchroniserAvecSupabase } from './db/db';
+import { 
+  initialiserBaseSurveillant, 
+  db, 
+  getPointagesParDate, 
+  sauvegarderPointage,
+  synchroniserAvecSupabase, 
+  synchroniserPointagesEnAttente,
+  getNombrePointagesEnAttente 
+} from './db/db';
 import { getDateAujourdhui, extraireMatriculeDepuisQR, traiterScanEtudiant } from './services/scanEngine';
 import type { Etudiant, PointageAcces, ScanProcessResult } from './types';
 
@@ -23,9 +31,44 @@ export const App: React.FC = () => {
 
   const [etudiants, setEtudiants] = useState<Etudiant[]>([]);
   const [pointagesJour, setPointagesJour] = useState<PointageAcces[]>([]);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const majCompteurEnAttente = async () => {
+    try {
+      const count = await getNombrePointagesEnAttente();
+      setPendingSyncCount(count);
+    } catch {
+      // Ignorer
+    }
+  };
+
+  const chargerDonnees = async () => {
+    try {
+      const etuds = await db.etudiants.where('statut').equals('actif').toArray();
+      setEtudiants(etuds);
+      const points = await getPointagesParDate(getDateAujourdhui());
+      setPointagesJour(points);
+      await majCompteurEnAttente();
+    } catch (err) {
+      console.warn('Erreur chargement données:', err);
+    }
+  };
+
+  const handleForcerSync = async () => {
+    setIsSyncing(true);
+    try {
+      await synchroniserAvecSupabase();
+      await chargerDonnees();
+    } catch (err) {
+      console.warn('Erreur synchronisation manuelle:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   useEffect(() => {
-    // Initialisation base et synchro — entourée d'un try/catch pour éviter l'écran blanc
+    // Initialisation base locale Dexie et synchro Supabase (avec tolérance hors-ligne)
     initialiserBaseSurveillant()
       .then(() => {
         chargerDonnees();
@@ -33,12 +76,11 @@ export const App: React.FC = () => {
       })
       .catch((err) => {
         console.error('Erreur initialisation:', err);
-        // On affiche quand même l'app — l'erreur sera visible mais l'UI s'affiche
         setErreurInit('Connexion hors-ligne. Données locales utilisées.');
         setAppPrete(true);
       });
 
-    // Init heure immédiatement (pas de délai d'affichage)
+    // Horloge temps réel
     const now = new Date();
     setHeureStr(now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
 
@@ -47,28 +89,37 @@ export const App: React.FC = () => {
       setHeureStr(n.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }));
     }, 1000);
 
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
+    // Détection automatique du retour d'internet : synchronise immédiatement les scans en attente
+    const onOnline = () => {
+      setIsOnline(true);
+      synchroniserPointagesEnAttente().then(() => {
+        chargerDonnees();
+      });
+    };
+
+    const onOffline = () => {
+      setIsOnline(false);
+    };
+
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
 
+    // Sync périodique en arrière-plan toutes les 25 secondes si en ligne
+    const periodicSync = setInterval(() => {
+      if (navigator.onLine) {
+        synchroniserPointagesEnAttente().then(() => {
+          majCompteurEnAttente();
+        });
+      }
+    }, 25000);
+
     return () => {
       clearInterval(clock);
+      clearInterval(periodicSync);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
   }, []);
-
-  const chargerDonnees = async () => {
-    try {
-      const etuds = await db.etudiants.where('statut').equals('actif').toArray();
-      setEtudiants(etuds);
-      const points = await getPointagesParDate(getDateAujourdhui());
-      setPointagesJour(points);
-    } catch (err) {
-      console.warn('Erreur chargement données:', err);
-    }
-  };
 
   const handleValiderMatriculeKeypad = async (code: string) => {
     setIsKeypadOpen(false);
@@ -78,9 +129,9 @@ export const App: React.FC = () => {
       if (etudiant) {
         const pointageExistant = pointagesJour.find(p => p.matricule.toLowerCase() === etudiant.matricule.toLowerCase());
         const res = traiterScanEtudiant(etudiant, pointageExistant, { appareil: 'mobile' });
-        await db.pointages.put(res.pointage);
+        await sauvegarderPointage(res.pointage);
         setResultatScan(res);
-        chargerDonnees();
+        await chargerDonnees();
       }
     } catch (err) {
       console.warn('Erreur validation matricule:', err);
@@ -88,8 +139,8 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-black text-white overflow-hidden">
-      {/* Barre Supérieure Mobile */}
+    <div className="h-screen w-screen flex flex-col bg-black text-white overflow-hidden select-none">
+      {/* Barre Supérieure Mobile avec indicateurs offline queue et synchro */}
       <MobileNavbar
         torchOn={torchOn}
         toggleTorch={() => setTorchOn(!torchOn)}
@@ -99,9 +150,12 @@ export const App: React.FC = () => {
         switchCamera={() => setFacingMode(prev => prev === 'environment' ? 'user' : 'environment')}
         isOnline={isOnline}
         heureStr={heureStr}
+        pendingSyncCount={pendingSyncCount}
+        onSyncClick={handleForcerSync}
+        isSyncing={isSyncing}
       />
 
-      {/* Écran Caméra Plein Écran */}
+      {/* Écran Caméra Plein Écran avec décodeur universel jsQR */}
       <MobileScanner
         onScanResultat={(res) => {
           setResultatScan(res);
@@ -136,9 +190,7 @@ export const App: React.FC = () => {
         <TodayFlowList
           pointages={pointagesJour}
           onFermer={() => setIsListOpen(false)}
-          onRafraichir={() => {
-            synchroniserAvecSupabase().then(chargerDonnees);
-          }}
+          onRafraichir={handleForcerSync}
         />
       )}
     </div>

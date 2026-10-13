@@ -53,6 +53,7 @@ export interface PointageAcces {
   surveillant_id?: string;
   surveillant_nom?: string;
   historique_scans: ScanLogItem[];
+  synced?: number; // 0 = en attente de synchro cloud, 1 = synchronise
   created_at: string;
   updated_at: string;
 }

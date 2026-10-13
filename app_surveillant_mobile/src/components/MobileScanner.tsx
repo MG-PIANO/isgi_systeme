@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import jsQR from 'jsqr';
 import { 
   QrCode, 
   Keyboard, 
@@ -36,6 +37,8 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     const charger = async () => {
@@ -167,23 +170,76 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
           await videoRef.current.play();
           setCameraPrete(true);
 
-          // Détection automatique continue des QR Codes si BarcodeDetector est disponible
+          // Détection automatique universelle continue (jsQR + accélération native si disponible)
+          let lastScanTime = 0;
+          let detector: any = null;
+
           if (typeof (window as any).BarcodeDetector !== 'undefined') {
             try {
-              const detector = new (window as any).BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13'] });
-              scanInterval = setInterval(async () => {
-                if (!actif || !videoRef.current || videoRef.current.readyState < 2) return;
-                try {
-                  const codes = await detector.detect(videoRef.current);
-                  if (codes && codes.length > 0 && codes[0]?.rawValue) {
-                    traiterMatricule(codes[0].rawValue);
-                  }
-                } catch {}
-              }, 300);
-            } catch (err) {
-              console.warn('Erreur BarcodeDetector:', err);
-            }
+              detector = new (window as any).BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13'] });
+            } catch {}
           }
+
+          const scanFrame = async () => {
+            if (!actif) return;
+
+            const now = performance.now();
+            if (now - lastScanTime > 120) { // ~8 scans/sec: réactivité instantanée et économie batterie
+              lastScanTime = now;
+              const video = videoRef.current;
+
+              if (video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+                let codeTrouve: string | null = null;
+
+                // 1. Essai avec BarcodeDetector natif si supporté
+                if (detector) {
+                  try {
+                    const codes = await detector.detect(video);
+                    if (codes && codes.length > 0 && codes[0]?.rawValue) {
+                      codeTrouve = codes[0].rawValue;
+                    }
+                  } catch {}
+                }
+
+                // 2. Décodeur universel jsQR (fonctionne à 100% sur TOUS les navigateurs mobiles et desktop, même sans BarcodeDetector)
+                if (!codeTrouve) {
+                  try {
+                    if (!canvasRef.current) {
+                      canvasRef.current = document.createElement('canvas');
+                    }
+                    const canvas = canvasRef.current;
+                    // Résolution adaptée pour détection en temps réel rapide
+                    const w = Math.min(video.videoWidth, 640);
+                    const h = Math.round((w / video.videoWidth) * video.videoHeight);
+                    canvas.width = w;
+                    canvas.height = h;
+
+                    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    if (ctx) {
+                      ctx.drawImage(video, 0, 0, w, h);
+                      const imageData = ctx.getImageData(0, 0, w, h);
+                      const qrResult = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
+                      if (qrResult && qrResult.data) {
+                        codeTrouve = qrResult.data;
+                      }
+                    }
+                  } catch (scanErr) {
+                    // Erreur frame ponctuelle ignorée
+                  }
+                }
+
+                if (codeTrouve) {
+                  traiterMatricule(codeTrouve);
+                }
+              }
+            }
+
+            if (actif) {
+              animFrameRef.current = requestAnimationFrame(scanFrame);
+            }
+          };
+
+          animFrameRef.current = requestAnimationFrame(scanFrame);
         }
       } catch (e) {
         console.warn('Accès caméra refusé ou non supporté:', e);
@@ -195,7 +251,9 @@ export const MobileScanner: React.FC<MobileScannerProps> = ({
 
     return () => {
       actif = false;
-      if (scanInterval) clearInterval(scanInterval);
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop());
       }
