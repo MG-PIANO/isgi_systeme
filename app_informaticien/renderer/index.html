@@ -229,6 +229,9 @@
           </div>
           <div class="header-actions">
             <button class="btn btn-outline" onclick="resetBadgeForm()">Réinitialiser</button>
+            <button class="btn btn-outline" onclick="syncLocalPhotosManually()" style="border-color:#38bdf8;color:#38bdf8" title="Transférer toutes les photos de ce poste vers Supabase pour que les autres ordinateurs les voient">
+              ☁️ Sync Photos vers Base
+            </button>
             <button class="btn btn-outline" onclick="startPhonePhotoSession()" style="border-color:var(--orange);color:var(--orange)">
               📱 Studio Smartphone
             </button>
@@ -739,6 +742,15 @@
               <label>Adresse du studio photo mobile</label>
               <input type="url" id="mobile-photo-url" class="form-control" placeholder="https://photos.isgi.cg/" />
               <small class="form-hint">Cette page doit être publiée en HTTPS pour être accessible depuis les téléphones.</small>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Synchronisation des Photos vers la Base</h3></div>
+            <p class="form-hint">Si des photos ont été enregistrées localement sur cet ordinateur, vous pouvez les envoyer d'un seul clic vers Supabase pour que tous les autres ordinateurs et téléphones y aient accès immédiatement.</p>
+            <div style="margin-top:14px;">
+              <button class="btn btn-primary" onclick="syncLocalPhotosManually()" style="background:#0284c7;">
+                ☁️ Transférer toutes les photos locales vers Supabase
+              </button>
             </div>
           </div>
           <div class="card">

@@ -149,6 +149,39 @@ async function syncLocalPhotosToSupabase() {
   return synced;
 }
 
+// Fonction manuelle déclenchée par l'informaticien pour forcer l'envoi de toutes les photos du poste
+async function syncLocalPhotosManually() {
+  const cached = getLocalStudentPhotos();
+  const keys = Object.keys(cached);
+  if (!keys.length) {
+    toast('Aucune photo enregistrée localement sur ce poste.', 'info');
+    return;
+  }
+
+  showLoading(`Synchronisation des photos locales (${keys.length} détectées)...`);
+  try {
+    let synced = 0;
+    for (const student of etudiantsDB) {
+      const localPhoto = cached[student.matricule] || cached[String(student.id)];
+      if (localPhoto) {
+        try {
+          await updateStudentPhotoInSupabase(student, localPhoto);
+          synced++;
+        } catch (e) {
+          console.warn(`Erreur sync photo pour ${student.matricule}:`, e);
+        }
+      }
+    }
+    toast(`✅ ${synced} photo(s) synchronisée(s) vers Supabase ! Tous les autres postes peuvent maintenant voir ces photos.`, 'success');
+    await loadSupabaseData();
+  } catch (err) {
+    toast(`Erreur pendant la synchronisation : ${err.message}`, 'error');
+  } finally {
+    hideLoading();
+  }
+}
+window.syncLocalPhotosManually = syncLocalPhotosManually;
+
 // ── Init ───────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   // Initialiser le thème (clair ou sombre)
