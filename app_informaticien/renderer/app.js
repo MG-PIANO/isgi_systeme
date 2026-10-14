@@ -127,8 +127,27 @@ function removeLocalStudentPhoto(student) {
   }
 }
 
-// NOTE: photos are synchronisées vers Supabase Storage (voir updateStudentPhotoInSupabase)
-// Le localStorage est uniquement un cache de session pour affichage sans rechargement
+// Synchronisation des photos stockées dans le cache local vers Supabase
+async function syncLocalPhotosToSupabase() {
+  const cached = getLocalStudentPhotos();
+  const keys = Object.keys(cached);
+  if (!keys.length || !etudiantsDB || !etudiantsDB.length) return 0;
+
+  let synced = 0;
+  for (const student of etudiantsDB) {
+    const localPhoto = cached[student.matricule] || cached[String(student.id)];
+    // S'il a une photo locale mais qu'elle manque dans Supabase
+    if (localPhoto && (!student.photoPath && !student.photo_url)) {
+      try {
+        await updateStudentPhotoInSupabase(student, localPhoto);
+        synced++;
+      } catch (err) {
+        console.warn(`Sync photo échoué pour ${student.matricule}:`, err);
+      }
+    }
+  }
+  return synced;
+}
 
 // ── Init ───────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -593,17 +612,25 @@ async function updateStudentPhotoInSupabase(student, dataUrl) {
     // 2. Téléverser vers Supabase Storage (bucket : student-photos)
     nextPath = `photos/${student.id || student.matricule}/${Date.now()}.jpg`;
     const encodedPath = nextPath.split('/').map(encodeURIComponent).join('/');
-    await supabaseRequest(`/storage/v1/object/student-photos/${encodedPath}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
-      body: imageBlob
-    });
-
-    // 3. Obtenir l'URL signée (1 heure)
-    signedNextPhoto = await getSignedStorageUrl('student-photos', nextPath);
+    try {
+      await supabaseRequest(`/storage/v1/object/student-photos/${encodedPath}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+        body: imageBlob
+      });
+      // 3. Obtenir l'URL signée (1 heure)
+      signedNextPhoto = await getSignedStorageUrl('student-photos', nextPath);
+    } catch (storageErr) {
+      console.warn('Téléversement Storage impossible (RLS ou permissions). Sauvegarde directe dans la base de données:', storageErr);
+      // Repli immédiat : stocker l'image optimisée directement dans etudiants.photo_url
+      // Cela garantit que TOUS les ordinateurs et téléphones verront la photo instantanément !
+      const fallbackDataUrl = offCanvas.toDataURL('image/jpeg', 0.85);
+      nextPath = fallbackDataUrl;
+      signedNextPhoto = fallbackDataUrl;
+    }
   }
 
-  // 4. Mettre à jour la colonne photo_url dans la table etudiants
+  // 4. Mettre à jour la colonne photo_url dans la table etudiants pour TOUS les postes
   await supabaseRequest(`/rest/v1/etudiants?id=eq.${student.id}`, {
     method: 'PATCH',
     headers: { Prefer: 'return=minimal' },
@@ -2359,6 +2386,17 @@ async function loadSupabaseData() {
     updateDashboardStats();
     loadBatchStudents();
     setSupabaseStatus(true, missingTables.length ? 'Migration requise' : 'Connecté');
+
+    // Synchronisation en arrière-plan des photos locales vers Supabase (pour tous les autres postes)
+    setTimeout(() => {
+      syncLocalPhotosToSupabase().then(count => {
+        if (count > 0) {
+          toast(`📸 ${count} photo(s) synchronisée(s) vers Supabase pour tous les autres postes !`, 'success');
+          renderBadgeStudioStudents();
+          renderEtudiantsTable();
+        }
+      }).catch(err => console.warn('Sync photos locales vers Supabase:', err));
+    }, 1500);
   } catch (error) {
     setSupabaseStatus(false, error.status === 401 || error.status === 403 ? 'Accès refusé' : 'Erreur Supabase');
     toast(`Impossible de charger les données Supabase : ${error.message}`, 'error');
