@@ -228,7 +228,7 @@ export function App() {
                   </select>
                 </label>
                 <label>Nom complet<input required value={fullName} onChange={(event) => setFullName(event.target.value)} maxLength={160} /></label>
-                <label>Nom d’utilisateur<input required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} minLength={3} maxLength={30} pattern="[A-Za-z0-9][A-Za-z0-9._-]{2,29}" /></label>
+                <label>Nom d’utilisateur<input required autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} minLength={3} maxLength={30} pattern="[A-Za-z0-9][-A-Za-z0-9._]{2,29}" /></label>
                 <label>Matricule{accountType === 'tuteur' ? 's des enfants (un par ligne)' : ''}<textarea required value={matriculesText} onChange={(event) => setMatriculesText(event.target.value)} rows={accountType === 'tuteur' ? 4 : 1} placeholder={accountType === 'tuteur' ? 'ISGI-2026-00001\nISGI-2026-00002' : 'Votre matricule'} /></label>
                 <label>Mot de passe (10 caractères minimum)<input type="password" required autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={10} maxLength={72} /></label>
                 <button className="primary-button" disabled={busy}>{busy ? 'Envoi…' : 'Envoyer la demande'}</button>
