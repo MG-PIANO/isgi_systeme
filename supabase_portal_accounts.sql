@@ -32,12 +32,35 @@ CREATE TABLE IF NOT EXISTS public.portal_signup_rate_limits (
 
 ALTER TABLE public.portal_accounts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.portal_account_students ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.portal_signup_rate_limits ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.portal_accounts, public.portal_account_students, public.portal_signup_rate_limits
-  FROM anon, authenticated;
-GRANT ALL ON public.portal_accounts, public.portal_account_students, public.portal_signup_rate_limits
-  TO service_role;
+GRANT ALL ON public.portal_accounts, public.portal_account_students TO anon, authenticated, service_role;
+
+DROP POLICY IF EXISTS "portal_accounts_read_policy" ON public.portal_accounts;
+CREATE POLICY "portal_accounts_read_policy" ON public.portal_accounts
+  FOR SELECT TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "portal_accounts_insert_policy" ON public.portal_accounts;
+CREATE POLICY "portal_accounts_insert_policy" ON public.portal_accounts
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "portal_accounts_update_policy" ON public.portal_accounts;
+CREATE POLICY "portal_accounts_update_policy" ON public.portal_accounts
+  FOR UPDATE TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "portal_accounts_delete_policy" ON public.portal_accounts;
+CREATE POLICY "portal_accounts_delete_policy" ON public.portal_accounts
+  FOR DELETE TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "portal_account_students_policy" ON public.portal_account_students;
+CREATE POLICY "portal_account_students_policy" ON public.portal_account_students
+  FOR ALL TO anon, authenticated
+  USING (true)
+  WITH CHECK (true);
 
 CREATE OR REPLACE FUNCTION public.portal_consume_rate_limit(
   p_key_hash TEXT,

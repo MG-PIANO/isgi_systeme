@@ -48,16 +48,47 @@ export function AccountRequestsPage() {
   const [busyId, setBusyId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [issuedCode, setIssuedCode] = useState('');
 
   const loadRequests = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const data = await staffRequest<StaffResult>({ action: 'list' });
-      setRequests(data.requests || []);
+      const { data: accounts, error: accErr } = await supabase
+        .from('portal_accounts')
+        .select('user_id, username, account_type, full_name, status, requested_at')
+        .eq('status', 'pending')
+        .order('requested_at', { ascending: false });
+
+      if (accErr) throw new Error(accErr.message);
+
+      const userIds = (accounts || []).map((a) => a.user_id);
+      const { data: links } = userIds.length
+        ? await supabase.from('portal_account_students').select('*').in('user_id', userIds)
+        : { data: [] };
+
+      const matricules = [...new Set((links || []).map((l: any) => l.matricule))];
+      const { data: students } = matricules.length
+        ? await supabase.from('etudiants').select('id, matricule, nom, prenom, filiere, niveau, statut, telephone, nom_tuteur, telephone_tuteur').in('matricule', matricules)
+        : { data: [] };
+
+      const formatted: AccountRequest[] = (accounts || []).map((account: any) => ({
+        ...account,
+        students: (links || [])
+          .filter((link: any) => link.user_id === account.user_id)
+          .map((link: any) => ({
+            matricule: link.matricule,
+            student: (students || []).find((s: any) => s.matricule === link.matricule) || null,
+          })),
+      }));
+
+      setRequests(formatted);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Chargement des demandes impossible.');
+      try {
+        const data = await staffRequest<StaffResult>({ action: 'list' });
+        setRequests(data.requests || []);
+      } catch {
+        setError(reason instanceof Error ? reason.message : 'Chargement des demandes impossible.');
+      }
     } finally {
       setLoading(false);
     }
@@ -65,25 +96,31 @@ export function AccountRequestsPage() {
 
   useEffect(() => { void loadRequests(); }, [loadRequests]);
 
-  async function decide(request: AccountRequest, action: 'approve' | 'reject' | 'reissue') {
+  async function decide(request: AccountRequest, action: 'approve' | 'reject') {
     const confirmText = action === 'reject'
       ? `Refuser la demande de ${request.full_name} ?`
-      : action === 'reissue'
-        ? `Générer un nouveau code pour ${request.full_name} ? L'ancien code cessera de fonctionner.`
-        : `Confirmer après vérification d'identité de ${request.full_name} ? Le code sera affiché une seule fois.`;
+      : `Valider directement l’accès au portail pour ${request.full_name} ? L'accès sera débloqué immédiatement.`;
     if (!window.confirm(confirmText)) return;
     setBusyId(request.user_id);
     setError('');
     setMessage('');
-    setIssuedCode('');
     try {
-      const data = await staffRequest<StaffResult>({ action, userId: request.user_id });
-      if (action !== 'reject' && data?.code) {
-        setIssuedCode(data.code);
-        setMessage(data.instruction || 'Remettez le code en personne après contrôle.');
-      } else {
-        setMessage('La demande a été refusée.');
+      const newStatus = action === 'approve' ? 'active' : 'rejected';
+      const { error: updErr } = await supabase
+        .from('portal_accounts')
+        .update({
+          status: newStatus,
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('user_id', request.user_id);
+
+      if (updErr) {
+        await staffRequest<StaffResult>({ action, userId: request.user_id });
       }
+
+      setMessage(action === 'approve'
+        ? `Le compte de ${request.full_name} a été validé avec succès ! L'accès au portail est actif.`
+        : `La demande de ${request.full_name} a été refusée.`);
       await loadRequests();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Traitement de la demande impossible.');
@@ -92,23 +129,14 @@ export function AccountRequestsPage() {
     }
   }
 
-  async function copyCode() {
-    try {
-      await navigator.clipboard.writeText(issuedCode);
-      setMessage('Code copié. Remettez-le uniquement à la personne vérifiée.');
-    } catch {
-      setError('Copie impossible. Sélectionnez et copiez le code manuellement.');
-    }
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">Accès au portail famille</p>
-          <h1 className="mt-2 text-2xl font-bold text-on-surface">Demandes de comptes</h1>
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary">Accès au portail étudiant & famille</p>
+          <h1 className="mt-2 text-2xl font-bold text-on-surface">Validation des demandes de comptes</h1>
           <p className="mt-2 max-w-2xl text-sm text-on-surface-variant">
-            Comparez les matricules avec les dossiers et contrôlez l’identité avant de valider. Le code doit être remis en personne.
+            Comparez les matricules avec les dossiers et contrôlez l’identité avant de valider. La validation débloque immédiatement l’accès.
           </p>
         </div>
         <button type="button" onClick={() => void loadRequests()} className="inline-flex items-center gap-2 rounded-xl border border-outline-variant px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container-high">
@@ -119,20 +147,10 @@ export function AccountRequestsPage() {
       {error && <div role="alert" className="rounded-xl border border-error/30 bg-error-container p-4 text-sm text-on-error-container">{error}</div>}
       {message && <div role="status" className="rounded-xl border border-primary/20 bg-primary-container/30 p-4 text-sm text-on-surface">{message}</div>}
 
-      {issuedCode && (
-        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-950/20 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div><h2 className="font-bold text-on-surface">Code d’activation — affiché une seule fois</h2><p className="mt-1 text-xs text-on-surface-variant">Remettez-le en personne au demandeur après vérification.</p></div>
-            <button type="button" onClick={() => void copyCode()} className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-3 py-2 text-sm font-bold text-slate-950"><Clipboard size={15} /> Copier</button>
-          </div>
-          <p className="mt-4 select-all rounded-lg bg-slate-950 px-4 py-3 font-mono text-2xl font-bold tracking-[0.22em] text-emerald-300">{issuedCode}</p>
-        </div>
-      )}
-
       {loading ? (
         <div className="flex items-center justify-center gap-3 rounded-2xl border border-outline-variant p-12 text-on-surface-variant"><LoaderCircle className="animate-spin" />Chargement des demandes…</div>
       ) : requests.length === 0 ? (
-        <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-10 text-center text-sm text-on-surface-variant">Aucune demande en attente.</div>
+        <div className="rounded-2xl border border-outline-variant bg-surface-container-low p-10 text-center text-sm text-on-surface-variant">Aucune demande en attente de validation.</div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-2">
           {requests.map((request) => {
@@ -144,7 +162,9 @@ export function AccountRequestsPage() {
                     <div className="rounded-xl bg-primary/10 p-3 text-primary">{request.account_type === 'tuteur' ? <UsersRound /> : <UserRound />}</div>
                     <div><h2 className="font-bold text-on-surface">{request.full_name}</h2><p className="mt-1 text-xs text-on-surface-variant">@{request.username} · {request.account_type === 'tuteur' ? 'Tuteur / parent' : 'Étudiant'}</p></div>
                   </div>
-                  <span className="text-right text-[11px] text-on-surface-variant">{request.status === 'approved' ? 'En attente d’activation' : 'À vérifier'}<br />{new Date(request.requested_at).toLocaleDateString('fr-FR')}</span>
+                  <span className="text-right text-[11px] text-amber-600 font-semibold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+                    En attente<br /><span className="text-on-surface-variant font-normal">{new Date(request.requested_at).toLocaleDateString('fr-FR')}</span>
+                  </span>
                 </div>
                 <div className="mt-4 space-y-2">
                   {request.students.map((link) => <div key={link.matricule} className="rounded-xl border border-outline-variant/70 bg-surface-container-lowest p-3 text-sm">
@@ -153,12 +173,23 @@ export function AccountRequestsPage() {
                   </div>)}
                 </div>
                 <div className="mt-5 flex gap-3">
-                  {request.status === 'pending' ? <>
-                    <button type="button" disabled={Boolean(busyId) || missingStudent} onClick={() => void decide(request, 'approve')} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"><ShieldCheck size={16} />{busyId === request.user_id ? 'Validation…' : 'Vérifié : valider'}</button>
-                    <button type="button" disabled={Boolean(busyId)} onClick={() => void decide(request, 'reject')} className="inline-flex items-center justify-center gap-2 rounded-xl border border-error/30 px-4 py-2.5 text-sm font-semibold text-error hover:bg-error-container disabled:opacity-50"><X size={16} />Refuser</button>
-                  </> : <button type="button" disabled={Boolean(busyId)} onClick={() => void decide(request, 'reissue')} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-primary/30 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary-container disabled:opacity-50"><ShieldCheck size={16} />Réémettre un code</button>}
+                  <button
+                    type="button"
+                    disabled={Boolean(busyId) || missingStudent}
+                    onClick={() => void decide(request, 'approve')}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <ShieldCheck size={16} />{busyId === request.user_id ? 'Validation…' : 'Valider directement'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={Boolean(busyId)}
+                    onClick={() => void decide(request, 'reject')}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-error/30 px-4 py-2.5 text-sm font-semibold text-error hover:bg-error-container disabled:opacity-50"
+                  >
+                    <X size={16} />Refuser
+                  </button>
                 </div>
-                {!missingStudent && <p className="mt-3 text-[11px] text-on-surface-variant">La validation seule ne prouve pas le lien familial : contrôlez les pièces justificatives ou contactez la famille avant de générer le code.</p>}
               </article>
             );
           })}

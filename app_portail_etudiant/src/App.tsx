@@ -20,10 +20,9 @@ import {
 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { portalRequest, supabase } from './supabase'
-import type { Attendance, Grade, Payment, PortalDashboard, Student, TimetableItem } from './types'
+import type { AccountStatus, Attendance, Grade, Payment, PortalDashboard, Student, TimetableItem } from './types'
 
 type Screen = 'login' | 'register' | 'pending' | 'activation' | 'dashboard'
-type AccountStatus = 'pending' | 'approved' | 'active' | 'rejected'
 type Section = 'overview' | 'grades' | 'attendance' | 'payments' | 'timetable' | 'badge' | 'videos'
 
 const syntheticEmail = (username: string) => `${username.trim().toLowerCase()}@accounts.isgi.cg`
@@ -60,9 +59,9 @@ export function App() {
 
   const acceptCurrentSession = useCallback(async () => {
     const status = await portalRequest<{ status: AccountStatus }>('account-status')
-    if (status.status === 'pending') setScreen('pending')
-    else if (status.status === 'approved') setScreen('activation')
-    else if (status.status === 'active') {
+    if (status.status === 'pending') {
+      setScreen('pending')
+    } else if (status.status === 'approved' || status.status === 'active') {
       const data = await portalRequest<PortalDashboard>('dashboard')
       setDashboard(data)
       setSelectedStudentId((current) => current || data.students[0]?.id || '')
@@ -70,7 +69,7 @@ export function App() {
     } else {
       await supabase.auth.signOut()
       setScreen('login')
-      setError('Cette demande de compte a été refusée. Contactez le secrétariat.')
+      setError('Cette demande de compte a été refusée par l’administration. Contactez le secrétariat.')
     }
   }, [])
 
@@ -153,7 +152,7 @@ export function App() {
         matricules,
       })
       setNotice(result.message)
-      setScreen('login')
+      setScreen('pending')
       setPassword('')
     } catch (reason) {
       setError(errorText(reason))
@@ -249,7 +248,7 @@ export function App() {
               <div className="pending-box">
                 <span className="pending-icon"><Clock3 size={22} /></span>
                 <strong>Accès bloqué jusqu’à validation</strong>
-                <p className="muted">Le code sera remis en personne après vérification. Il ne peut être utilisé qu’une seule fois.</p>
+                <p className="muted">Votre demande est en cours d’examen par l’administration. Dès que votre dossier sera validé par le secrétariat, vous aurez directement accès à toutes vos informations scolaires.</p>
                 <button className="secondary-button" onClick={logout}>Fermer la session</button>
               </div>
             )}

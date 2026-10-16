@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { PortalDashboard, Student, Grade, Attendance, Payment, TimetableItem, PortalVideo } from './types'
+import type { PortalDashboard, Student, Grade, Attendance, Payment, TimetableItem, PortalVideo, AccountStatus } from './types'
 
 export const SUPABASE_URL = 'https://vbdhmgrysrerlmgumafx.supabase.co'
 export const SUPABASE_ANON_KEY = 'sb_publishable_sqJUSK-p5mF2Acy_bhxhAQ_nt_t6Fax'
@@ -64,7 +64,7 @@ export async function portalRequest<T>(
 
     // Créer le compte utilisateur dans Supabase Auth
     const email = syntheticEmail(username)
-    const { error: authError } = await supabase.auth.signUp({
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -74,6 +74,7 @@ export async function portalRequest<T>(
           full_name: fullName,
           matricules: matchedStudents.map((s) => s.matricule),
           student_ids: matchedStudents.map((s) => s.id),
+          status: 'pending',
         },
       },
     })
@@ -85,9 +86,34 @@ export async function portalRequest<T>(
       throw new Error(authError.message)
     }
 
+    // Enregistrer la demande dans la table portal_accounts pour validation par l'administration
+    if (authData?.user) {
+      try {
+        await supabase.from('portal_accounts').upsert({
+          user_id: authData.user.id,
+          username,
+          account_type: accountType,
+          full_name: fullName,
+          status: 'pending',
+          requested_at: new Date().toISOString(),
+        })
+
+        const links = matchedStudents.map((s) => ({
+          user_id: authData.user!.id,
+          student_id: String(s.id),
+          matricule: s.matricule,
+        }))
+        if (links.length > 0) {
+          await supabase.from('portal_account_students').upsert(links)
+        }
+      } catch (err) {
+        console.warn('Enregistrement portal_accounts silencieux :', err)
+      }
+    }
+
     return {
-      status: 'active',
-      message: 'Compte créé avec succès ! Vous pouvez maintenant vous connecter.',
+      status: 'pending',
+      message: 'Demande envoyée ! Votre compte a été créé et est en attente de validation par l’administration.',
     } as unknown as T
   }
 
@@ -105,11 +131,28 @@ export async function portalRequest<T>(
     const account_type = (meta.account_type as 'etudiant' | 'tuteur') || 'etudiant'
     const full_name = meta.full_name || username
 
+    let status: AccountStatus = (meta.status as AccountStatus) || 'pending'
+
+    // Vérifier en priorité le statut réel dans la table portal_accounts (validé par l'administration)
+    try {
+      const { data: dbAccount } = await supabase
+        .from('portal_accounts')
+        .select('status')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (dbAccount?.status) {
+        status = dbAccount.status as AccountStatus
+      }
+    } catch {
+      // Si la table n'est pas encore accessible, utiliser le statut de secours
+    }
+
     return {
       username,
       account_type,
       full_name,
-      status: 'active',
+      status,
     } as unknown as T
   }
 
@@ -123,7 +166,27 @@ export async function portalRequest<T>(
 
   // ── 4. Action : Données scolaires (Dashboard) ────────────────────
   if (action === 'dashboard') {
+    // Vérification stricte : le compte DOIT être validé par l'administration
     const meta = user.user_metadata || {}
+    let status: AccountStatus = (meta.status as AccountStatus) || 'pending'
+    try {
+      const { data: dbAccount } = await supabase
+        .from('portal_accounts')
+        .select('status')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (dbAccount?.status) {
+        status = dbAccount.status as AccountStatus
+      }
+    } catch {
+      // Ignorer
+    }
+
+    if (status !== 'active' && status !== 'approved') {
+      throw new Error('Votre compte est en attente de validation par l’administration. L’accès aux informations scolaires sera ouvert dès confirmation de votre dossier.')
+    }
+
     let matricules: string[] = Array.isArray(meta.matricules)
       ? meta.matricules.map((m: unknown) => String(m).trim().toUpperCase()).filter(Boolean)
       : []

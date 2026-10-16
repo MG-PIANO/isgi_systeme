@@ -76,3 +76,5 @@ export interface PortalDashboard {
   classes: Array<{ id: string; nom: string }>
   videos: PortalVideo[]
 }
+
+export type AccountStatus = 'pending' | 'approved' | 'active' | 'rejected'
