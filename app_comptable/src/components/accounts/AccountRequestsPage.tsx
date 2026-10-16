@@ -10,6 +10,7 @@ interface LinkedStudent {
     filiere?: string;
     niveau?: string;
     statut?: string;
+    type_etudiant?: string;
     telephone?: string;
     nom_tuteur?: string;
     telephone_tuteur?: string;
@@ -62,15 +63,31 @@ export function AccountRequestsPage() {
         console.warn('Erreur lecture liaisons étudiants:', linksErr);
       }
 
-      const matricules = [...new Set((links || []).map((l: any) => l.matricule).filter(Boolean))];
+      const studentIds = [...new Set((links || []).map((l: any) => l.student_id).filter(Boolean))];
+      const matricules = [...new Set((links || []).map((l: any) => l.matricule?.trim()).filter(Boolean))];
       let students: any[] = [];
       if (matricules.length > 0) {
         const { data: stData, error: stErr } = await supabase
           .from('etudiants')
-          .select('id, matricule, nom, prenom, filiere, niveau, statut, telephone, nom_tuteur, telephone_tuteur')
+          .select('id, matricule, nom, prenom, filiere, niveau, type_etudiant, telephone, nom_tuteur, telephone_tuteur')
           .in('matricule', matricules);
-        if (!stErr && stData) {
+        if (stErr) {
+          console.error('Erreur lecture étudiants par matricule:', stErr);
+        } else if (stData) {
           students = stData;
+        }
+      }
+
+      const missingIds = studentIds.filter((id: string) => !students.some((s) => s.id === id));
+      if (missingIds.length > 0) {
+        const { data: idData, error: idErr } = await supabase
+          .from('etudiants')
+          .select('id, matricule, nom, prenom, filiere, niveau, type_etudiant, telephone, nom_tuteur, telephone_tuteur')
+          .in('id', missingIds);
+        if (idErr) {
+          console.error('Erreur lecture étudiants par ID:', idErr);
+        } else if (idData) {
+          students = [...students, ...idData];
         }
       }
 
@@ -80,7 +97,10 @@ export function AccountRequestsPage() {
           .filter((link: any) => link.user_id === account.user_id)
           .map((link: any) => ({
             matricule: link.matricule,
-            student: students.find((s: any) => s.matricule === link.matricule) || null,
+            student: students.find((s: any) =>
+              (link.student_id && String(s.id) === String(link.student_id)) ||
+              (s.matricule && link.matricule && s.matricule.trim().toUpperCase() === link.matricule.trim().toUpperCase())
+            ) || null,
           })),
       }));
 
@@ -207,7 +227,7 @@ export function AccountRequestsPage() {
                           <p className="mt-1 text-on-surface">
                             {link.student.prenom} {link.student.nom}
                             <span className="text-on-surface-variant">
-                              {' '}· {link.student.filiere || 'Filière inconnue'} {link.student.niveau || ''} · {link.student.statut || 'Statut non renseigné'}
+                              {' '}· {link.student.filiere || 'Filière inconnue'} {link.student.niveau || ''} · {link.student.type_etudiant || link.student.statut || 'Inscrit'}
                             </span>
                           </p>
                           <p className="mt-1 text-xs text-on-surface-variant">

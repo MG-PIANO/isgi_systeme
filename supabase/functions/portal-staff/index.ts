@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
 
       const matricules = [...new Set((links || []).map((link: { matricule: string }) => link.matricule))];
       const { data: students, error: studentsError } = matricules.length
-        ? await adminClient.from('etudiants').select('id, matricule, nom, prenom, filiere, niveau, statut, telephone, nom_tuteur, telephone_tuteur').in('matricule', matricules)
+        ? await adminClient.from('etudiants').select('id, matricule, nom, prenom, filiere, niveau, type_etudiant, telephone, nom_tuteur, telephone_tuteur').in('matricule', matricules)
         : { data: [], error: null };
       if (studentsError) throw new Error(`Vérification des dossiers étudiants impossible: ${studentsError.message}`);
 
