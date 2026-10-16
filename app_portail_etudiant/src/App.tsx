@@ -153,7 +153,7 @@ export function App() {
         matricules,
       })
       setNotice(result.message)
-      setScreen('pending')
+      setScreen('login')
       setPassword('')
     } catch (reason) {
       setError(errorText(reason))
