@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>HERO SYSTEM — Plaquette & Proposition Commerciale</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 15mm 12mm 15mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      line-height: 1.48;
+      font-size: 10.5pt;
+    }
+
+    .page {
+      page-break-after: always;
+      position: relative;
+      height: 100%;
+      min-height: 268mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .page:last-child {
+      page-break-after: avoid;
+    }
+
+    /* En-tête */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #f43f5e;
+      margin-bottom: 14px;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid #f43f5e;
+    }
+
+    .brand-text h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 17pt;
+      font-weight: 900;
+      color: #09090f;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text span {
+      color: #f43f5e;
+    }
+
+    .brand-tagline {
+      font-size: 7.5pt;
+      color: #64748b;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .header-doc-info {
+      text-align: right;
+      font-size: 7.8pt;
+      color: #475569;
+    }
+
+    .header-doc-info strong {
+      color: #0f172a;
+      font-size: 9pt;
+      display: block;
+    }
+
+    /* Titres */
+    h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 13pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 10px;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      background: #f43f5e;
+      color: #fff;
+      font-size: 8.5pt;
+      font-weight: 800;
+      border-radius: 6px;
+    }
+
+    p {
+      color: #334155;
+      font-size: 9.6pt;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    /* Grilles */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 8px 0;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 8px 0;
+    }
+
+    .card {
+      border: 1px solid #e2e8f0;
+      border-radius: 9px;
+      padding: 10px 12px;
+      background: #f8fafc;
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 9.8pt;
+      font-weight: 800;
+      color: #0f172a;
+      margin-bottom: 3px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-desc {
+      font-size: 8.4pt;
+      color: #475569;
+      line-height: 1.4;
+    }
+
+    .highlight-card {
+      background: #fff1f2;
+      border-color: #fecdd3;
+    }
+
+    .highlight-card .card-title {
+      color: #be123c;
+    }
+
+    .qr-track-card {
+      background: linear-gradient(135deg, #fdf2f8 0%, #f5f3ff 100%);
+      border: 1.5px solid #f43f5e;
+      border-radius: 10px;
+      padding: 11px 14px;
+      margin: 10px 0;
+    }
+
+    /* Tableaux */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 12px 0;
+      font-size: 8.8pt;
+    }
+
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      padding: 7px 9px;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      text-align: left;
+      font-size: 8.2pt;
+    }
+
+    td {
+      padding: 7px 9px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #334155;
+    }
+
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .table-price {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #e11d48;
+    }
+
+    /* Pied de page */
+    .footer {
+      border-top: 1px solid #cbd5e1;
+      padding-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 7.2pt;
+      color: #64748b;
+    }
+
+    .footer strong {
+      color: #0f172a;
+    }
+
+    /* Box spéciale rentabilité */
+    .roi-banner {
+      background: #09090f;
+      color: #fff;
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin: 10px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .roi-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 10.5pt;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .roi-sub {
+      font-size: 8pt;
+      color: #94a3b8;
+    }
+
+    .roi-num-box {
+      text-align: right;
+    }
+
+    .roi-num {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16pt;
+      font-weight: 900;
+      color: #f43f5e;
+      line-height: 1;
+    }
+
+    .roi-label {
+      font-size: 7pt;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .contact-footer-box {
+      background: #0f172a;
+      color: #fff;
+      border-radius: 9px;
+      padding: 10px 14px;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 8.5pt;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PAGE 1 : Présentation, Architecture & Révolution QR Assiduité -->
+  <div class="page">
+    <div>
+      <div class="header">
+        <div class="brand-box">
+          <img src="hero_logo.jpg" alt="Logo HERO" class="brand-logo">
+          <div class="brand-text">
+            <h1>HERO <span>SYSTEM</span></h1>
+            <div class="brand-tagline">Système d'Exploitation Académique & Gouvernance IA</div>
+          </div>
+        </div>
+        <div class="header-doc-info">
+          <strong>DOCUMENT OFFICIEL DE PRÉSENTATION</strong>
+          Édition 2026-2027 · Contact : +242 06 734 93 69
+        </div>
+      </div>
+
+      <p style="font-size: 9.8pt; color: #1e293b; font-weight: 500; margin-bottom: 10px;">
+        <strong>HERO System</strong> est la suite intégrée de référence pour les universités et instituts : éradication de la fraude sur les diplômes, étanchéité absolue de la caisse, traçabilité des présences par QR Code et fonctionnement autonome garanti <strong>100% hors-ligne (Offline-First)</strong>.
+      </p>
+
+      <h2><span class="badge-num">1</span> Révolution de l'Assiduité : Le Scan QR Code à 3 Niveaux</h2>
+      
+      <div class="qr-track-card">
+        <div style="font-family: 'Outfit', sans-serif; font-size: 10.5pt; font-weight: 800; color: #9f1239; margin-bottom: 6px;">
+          ⚡ Traçabilité Intégrale de l'Étudiant : Campus, Salle de Cours & Portail Parents
+        </div>
+        <div class="grid-3" style="margin: 0; gap: 8px;">
+          <div style="background: #fff; border-radius: 8px; padding: 8px 10px; border: 1px solid #fbcfe8;">
+            <div style="font-weight: 800; font-size: 8.8pt; color: #be123c;">1. Surveillant (Portail)</div>
+            <div style="font-size: 8pt; color: #475569; margin-top: 3px;">
+              Scan instantané à l'entrée et à la sortie de l'établissement. Horodatage automatique des présences au campus et filtrage strict aux examens.
+            </div>
+          </div>
+          <div style="background: #fff; border-radius: 8px; padding: 8px 10px; border: 1px solid #e9d5ff;">
+            <div style="font-weight: 800; font-size: 8.8pt; color: #6b21a8;">2. Espace Professeur (Cours)</div>
+            <div style="font-size: 8pt; color: #475569; margin-top: 3px;">
+              Le professeur scanne le QR code de chaque étudiant en entrant en classe pour noter la présence et l'heure d'arrivée exacte à chaque matière.
+            </div>
+          </div>
+          <div style="background: #fff; border-radius: 8px; padding: 8px 10px; border: 1px solid #fed7aa;">
+            <div style="font-weight: 800; font-size: 8.8pt; color: #c2410c;">3. Portail Parents 24/7</div>
+            <div style="font-size: 8pt; color: #475569; margin-top: 3px;">
+              Les parents voient en direct sur leur smartphone si leur enfant est bien entré dans l'école et s'il est présent à chacun de ses cours.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2><span class="badge-num">2</span> Les Piliers Technologiques Inégalés</h2>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">100% Offline-First (Zéro Coupure)</div>
+          <div class="card-desc">
+            Fonctionne en continu même si Internet coupe pendant des jours. Caisse et scolarité restent 100% opérationnelles. Synchronisation Cloud automatique au retour du réseau.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Verrouillage Croisé Caisse & Examens</div>
+          <div class="card-desc">
+            Impossible pour un étudiant en retard de paiement d'accéder aux examens ou de retirer son attestation. Supprime toute complaisance ou favoritisme.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Piste d'Audit Inviolable (Audit Trail)</div>
+          <div class="card-desc">
+            Toute note modifiée ou délibérée est scellée à la milliseconde avec l'identifiant machine de l'auteur. Aucune falsification de diplôme n'est possible.
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Cartes PVC Haute Sécurité QR Code</div>
+          <div class="card-desc">
+            Badges PVC durables avec QR Code cryptographique dynamique lisible instantanément par les surveillants, professeurs, parents et recruteurs.
+          </div>
+        </div>
+      </div>
+
+      <h2><span class="badge-num">3</span> La Suite Complète des 7 Applications Interconnectées</h2>
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-title">1. HERO DG</div>
+          <div class="card-desc">Tour de contrôle exécutif : recettes de caisse en direct, taux de recouvrement, alertes de gestion.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">2. HERO DAC</div>
+          <div class="card-desc">Direction Académique : maquettes LMD, cours, filières, délibérations et procès-verbaux scellés.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">3. HERO Secrétariat</div>
+          <div class="card-desc">Scolarité : enrôlement physique, archivage numérique (BAC, CNI), édition certifiée des attestations.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">4. HERO Comptabilité</div>
+          <div class="card-desc">Caisse étanche, encaissement des mensualités, moratoires, échéanciers et reçus infalsifiables.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">5. HERO Surveillance</div>
+          <div class="card-desc">Scan QR mobile aux portails : pointage des entrées/sorties et contrôle d'accès aux examens.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">6. HERO Studio Badges</div>
+          <div class="card-desc">Génération et encodage automatique de cartes d'étudiants PVC avec photo HD et QR Code sécurisé.</div>
+        </div>
+      </div>
+
+      <div class="card highlight-card" style="margin-top: 4px;">
+        <div class="card-title">7. Portail Web & Mobile Étudiants & Parents (Accès 24/7)</div>
+        <div class="card-desc">
+          Consultation en direct de l'assiduité heure par heure, des notes provisoires, des coefficients et de l'état des paiements.
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>HERO SERVICES · Éditeur de solutions logicielles académiques</span>
+      <span>Page 1 / 2</span>
+      <strong>Email : heroservices12@gmail.com · Tél/WhatsApp : +242 06 734 93 69</strong>
+    </div>
+  </div>
+
+  <!-- PAGE 2 : Tarifs Dégressifs, Rentabilité & Contact Direct -->
+  <div class="page">
+    <div>
+      <div class="header">
+        <div class="brand-box">
+          <img src="hero_logo.jpg" alt="Logo HERO" class="brand-logo">
+          <div class="brand-text">
+            <h1>HERO <span>SYSTEM</span></h1>
+            <div class="brand-tagline">Grille Tarifaire Dégressive & Modèle Financier</div>
+          </div>
+        </div>
+        <div class="header-doc-info">
+          <strong>PROPOSITION COMMERCIALE</strong>
+          Tarification Dégressive selon l'Effectif Étudiant
+        </div>
+      </div>
+
+      <h2><span class="badge-num">4</span> Grille Tarifaire Dégressive par Paliers d'Effectif</h2>
+      <p>
+        Pour garantir l'accessibilité sans peser sur la trésorerie de votre institut, HERO SERVICES applique un tarif unitaire dégressif qui baisse automatiquement au fur et à mesure que votre effectif grandit :
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Palier d'Effectif Étudiant</th>
+            <th>Paiement Annuel Unique (par étudiant)</th>
+            <th>Paiement Mensuel Souple (sur 10 mois)</th>
+            <th>Avantage Tarifaire</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Palier 1 : 100 à 200 étudiants</strong></td>
+            <td class="table-price">10 000 FCFA / étudiant / an</td>
+            <td class="table-price">1 000 FCFA / étudiant / mois</td>
+            <td>Tarif Institut Standard</td>
+          </tr>
+          <tr>
+            <td><strong>Palier 2 : 201 à 500 étudiants</strong></td>
+            <td class="table-price">8 000 FCFA / étudiant / an</td>
+            <td class="table-price">800 FCFA / étudiant / mois</td>
+            <td><strong>- 20% de réduction</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Palier 3 : 501 à 1 000 étudiants</strong></td>
+            <td class="table-price">7 000 FCFA / étudiant / an</td>
+            <td class="table-price">700 FCFA / étudiant / mois</td>
+            <td><strong>- 30% de réduction</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Palier 4 : 1 001+ & Multi-Sites</strong></td>
+            <td class="table-price">5 000 FCFA / étudiant / an</td>
+            <td class="table-price">500 FCFA / étudiant / mois</td>
+            <td><strong>- 50% Grand Campus</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="font-size: 8.2pt; color: #64748b; margin-top: -6px; margin-bottom: 10px;">
+        * <em>Le tarif inclut la suite complète des 7 applications, les cartes PVC imprimées avec QR Code, le portail web 24/7, l'installation sur vos postes, la formation sur site et l'assistance technique continue.</em>
+      </div>
+
+      <h2><span class="badge-num">5</span> Modèle d'Autofinancement : Le Logiciel Génère du Profit</h2>
+      <p>
+        Votre institut intègre des <strong>« Frais de scolarité numérique & badge PVC »</strong> de <strong>15 000 FCFA</strong> par étudiant à l'inscription. L'école règle HERO SERVICES et conserve la différence en bénéfice net direct :
+      </p>
+
+      <div class="grid-2">
+        <div class="card" style="border-left: 4px solid #f43f5e;">
+          <div style="font-size: 7.8pt; font-weight: 700; color: #f43f5e; text-transform: uppercase;">Exemple Institut Moyen (350 Étudiants)</div>
+          <div style="font-size: 12pt; font-weight: 800; color: #0f172a; margin: 3px 0;">Palier 2 : 8 000 FCFA / étudiant</div>
+          <div style="font-size: 8.5pt; color: #475569; line-height: 1.45;">
+            • Total collecté par l'école : <strong>5 250 000 FCFA</strong><br>
+            • Reversé à HERO SERVICES : <strong>2 800 000 FCFA</strong><br>
+            • <strong style="color: #059669;">Bénéfice Net pour l'école : + 2 450 000 FCFA</strong>
+          </div>
+        </div>
+
+        <div class="card" style="border-left: 4px solid #9333ea;">
+          <div style="font-size: 7.8pt; font-weight: 700; color: #9333ea; text-transform: uppercase;">Exemple Grand Campus (1 200 Étudiants)</div>
+          <div style="font-size: 12pt; font-weight: 800; color: #0f172a; margin: 3px 0;">Palier 4 : 5 000 FCFA / étudiant</div>
+          <div style="font-size: 8.5pt; color: #475569; line-height: 1.45;">
+            • Total collecté par l'école : <strong>18 000 000 FCFA</strong><br>
+            • Reversé à HERO SERVICES : <strong>6 000 000 FCFA</strong><br>
+            • <strong style="color: #059669;">Bénéfice Net pour l'école : + 12 000 000 FCFA</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bannière ROI -->
+      <div class="roi-banner">
+        <div>
+          <div class="roi-title">Bilan pour la Direction Générale : Zéro Risque Financier</div>
+          <div class="roi-sub">L'école n'engage aucun fond propre et perçoit un gain net dès la rentrée académique.</div>
+        </div>
+        <div class="roi-num-box">
+          <div class="roi-num">0 FCFA</div>
+          <div class="roi-label">Effort Net de Trésorerie</div>
+        </div>
+      </div>
+
+      <h2><span class="badge-num">6</span> Modalités de Déploiement & Contact Direct</h2>
+      <div class="grid-3" style="margin-top: 6px;">
+        <div class="card">
+          <div class="card-title">1. Installation Rapide</div>
+          <div class="card-desc">Déploiement en 48 heures sur les postes de travail de votre campus.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">2. Formation Pratique</div>
+          <div class="card-desc">Formation complète sur site de la scolarité, de la caisse et des surveillants.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">3. Support Dédié</div>
+          <div class="card-desc">Assistance téléphonique et présentielle 6j/7 pour un fonctionnement serein.</div>
+        </div>
+      </div>
+
+      <!-- Encadré Contact Officiel avec Email & WhatsApp -->
+      <div class="contact-footer-box">
+        <div>
+          <strong style="color: #fda4af;">HERO SERVICES TECHNOLOGIE</strong> · Solutions Académiques de Gouvernance<br>
+          <span style="color: #94a3b8;">Email officiel :</span> <strong>heroservices12@gmail.com</strong>
+        </div>
+        <div style="text-align: right;">
+          <span style="color: #fda4af; font-weight: 700;">Démonstration Immédiate & Devis :</span><br>
+          <strong style="font-size: 11pt; color: #fff;">Tél / WhatsApp : +242 06 734 93 69</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Proposition commerciale officielle · Document contractuel confidentiel</span>
+      <span>Page 2 / 2</span>
+      <strong>Email : heroservices12@gmail.com · Tél/WhatsApp : +242 06 734 93 69</strong>
+    </div>
+  </div>
+
+</body>
+</html>

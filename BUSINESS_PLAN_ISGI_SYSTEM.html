@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>HERO SYSTEM — L'Écosystème Universitaire Intelligent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    :root {
+      --bg-base: #07070d;
+      --bg-surface: #0e0e18;
+      --bg-card: rgba(18, 18, 30, 0.72);
+      --bg-card-hover: rgba(28, 28, 46, 0.88);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-brand: rgba(244, 63, 94, 0.35);
+
+      --brand-rose: #f43f5e;
+      --brand-magenta: #e11d48;
+      --brand-violet: #8b5cf6;
+      --brand-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 40%, #e11d48 70%, #9333ea 100%);
+      --surface-gradient: linear-gradient(180deg, rgba(244, 63, 94, 0.04) 0%, rgba(14, 14, 24, 0) 100%);
+
+      --text-primary: #ffffff;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+    html { font-size: 16px; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      background-image: 
+        radial-gradient(circle at 15% 10%, rgba(244, 63, 94, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 35%, rgba(147, 51, 234, 0.07) 0%, transparent 45%),
+        radial-gradient(circle at 50% 85%, rgba(244, 63, 94, 0.05) 0%, transparent 50%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .container { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 clamp(16px, 4vw, 32px); }
+
+    header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(7, 7, 13, 0.88);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .nav-wrapper { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; }
+    .brand-link { display: flex; align-items: center; gap: 12px; text-decoration: none; color: #fff; }
+    .brand-logo-img {
+      width: 44px; height: 44px; border-radius: 12px; object-fit: cover;
+      border: 1px solid rgba(244, 63, 94, 0.4); box-shadow: 0 4px 14px rgba(244, 63, 94, 0.25);
+    }
+    .brand-title {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(1.2rem, 2vw, 1.4rem);
+      letter-spacing: -0.01em; display: flex; align-items: center; gap: 6px;
+    }
+    .brand-badge {
+      font-size: 0.68rem; font-family: var(--font-mono); font-weight: 700;
+      padding: 2px 7px; border-radius: 6px; background: rgba(244, 63, 94, 0.15);
+      border: 1px solid rgba(244, 63, 94, 0.4); color: #fda4af; letter-spacing: 0.05em;
+    }
+
+    nav ul { display: flex; align-items: center; gap: clamp(16px, 2.5vw, 32px); list-style: none; }
+    nav a { color: var(--text-secondary); text-decoration: none; font-size: 0.92rem; font-weight: 600; transition: color 0.2s ease; }
+    nav a:hover { color: #fff; }
+
+    .nav-actions { display: flex; align-items: center; gap: 12px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 20px; border-radius: 12px; font-weight: 700; font-size: 0.9rem;
+      text-decoration: none; cursor: pointer; border: none; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      min-height: 44px; white-space: nowrap;
+    }
+    .btn-primary { background: var(--brand-gradient); color: #fff; box-shadow: 0 4px 16px rgba(244, 63, 94, 0.35); }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(244, 63, 94, 0.5); }
+    .btn-secondary { background: rgba(255, 255, 255, 0.05); color: #fff; border: 1px solid var(--border-subtle); }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.18); }
+
+    .mobile-menu-btn { display: none; background: none; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 8px; color: #fff; cursor: pointer; }
+
+    section { padding: clamp(50px, 8vw, 90px) 0; }
+    .hero-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: clamp(32px, 5vw, 60px); align-items: center; }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px;
+      border-radius: 9999px; background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3);
+      color: #fda4af; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.04em;
+      text-transform: uppercase; margin-bottom: 20px;
+    }
+    .hero-eyebrow-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand-rose); box-shadow: 0 0 10px var(--brand-rose); }
+
+    h1 { font-family: var(--font-display); font-size: clamp(2.3rem, 5vw, 3.8rem); font-weight: 900; line-height: 1.12; letter-spacing: -0.025em; margin-bottom: 22px; }
+    .gradient-text { background: var(--brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero-desc { color: var(--text-secondary); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.65; margin-bottom: 32px; max-width: 600px; }
+    .hero-buttons { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 40px; }
+
+    .hero-visual-card {
+      position: relative; background: radial-gradient(circle at center, rgba(244, 63, 94, 0.12) 0%, rgba(14, 14, 24, 0.6) 70%);
+      border: 1px solid var(--border-brand); border-radius: 28px; padding: clamp(24px, 4vw, 44px);
+      text-align: center; display: flex; flex-direction: column; align-items: center;
+      box-shadow: 0 20px 50px -15px rgba(244, 63, 94, 0.2);
+    }
+    .hero-main-logo {
+      width: clamp(180px, 40vw, 260px); height: clamp(180px, 40vw, 260px); border-radius: 24px;
+      object-fit: cover; box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6), 0 0 25px rgba(244, 63, 94, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.15); margin-bottom: 20px; transition: transform 0.4s ease;
+    }
+    .hero-main-logo:hover { transform: scale(1.03); }
+    .hero-badge-caption { font-family: var(--font-display); font-weight: 700; font-size: 1.15rem; letter-spacing: 0.05em; }
+    .hero-badge-sub { color: var(--text-muted); font-size: 0.85rem; margin-top: 4px; }
+
+    .card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 20px; padding: clamp(20px, 3vw, 32px); transition: all 0.25s ease; }
+    .card:hover { border-color: var(--border-brand); background: var(--bg-card-hover); transform: translateY(-2px); }
+
+    .section-head { text-align: center; max-width: 760px; margin: 0 auto clamp(36px, 6vw, 56px) auto; }
+    .section-title { font-family: var(--font-display); font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight: 800; line-height: 1.2; margin-top: 10px; margin-bottom: 12px; letter-spacing: -0.02em; }
+    .section-subtitle { color: var(--text-secondary); font-size: clamp(0.95rem, 1.2vw, 1.1rem); }
+
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+
+    .stat-box { padding: 22px; }
+    .stat-val { font-family: var(--font-display); font-size: clamp(1.8rem, 3vw, 2.3rem); font-weight: 900; line-height: 1; margin-bottom: 6px; }
+    .stat-label { color: var(--text-secondary); font-size: 0.88rem; }
+
+    .icon-chip {
+      width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      background: rgba(244, 63, 94, 0.12); border: 1px solid rgba(244, 63, 94, 0.28);
+      color: var(--brand-rose); margin-bottom: 18px;
+    }
+    .item-title { font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
+    .item-desc { color: var(--text-secondary); font-size: 0.94rem; line-height: 1.6; }
+
+    .mode-switch-box { display: flex; justify-content: center; gap: 12px; margin-bottom: 30px; flex-wrap: wrap; }
+    .mode-btn {
+      padding: 10px 22px; border-radius: 12px; font-weight: 700; font-size: 0.92rem;
+      cursor: pointer; border: 1px solid var(--border-subtle); background: rgba(255, 255, 255, 0.04);
+      color: #94a3b8; transition: all 0.2s ease;
+    }
+    .mode-btn.active {
+      background: var(--brand-gradient); color: #fff; border-color: transparent; box-shadow: 0 4px 16px rgba(244, 63, 94, 0.35);
+    }
+
+    .ai-showcase {
+      border: 1px solid var(--border-brand);
+      background: linear-gradient(135deg, rgba(244, 63, 94, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%);
+      border-radius: 24px; padding: clamp(24px, 4vw, 40px); margin-bottom: 40px;
+      display: flex; gap: 28px; align-items: center; flex-wrap: wrap;
+    }
+    .ai-tag-badge {
+      display: flex; align-items: center; gap: 8px; background: var(--brand-gradient); color: #fff;
+      padding: 10px 18px; border-radius: 12px; font-weight: 800; font-family: var(--font-display); font-size: 1rem; letter-spacing: 0.02em;
+    }
+
+    .sim-card {
+      background: linear-gradient(180deg, rgba(22, 22, 36, 0.85) 0%, rgba(14, 14, 24, 0.95) 100%);
+      border: 1px solid var(--border-brand); padding: clamp(24px, 4vw, 44px);
+    }
+    .range-wrap { margin-bottom: 28px; }
+    .range-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .range-title { font-size: 0.95rem; font-weight: 600; color: #cbd5e1; }
+    .range-value { font-family: var(--font-mono); font-size: 1.2rem; font-weight: 700; color: var(--brand-rose); }
+
+    input[type=range] { width: 100%; height: 7px; background: #1e293b; border-radius: 4px; outline: none; -webkit-appearance: none; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+      background: var(--brand-rose); cursor: pointer; box-shadow: 0 0 12px rgba(244, 63, 94, 0.8); border: 2px solid #fff;
+    }
+
+    .kpi-card { padding: 20px; border-radius: 16px; background: rgba(10, 10, 18, 0.8); border: 1px solid var(--border-subtle); text-align: center; }
+    .kpi-title { color: var(--text-muted); font-size: 0.85rem; font-weight: 500; margin-bottom: 4px; }
+    .kpi-num { font-family: var(--font-display); font-size: clamp(1.4rem, 2.5vw, 1.9rem); font-weight: 800; }
+
+    .tier-badge {
+      display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem;
+      font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.04em; margin-bottom: 8px;
+    }
+
+    .table-responsive {
+      width: 100%; overflow-x: auto; border-radius: 18px; border: 1px solid var(--border-subtle);
+      background: rgba(14, 14, 24, 0.6); -webkit-overflow-scrolling: touch;
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th { padding: 16px 20px; background: rgba(255, 255, 255, 0.02); font-family: var(--font-display); font-size: 0.9rem; font-weight: 700; color: #cbd5e1; text-align: left; border-bottom: 1px solid var(--border-subtle); }
+    td { padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); font-size: 0.92rem; color: #e2e8f0; }
+    tr:last-child td { border-bottom: none; }
+    .highlight-col { background: rgba(244, 63, 94, 0.05); border-left: 1px solid rgba(244, 63, 94, 0.2); border-right: 1px solid rgba(244, 63, 94, 0.2); font-weight: 600; color: #fff; }
+
+    @media (max-width: 1024px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-3 { grid-template-columns: repeat(2, 1fr); }
+      .hero-grid { grid-template-columns: 1fr; text-align: center; }
+      .hero-desc { margin: 0 auto 32px auto; }
+      .hero-buttons { justify-content: center; }
+    }
+
+    @media (max-width: 768px) {
+      nav ul { display: none; }
+      .mobile-menu-btn { display: block; }
+      .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
+      .hero-buttons { flex-direction: column; width: 100%; }
+      .hero-buttons .btn { width: 100%; }
+      .nav-actions .btn { display: none; }
+    }
+
+    .mobile-drawer {
+      display: none; position: fixed; top: 73px; left: 0; right: 0;
+      background: #0e0e18; border-bottom: 1px solid var(--border-subtle); padding: 24px; z-index: 40;
+    }
+    .mobile-drawer.open { display: block; }
+    .mobile-drawer ul { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+    .mobile-drawer a { color: #fff; font-weight: 600; text-decoration: none; font-size: 1.05rem; display: block; padding: 8px 0; }
+
+    @media print {
+      body { background: #fff !important; color: #000 !important; }
+      header, .no-print, .mobile-drawer { display: none !important; }
+      .card, .hero-visual-card { border: 1px solid #ccc !important; background: #fff !important; box-shadow: none !important; color: #000 !important; }
+      .gradient-text { color: #000 !important; -webkit-text-fill-color: #000 !important; }
+      table, th, td { border-color: #ccc !important; color: #000 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <header class="no-print">
+    <div class="container">
+      <div class="nav-wrapper">
+        <a href="#" class="brand-link">
+          <img src="hero_logo.jpg" alt="Logo HERO" class="brand-logo-img">
+          <span class="brand-title">
+            HERO <span class="brand-badge">SYSTEM</span>
+          </span>
+        </a>
+
+        <nav>
+          <ul>
+            <li><a href="#assiduite">Pointage QR Code</a></li>
+            <li><a href="#suite">7 Applications</a></li>
+            <li><a href="#tracabilite">Sécurité & Piste d'audit</a></li>
+            <li><a href="#simulateur">Simulateur Rentabilité</a></li>
+            <li><a href="#tarifs">Tarifs Dégressifs</a></li>
+          </ul>
+        </nav>
+
+        <div class="nav-actions">
+          <a href="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" download="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" class="btn btn-secondary">
+            <i data-lucide="download" style="width: 17px; height: 17px;"></i>
+            Plaquette (PDF)
+          </a>
+          <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20souhaite%20r%C3%A9server%20une%20d%C3%A9monstration%20de%20HERO%20System" target="_blank" class="btn btn-primary">
+            <i data-lucide="phone-call" style="width: 17px; height: 17px;"></i>
+            +242 06 734 93 69
+          </a>
+          <button class="mobile-menu-btn" onclick="toggleMenu()" aria-label="Menu Mobile">
+            <i data-lucide="menu" id="menu-icon"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-drawer no-print" id="mobile-menu">
+    <ul>
+      <li><a href="#assiduite" onclick="toggleMenu()">Pointage QR Code & Présence</a></li>
+      <li><a href="#suite" onclick="toggleMenu()">Les 7 Applications</a></li>
+      <li><a href="#tracabilite" onclick="toggleMenu()">Traçabilité & Sécurité</a></li>
+      <li><a href="#simulateur" onclick="toggleMenu()">Simulateur d'Autofinancement</a></li>
+      <li><a href="#tarifs" onclick="toggleMenu()">Tarification Dégressive</a></li>
+      <li style="padding-top: 10px;">
+        <a href="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" download="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" class="btn btn-secondary" style="width: 100%; text-decoration: none;">
+          <i data-lucide="download" style="width: 17px; height: 17px;"></i>
+          Télécharger la Plaquette (PDF)
+        </a>
+      </li>
+      <li style="padding-top: 6px;">
+        <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20souhaite%20r%C3%A9server%20une%20d%C3%A9monstration%20de%20HERO%20System" target="_blank" class="btn btn-primary" style="width: 100%; text-decoration: none;">
+          <i data-lucide="phone-call" style="width: 17px; height: 17px;"></i>
+          Appeler le +242 06 734 93 69
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <main>
+    <section>
+      <div class="container">
+        <div class="hero-grid">
+          <div>
+            <div class="hero-eyebrow">
+              <span class="hero-eyebrow-dot"></span>
+              SYSTÈME D'EXPLOITATION ACADÉMIQUE DE NOUVELLE GÉNÉRATION
+            </div>
+
+            <h1>
+              L'Écosystème Universitaire <span class="gradient-text">Propulsé par l'IA</span>
+            </h1>
+
+            <p class="hero-desc">
+              <strong>HERO System</strong> est la suite intégrée conçue pour les universités et grandes écoles : éradication de la fraude sur les diplômes, étanchéité de la caisse, <strong>pointage instantané des présences par QR Code</strong> et fonctionnement garanti <strong>100% hors-ligne (Offline-First)</strong>.
+            </p>
+
+            <div class="hero-buttons">
+              <a href="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" download="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" class="btn btn-primary" style="padding: 13px 26px;">
+                <i data-lucide="download" style="width: 18px; height: 18px;"></i>
+                Télécharger la Plaquette (PDF)
+              </a>
+              <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20souhaite%20une%20d%C3%A9monstration%20de%20HERO%20System" target="_blank" class="btn btn-secondary" style="padding: 13px 26px;">
+                <i data-lucide="phone" style="width: 18px; height: 18px;"></i>
+                Démonstration : +242 06 734 93 69
+              </a>
+            </div>
+
+            <div class="grid-4" style="gap: 14px;">
+              <div class="card stat-box">
+                <div class="stat-val gradient-text">0%</div>
+                <div class="stat-label">Dépendance Internet (Offline-First)</div>
+              </div>
+              <div class="card stat-box">
+                <div class="stat-val">QR Code</div>
+                <div class="stat-label">Pointage Entrées, Sorties & Cours</div>
+              </div>
+              <div class="card stat-box">
+                <div class="stat-val gradient-text">7 en 1</div>
+                <div class="stat-label">Modules interconnectés</div>
+              </div>
+              <div class="card stat-box">
+                <div class="stat-val">100%</div>
+                <div class="stat-label">Piste d'audit inviolable</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-visual-card">
+            <img src="hero_logo.jpg" alt="HERO SERVICES Logo" class="hero-main-logo">
+            <div class="hero-badge-caption">HERO SERVICES</div>
+            <div class="hero-badge-sub">Technologie & Rigueur Académique</div>
+            <div style="margin-top: 18px; display: inline-flex; align-items: center; gap: 6px; font-size: 0.8rem; color: #fda4af; background: rgba(244, 63, 94, 0.12); padding: 5px 12px; border-radius: 999px;">
+              <i data-lucide="check-circle" style="width: 14px; height: 14px;"></i>
+              Déployé & Opérationnel · Contact : heroservices12@gmail.com
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION SPÉCIALE : Le Pointage Automatique par Scan QR Code à 3 Niveaux -->
+    <section id="assiduite" style="background: linear-gradient(180deg, rgba(244, 63, 94, 0.05) 0%, rgba(14, 14, 24, 0.6) 100%); border-top: 1px solid var(--border-brand); border-bottom: 1px solid var(--border-brand);">
+      <div class="container">
+        <div class="section-head">
+          <div class="brand-badge" style="display: inline-block; margin-bottom: 8px;">ASSIDUITÉ & CONTRÔLE D'ACCÈS HAUTE PRÉCISION</div>
+          <h2 class="section-title">Le Pointage Automatique par QR Code à 3 Niveaux</h2>
+          <p class="section-subtitle">
+            Chaque étudiant porte un badge PVC sécurisé avec QR Code unique. Fini l'appel manuel sur papier : le contrôle est instantané au portail, en classe et chez les parents.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card" style="border-color: rgba(244, 63, 94, 0.4); background: rgba(24, 16, 28, 0.7);">
+            <div class="icon-chip">
+              <i data-lucide="door-open"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px;">1. Application Surveillant</div>
+            <h3 class="item-title">Contrôle Entrées & Sorties Campus</h3>
+            <p class="item-desc">
+              Le surveillant scanne la carte PVC de l'étudiant à la porte d'entrée et de sortie. L'heure exacte d'arrivée et de départ est horodatée. Le filtrage interdit automatiquement l'entrée aux étudiants non autorisés ou en situation d'impayé pendant les examens.
+            </p>
+          </div>
+
+          <div class="card" style="border-color: rgba(147, 51, 234, 0.4); background: rgba(24, 16, 36, 0.7);">
+            <div class="icon-chip" style="background: rgba(147, 51, 234, 0.15); border-color: rgba(147, 51, 234, 0.4); color: #c084fc;">
+              <i data-lucide="user-check"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px; background: rgba(147, 51, 234, 0.15); border-color: rgba(147, 51, 234, 0.4); color: #d8b4fe;">2. Espace Professeur</div>
+            <h3 class="item-title">Présence par Matière & Retards</h3>
+            <p class="item-desc">
+              En début de cours, le professeur scanne le QR code de chaque étudiant présent. L'application enregistre l'heure précise d'arrivée dans la salle. Fini les faux émargements ou les signatures par procuration pour les camarades absents.
+            </p>
+          </div>
+
+          <div class="card" style="border-color: rgba(251, 146, 60, 0.4); background: rgba(30, 20, 16, 0.7);">
+            <div class="icon-chip" style="background: rgba(251, 146, 60, 0.15); border-color: rgba(251, 146, 60, 0.4); color: #fb923c;">
+              <i data-lucide="smartphone"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px; background: rgba(251, 146, 60, 0.15); border-color: rgba(251, 146, 60, 0.4); color: #fdba74;">3. Portail Web Parents 24/7</div>
+            <h3 class="item-title">Suivi Parental en Direct</h3>
+            <p class="item-desc">
+              Sur leur smartphone, les parents visualisent en direct si leur enfant a franchi le portail de l'école et s'il est effectivement assis dans sa salle de cours heure par heure. Une transparence qui rassure les familles et valorise l'école.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IA & Révolution Technologique -->
+    <section id="ia">
+      <div class="container">
+        <div class="ai-showcase">
+          <div class="ai-tag-badge">
+            <i data-lucide="cpu" style="width: 22px; height: 22px;"></i>
+            HERO AI ENGINE
+          </div>
+          <div style="flex: 1; min-width: 260px;">
+            <h3 style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; margin-bottom: 6px;">
+              L'Intelligence Artificielle intégrée au service de la gouvernance
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">
+              HERO System surveille en permanence la conformité académique et financière pour éliminer les erreurs humaines et les fraudes discrètes.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="shield-alert"></i>
+            </div>
+            <h3 class="item-title">Audit IA Anti-Fraude</h3>
+            <p class="item-desc">
+              Détection instantanée de toute altération suspecte de notes post-délibération ou d'inscriptions fantômes. Notification immédiate de la Direction Générale.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="trending-up"></i>
+            </div>
+            <h3 class="item-title">Optimisation du Recouvrement</h3>
+            <p class="item-desc">
+              HERO anticipe les échéances de paiement des familles et propose automatiquement au service comptable des échéanciers sur mesure pour sécuriser la trésorerie.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="user-check"></i>
+            </div>
+            <h3 class="item-title">Alerte Décrochage Scolaire</h3>
+            <p class="item-desc">
+              Croisement automatique entre les scans de présence par QR Code et les résultats d'évaluations pour alerter les parents avant que l'échec ne devienne inévitable.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Les 7 Applications HERO -->
+    <section id="suite" style="background: rgba(14, 14, 24, 0.5);">
+      <div class="container">
+        <div class="section-head">
+          <div class="brand-badge" style="display: inline-block; margin-bottom: 8px;">SUITE APPLICATIVE COMPLÈTE</div>
+          <h2 class="section-title">Les 7 Piliers de HERO System</h2>
+          <p class="section-subtitle">
+            Une interface dédiée pour chaque métier, synchronisée en temps réel sans jamais perturber les autres services.
+          </p>
+        </div>
+
+        <div class="grid-3">
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="layout-dashboard"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px;">Direction Générale</div>
+            <h3 class="item-title">HERO DG</h3>
+            <p class="item-desc">
+              Tour de contrôle exécutive : recettes nettes en temps réel, volume d'inscriptions, taux de recouvrement par classe et journal d'audit global.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="graduation-cap"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px;">Direction Académique</div>
+            <h3 class="item-title">HERO DAC</h3>
+            <p class="item-desc">
+              Gestion des maquettes LMD, filières, classes, attributions des cours, planning des examens et procès-verbaux de délibérations scellés.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="folder-check"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px;">Scolarité & Enrôlement</div>
+            <h3 class="item-title">HERO Secrétariat</h3>
+            <p class="item-desc">
+              Enrôlement physique des étudiants, contrôle et archivage des pièces (BAC, CNI), édition instantanée et certifiée des attestations et relevés officiels.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="coins"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px;">Service Financier</div>
+            <h3 class="item-title">HERO Comptabilité</h3>
+            <p class="item-desc">
+              Encaissement strict des frais d'inscription et des mensualités, gestion de la caisse journalière, échéanciers, moratoires et reçus infalsifiables.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="qr-code"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px;">Surveillance & Portails</div>
+            <h3 class="item-title">HERO Surveillant Mobile</h3>
+            <p class="item-desc">
+              Pointage instantané par scan QR code de badge pour les présences des étudiants et enseignants (entrées/sorties) et filtrage aux examens.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="id-card"></i>
+            </div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 8px;">Cartes & Badges PVC</div>
+            <h3 class="item-title">HERO Studio Badges</h3>
+            <p class="item-desc">
+              Génération et encodage automatique de cartes d'étudiants PVC haute sécurité avec photo HD, matricule unique et QR code cryptographique dynamique.
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 24px; border-color: var(--border-brand); background: linear-gradient(135deg, rgba(244, 63, 94, 0.05) 0%, rgba(14, 14, 24, 0.9) 100%);">
+          <div style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+            <div class="icon-chip" style="margin-bottom: 0; width: 56px; height: 56px;">
+              <i data-lucide="smartphone" style="width: 28px; height: 28px;"></i>
+            </div>
+            <div style="flex: 1; min-width: 280px;">
+              <div class="brand-badge" style="width: fit-content; margin-bottom: 6px;">Accès Web & Mobile 24/7</div>
+              <h3 class="item-title" style="font-size: 1.45rem;">Portail Web Sécurisé Étudiants, Parents & Professeurs</h3>
+              <p class="item-desc">
+                Les professeurs y scannent les présences par cours. Les parents et étudiants consultent en direct l'assiduité heure par heure, les relevés de notes provisoires et l'état des paiements.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Traçabilité & Sécurité Inviolable -->
+    <section id="tracabilite">
+      <div class="container">
+        <div class="section-head">
+          <div class="brand-badge" style="display: inline-block; margin-bottom: 8px;">TECHNOLOGIE DE POINTE</div>
+          <h2 class="section-title">Les 4 Piliers de la Traçabilité Absolue</h2>
+          <p class="section-subtitle">
+            Conçu pour éliminer 100% des possibilités de fraude interne et résister aux coupures d'électricité et d'Internet.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="wifi-off"></i>
+            </div>
+            <h3 class="item-title">Architecture Native Offline-First</h3>
+            <p class="item-desc">
+              Les applications tournent sur une base locale ultrarapide (IndexedDB/Dexie). Si le câble réseau est débranché ou qu'Internet coupe toute la journée, la caisse continue d'encaisser et la scolarité d'inscrire. La synchronisation Cloud PostgreSQL est automatique dès le retour du signal.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="fingerprint"></i>
+            </div>
+            <h3 class="item-title">Piste d'Audit Inviolable (Audit Trail)</h3>
+            <p class="item-desc">
+              Chaque opération (validation de note, encaissement, dispense) est horodatée à la milliseconde et signée par l'identifiant de l'auteur et son adresse machine. Aucune altération discrète de note n'est possible sans laisser une trace irréversible.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="lock"></i>
+            </div>
+            <h3 class="item-title">Verrouillage Croisé Caisse & Scolarité</h3>
+            <p class="item-desc">
+              Un étudiant dont la scolarité est impayée est automatiquement bloqué lors du contrôle d'accès aux examens et ne peut pas retirer son attestation de diplôme. Le système supprime toute complaisance ou favoritisme humain.
+            </p>
+          </div>
+
+          <div class="card">
+            <div class="icon-chip">
+              <i data-lucide="check-check"></i>
+            </div>
+            <h3 class="item-title">Authentification Publique par QR Code</h3>
+            <p class="item-desc">
+              Tous les documents officiels (cartes étudiantes, reçus, attestations de réussite) possèdent un QR Code dynamique. Un recruteur, une ambassade ou un parent peut vérifier leur authenticité en 1 seconde avec son smartphone.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Simulateur d'Autofinancement Dégressif -->
+    <section id="simulateur">
+      <div class="container">
+        <div class="section-head">
+          <div class="brand-badge" style="display: inline-block; margin-bottom: 8px;">CALCULATEUR DE RENTABILITÉ DÉGRESSIF</div>
+          <h2 class="section-title">Comment HERO s'Autofinance & Rapporte à l'École</h2>
+          <p class="section-subtitle">
+            Le tarif unitaire diminue automatiquement selon votre effectif : de <strong>10 000 FCFA</strong> jusqu'à <strong>5 000 FCFA</strong> par étudiant !
+          </p>
+        </div>
+
+        <div class="mode-switch-box no-print">
+          <button id="btn-mode-annuel" class="mode-btn active" onclick="setMode('annuel')">
+            <i data-lucide="calendar"></i> Mode Paiement Annuel Unique
+          </button>
+          <button id="btn-mode-mensuel" class="mode-btn" onclick="setMode('mensuel')">
+            <i data-lucide="clock"></i> Mode Paiement Mensuel Souple
+          </button>
+        </div>
+
+        <div class="card sim-card">
+          <div class="grid-2" style="align-items: center;">
+            <div>
+              <div class="range-wrap">
+                <div class="range-head">
+                  <span class="range-title">Nombre total d'étudiants inscrits :</span>
+                  <span id="students-val" class="range-value">550 étudiants</span>
+                </div>
+                <input type="range" id="students-input" min="100" max="3000" step="25" value="550" oninput="updateSim()">
+                <div style="margin-top: 10px;">
+                  <span id="tier-badge-ui" class="tier-badge" style="background: rgba(244, 63, 94, 0.15); border: 1px solid rgba(244, 63, 94, 0.4); color: #fda4af;">
+                    Palier 3 (501 à 1 000 étudiants) : 7 000 FCFA / étudiant
+                  </span>
+                </div>
+              </div>
+
+              <div class="range-wrap">
+                <div class="range-head">
+                  <span class="range-title" id="fee-title-label">Frais répercutés à chaque étudiant par l'école :</span>
+                  <span id="fee-val" class="range-value">15 000 FCFA / an</span>
+                </div>
+                <input type="range" id="fee-input" min="10000" max="25000" step="1000" value="15000" oninput="updateSim()">
+                <div style="font-size: 0.84rem; color: var(--text-muted); margin-top: 8px;" id="fee-explanation">
+                  Généralement inclus dans les frais d'inscription technique (carte PVC QR + accès portail + scolarité numérique).
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              <div class="kpi-card">
+                <div class="kpi-title" id="kpi-total-label">Total perçu par l'école auprès des étudiants</div>
+                <div id="res-total" class="kpi-num gradient-text">
+                  8 250 000 FCFA
+                </div>
+              </div>
+
+              <div class="grid-2" style="gap: 14px;">
+                <div class="kpi-card">
+                  <div class="kpi-title" id="kpi-hero-label">Reversé à HERO SERVICES</div>
+                  <div id="res-cost" class="kpi-num" style="font-size: 1.35rem; color: #cbd5e1;">
+                    3 850 000 FCFA
+                  </div>
+                </div>
+
+                <div class="kpi-card" style="border-color: rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.08);">
+                  <div class="kpi-title" style="color: #fda4af;" id="kpi-profit-label">Bénéfice Net conservé par l'École</div>
+                  <div id="res-profit" class="kpi-num" style="font-size: 1.35rem; color: #fff;">
+                    + 4 400 000 FCFA
+                  </div>
+                </div>
+              </div>
+
+              <div style="font-size: 0.86rem; text-align: center; color: #fda4af; font-weight: 600;" id="sim-summary-text">
+                ✨ L'école est 100% digitalisée, élimine les fuites de caisse et dégage <strong>4 400 000 FCFA de bénéfice net</strong>.
+              </div>
+
+              <!-- Bouton Téléchargement Devis Personnalisé PDF -->
+              <button onclick="downloadCustomQuote()" class="btn btn-primary" style="width: 100%; margin-top: 6px; font-size: 0.95rem;">
+                <i data-lucide="file-check-2" style="width: 18px; height: 18px;"></i>
+                Télécharger ce Devis Personnalisé (PDF)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grille Tarifaire Dégressive par Paliers -->
+    <section id="tarifs" style="background: rgba(14, 14, 24, 0.5);">
+      <div class="container">
+        <div class="section-head">
+          <div class="brand-badge" style="display: inline-block; margin-bottom: 8px;">GRILLE TARIFAIRE DÉGRESSIVE</div>
+          <h2 class="section-title">Plus votre Effectif Grandit, Moins vous Payez</h2>
+          <p class="section-subtitle">
+            Une tarification équitable et transparente sans coût caché : choisissez entre le règlement annuel unique ou le paiement mensuel souple.
+          </p>
+        </div>
+
+        <div class="grid-4" style="gap: 16px;">
+          <div class="card" style="display: flex; flex-direction: column;">
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 10px;">Palier 1</div>
+            <h3 class="item-title" style="font-size: 1.15rem;">100 à 200 Étudiants</h3>
+            <div style="font-size: 1.8rem; font-family: var(--font-display); font-weight: 800; color: #fff; margin: 8px 0;">
+              10 000 <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">FCFA / an</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #fda4af; font-weight: 600; margin-bottom: 12px;">
+              ou 1 000 FCFA / étudiant / mois
+            </div>
+            <p class="item-desc" style="font-size: 0.88rem; margin-bottom: 16px;">Pour les instituts émergents et structures à taille humaine.</p>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 20px;">
+              <li>✓ Les 7 Applications complètes</li>
+              <li>✓ Cartes PVC QR incluses</li>
+              <li>✓ Pointage surveillants & profs</li>
+              <li>✓ Architecture Offline-First</li>
+            </ul>
+            <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20suis%20int%C3%A9ress%C3%A9%20par%20le%20Palier%201" target="_blank" class="btn btn-secondary" style="margin-top: auto; width: 100%; font-size: 0.85rem;">Choisir Palier 1</a>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column;">
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 10px;">Palier 2 (-20%)</div>
+            <h3 class="item-title" style="font-size: 1.15rem;">201 à 500 Étudiants</h3>
+            <div style="font-size: 1.8rem; font-family: var(--font-display); font-weight: 800; color: #fff; margin: 8px 0;">
+              8 000 <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">FCFA / an</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #fda4af; font-weight: 600; margin-bottom: 12px;">
+              ou 800 FCFA / étudiant / mois
+            </div>
+            <p class="item-desc" style="font-size: 0.88rem; margin-bottom: 16px;">Pour les écoles supérieures en forte croissance.</p>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 20px;">
+              <li>✓ Les 7 Applications complètes</li>
+              <li>✓ Cartes PVC QR incluses</li>
+              <li>✓ Pointage surveillants & profs</li>
+              <li>✓ Formation complète sur site</li>
+            </ul>
+            <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20suis%20int%C3%A9ress%C3%A9%20par%20le%20Palier%202" target="_blank" class="btn btn-secondary" style="margin-top: auto; width: 100%; font-size: 0.85rem;">Choisir Palier 2</a>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; border-color: var(--brand-rose); background: linear-gradient(180deg, rgba(28, 28, 46, 0.95) 0%, rgba(14, 14, 24, 0.95) 100%); position: relative;">
+            <div style="position: absolute; top: -11px; right: 12px;" class="brand-badge">Populaire</div>
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 10px;">Palier 3 (-30%)</div>
+            <h3 class="item-title" style="font-size: 1.15rem;">501 à 1 000 Étudiants</h3>
+            <div style="font-size: 1.8rem; font-family: var(--font-display); font-weight: 800; color: #fff; margin: 8px 0;">
+              7 000 <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">FCFA / an</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #fda4af; font-weight: 600; margin-bottom: 12px;">
+              ou 700 FCFA / étudiant / mois
+            </div>
+            <p class="item-desc" style="font-size: 0.88rem; margin-bottom: 16px;">Le choix privilégié des grands instituts universitaires.</p>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 20px;">
+              <li>✓ Les 7 Applications complètes</li>
+              <li>✓ Cartes PVC QR incluses</li>
+              <li>✓ Moteur IA d'audit anti-fraude</li>
+              <li>✓ Support prioritaire continu</li>
+            </ul>
+            <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20suis%20int%C3%A9ress%C3%A9%20par%20le%20Palier%203" target="_blank" class="btn btn-primary" style="margin-top: auto; width: 100%; font-size: 0.85rem;">Choisir Palier 3</a>
+          </div>
+
+          <div class="card" style="display: flex; flex-direction: column; border-color: rgba(147, 51, 234, 0.4);">
+            <div class="brand-badge" style="width: fit-content; margin-bottom: 10px; background: rgba(147, 51, 234, 0.15); border-color: rgba(147, 51, 234, 0.4); color: #d8b4fe;">Palier 4 (-50%)</div>
+            <h3 class="item-title" style="font-size: 1.15rem;">1 001+ Étudiants & Multi-Sites</h3>
+            <div style="font-size: 1.8rem; font-family: var(--font-display); font-weight: 800; color: #fff; margin: 8px 0;">
+              5 000 <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">FCFA / an</span>
+            </div>
+            <div style="font-size: 0.9rem; color: #d8b4fe; font-weight: 600; margin-bottom: 12px;">
+              ou 500 FCFA / étudiant / mois
+            </div>
+            <p class="item-desc" style="font-size: 0.88rem; margin-bottom: 16px;">Pour grandes universités et réseaux de campus multi-sites.</p>
+            <ul style="list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: #cbd5e1; margin-bottom: 20px;">
+              <li>✓ Suite complète 7-en-1 illimitée</li>
+              <li>✓ Multi-campus centralisé</li>
+              <li>✓ Serveur Cloud dédié haute vitesse</li>
+              <li>✓ Accompagnement stratégique DG</li>
+            </ul>
+            <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20suis%20int%C3%A9ress%C3%A9%20par%20le%20Palier%204" target="_blank" class="btn btn-secondary" style="margin-top: auto; width: 100%; font-size: 0.85rem;">Choisir Palier 4</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tableau Comparatif -->
+    <section>
+      <div class="container">
+        <div class="section-head">
+          <h2 class="section-title">Pourquoi HERO System Surpasse l'Existant</h2>
+          <p class="section-subtitle">Comparatif clair avec les registres papier et les logiciels web classiques.</p>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Critère</th>
+                <th>Registres Papier & Fichiers Excel</th>
+                <th>Logiciels Web Conventionnels</th>
+                <th class="highlight-col">HERO SYSTEM</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Résistance aux pannes Internet</strong></td>
+                <td>⚠️ Vulnérable et non synchronisé</td>
+                <td>❌ Bloqué dès la coupure réseau</td>
+                <td class="highlight-col">✅ 100% Fonctionnel Offline-First</td>
+              </tr>
+              <tr>
+                <td><strong>Pointage des présences (Campus & Cours)</strong></td>
+                <td>❌ Feuilles papier signées par des tiers</td>
+                <td>❌ Saisie manuelle rébarbative</td>
+                <td class="highlight-col">✅ Scan QR Code Surveillant + Professeur</td>
+              </tr>
+              <tr>
+                <td><strong>Suivi de présence par les parents</strong></td>
+                <td>❌ Aucune visibilité</td>
+                <td>❌ Inexistant</td>
+                <td class="highlight-col">✅ Portail 24/7 en direct sur smartphone</td>
+              </tr>
+              <tr>
+                <td><strong>Lutte contre le coulage de caisse</strong></td>
+                <td>❌ Reçus manuels falsifiables</td>
+                <td>⚠️ Rapprochement tardif</td>
+                <td class="highlight-col">✅ Verrouillage croisé caisse/examens</td>
+              </tr>
+              <tr>
+                <td><strong>Intégrité absolue des notes</strong></td>
+                <td>❌ Falsification sans trace</td>
+                <td>⚠️ Piste d'audit incomplète</td>
+                <td class="highlight-col">✅ Piste d'audit inviolable milliseconde</td>
+              </tr>
+              <tr>
+                <td><strong>Effort financier pour l'institut</strong></td>
+                <td>Pertes de caisse massives</td>
+                <td>15 à 40 millions FCFA</td>
+                <td class="highlight-col">✅ 100% Autofinancé par l'étudiant</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to action Direct WhatsApp & Téléphone -->
+    <section id="contact" style="text-align: center;">
+      <div class="container">
+        <div class="card" style="padding: clamp(36px, 6vw, 64px) clamp(20px, 4vw, 40px); max-width: 860px; margin: 0 auto; border-color: var(--border-brand); background: radial-gradient(circle at center, rgba(244, 63, 94, 0.1) 0%, rgba(14, 14, 24, 0.95) 70%);">
+          <div class="brand-badge" style="display: inline-block; margin-bottom: 16px;">Prêt pour Déploiement Immédiat</div>
+          <h2 style="font-family: var(--font-display); font-size: clamp(2rem, 4vw, 2.7rem); font-weight: 900; margin-bottom: 16px;">
+            Faites Entrer Votre Établissement dans l'Ère de l'Excellence
+          </h2>
+          <p style="color: var(--text-secondary); font-size: clamp(0.98rem, 1.3vw, 1.15rem); max-width: 620px; margin: 0 auto 16px auto;">
+            HERO System est opérationnel et validé. Téléchargez la plaquette officielle ou échangez directement avec notre équipe technique.
+          </p>
+
+          <div style="margin-bottom: 28px; font-size: 1.05rem; color: #fff;">
+            ✉️ Email officiel : <strong style="color: #fda4af;">heroservices12@gmail.com</strong><br>
+            📞 Ligne directe & WhatsApp : <strong style="color: #fff; font-size: 1.2rem;">+242 06 734 93 69</strong>
+          </div>
+
+          <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
+            <a href="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" download="HERO_SYSTEM_PLAQUETTE_OFFICIELLE.pdf" class="btn btn-secondary" style="padding: 14px 28px; font-size: 1rem; text-decoration: none;">
+              <i data-lucide="download" style="width: 18px; height: 18px;"></i>
+              Télécharger la Plaquette (PDF)
+            </a>
+            <a href="https://wa.me/242067349369?text=Bonjour%20HERO%20SERVICES,%20je%20souhaite%20r%C3%A9server%20une%20d%C3%A9monstration%20de%20HERO%20System" target="_blank" class="btn btn-primary" style="padding: 14px 28px; font-size: 1rem; text-decoration: none;">
+              <i data-lucide="phone-forwarded" style="width: 18px; height: 18px;"></i>
+              Demander une Démonstration (+242 06 734 93 69)
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer style="border-top: 1px solid var(--border-subtle); padding: 26px 0; text-align: center; color: var(--text-muted); font-size: 0.88rem;" class="no-print">
+    <div class="container">
+      <p>© 2026 HERO SERVICES — HERO System. Tous droits réservés. · Email : heroservices12@gmail.com · Contact : +242 06 734 93 69</p>
+    </div>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+
+    function toggleMenu() {
+      const menu = document.getElementById('mobile-menu');
+      menu.classList.toggle('open');
+    }
+
+    let currentMode = 'annuel'; // 'annuel' ou 'mensuel'
+
+    function setMode(mode) {
+      currentMode = mode;
+      const btnAnnuel = document.getElementById('btn-mode-annuel');
+      const btnMensuel = document.getElementById('btn-mode-mensuel');
+
+      if (mode === 'annuel') {
+        btnAnnuel.classList.add('active');
+        btnMensuel.classList.remove('active');
+
+        const feeInput = document.getElementById('fee-input');
+        feeInput.min = 8000;
+        feeInput.max = 25000;
+        feeInput.step = 1000;
+        feeInput.value = 15000;
+
+        document.getElementById('fee-title-label').innerText = "Frais répercutés à chaque étudiant par l'école (Annuel) :";
+        document.getElementById('fee-explanation').innerText = "Généralement inclus dans les frais d'inscription technique (carte PVC + portail + scolarité numérique).";
+        document.getElementById('kpi-total-label').innerText = "Total annuel perçu par l'école";
+        document.getElementById('kpi-hero-label').innerText = "Reversé à HERO SERVICES";
+        document.getElementById('kpi-profit-label').innerText = "Bénéfice Net annuel conservé par l'École";
+      } else {
+        btnMensuel.classList.add('active');
+        btnAnnuel.classList.remove('active');
+
+        const feeInput = document.getElementById('fee-input');
+        feeInput.min = 800;
+        feeInput.max = 2500;
+        feeInput.step = 100;
+        feeInput.value = 1500;
+
+        document.getElementById('fee-title-label').innerText = "Frais répercutés à chaque étudiant par l'école (Mensuel) :";
+        document.getElementById('fee-explanation').innerText = "Intégré directement dans les mensualités de scolarité de chaque étudiant.";
+        document.getElementById('kpi-total-label').innerText = "Total mensuel perçu par l'école";
+        document.getElementById('kpi-hero-label').innerText = "Reversé à HERO SERVICES";
+        document.getElementById('kpi-profit-label').innerText = "Bénéfice Net mensuel conservé par l'École";
+      }
+
+      updateSim();
+    }
+
+    function getUnitCost(students) {
+      if (students <= 200) {
+        return { annuel: 10000, mensuel: 1000, label: "Palier 1 (100-200 étudiants) : 10 000 FCFA / étudiant" };
+      } else if (students <= 500) {
+        return { annuel: 8000, mensuel: 800, label: "Palier 2 (201-500 étudiants) : 8 000 FCFA / étudiant (-20%)" };
+      } else if (students <= 1000) {
+        return { annuel: 7000, mensuel: 700, label: "Palier 3 (501-1 000 étudiants) : 7 000 FCFA / étudiant (-30%)" };
+      } else {
+        return { annuel: 5000, mensuel: 500, label: "Palier 4 (1 001+ étudiants & Multi-Sites) : 5 000 FCFA / étudiant (-50%)" };
+      }
+    }
+
+    function updateSim() {
+      const students = parseInt(document.getElementById('students-input').value, 10);
+      const fee = parseInt(document.getElementById('fee-input').value, 10);
+      const tierInfo = getUnitCost(students);
+
+      document.getElementById('students-val').innerText = students.toLocaleString('fr-FR') + ' étudiants';
+      document.getElementById('tier-badge-ui').innerText = tierInfo.label;
+
+      if (currentMode === 'annuel') {
+        document.getElementById('fee-val').innerText = fee.toLocaleString('fr-FR') + ' FCFA / an';
+        
+        const totalRevenue = students * fee;
+        const heroCost = students * tierInfo.annuel;
+        const profit = totalRevenue - heroCost;
+
+        document.getElementById('res-total').innerText = totalRevenue.toLocaleString('fr-FR') + ' FCFA';
+        document.getElementById('res-cost').innerText = heroCost.toLocaleString('fr-FR') + ' FCFA (' + tierInfo.annuel.toLocaleString('fr-FR') + ' F/ét)';
+
+        const profitEl = document.getElementById('res-profit');
+        if (profit >= 0) {
+          profitEl.innerText = '+ ' + profit.toLocaleString('fr-FR') + ' FCFA';
+          profitEl.style.color = '#fff';
+        } else {
+          profitEl.innerText = profit.toLocaleString('fr-FR') + ' FCFA';
+          profitEl.style.color = '#f87171';
+        }
+
+        document.getElementById('sim-summary-text').innerHTML = 
+          "✨ Bilan Annuel : L'école est 100% digitalisée, élimine les fuites de caisse et dégage <strong>" + profit.toLocaleString('fr-FR') + " FCFA de bénéfice net par an</strong>.";
+      } else {
+        document.getElementById('fee-val').innerText = fee.toLocaleString('fr-FR') + ' FCFA / mois';
+        
+        const totalRevenue = students * fee;
+        const heroCost = students * tierInfo.mensuel;
+        const profit = totalRevenue - heroCost;
+
+        document.getElementById('res-total').innerText = totalRevenue.toLocaleString('fr-FR') + ' FCFA / mois';
+        document.getElementById('res-cost').innerText = heroCost.toLocaleString('fr-FR') + ' FCFA / mois (' + tierInfo.mensuel.toLocaleString('fr-FR') + ' F/ét)';
+
+        const profitEl = document.getElementById('res-profit');
+        if (profit >= 0) {
+          profitEl.innerText = '+ ' + profit.toLocaleString('fr-FR') + ' FCFA / mois';
+          profitEl.style.color = '#fff';
+        } else {
+          profitEl.innerText = profit.toLocaleString('fr-FR') + ' FCFA / mois';
+          profitEl.style.color = '#f87171';
+        }
+
+        document.getElementById('sim-summary-text').innerHTML = 
+          "✨ Bilan Mensuel : Zéro pression sur la trésorerie. L'école dégage <strong>" + profit.toLocaleString('fr-FR') + " FCFA de bénéfice net chaque mois</strong> (soit " + (profit * 10).toLocaleString('fr-FR') + " FCFA sur 10 mois !).";
+      }
+    }
+
+    function downloadCustomQuote() {
+      const students = parseInt(document.getElementById('students-input').value, 10);
+      const fee = parseInt(document.getElementById('fee-input').value, 10);
+      const tierInfo = getUnitCost(students);
+      const isAnnual = currentMode === 'annuel';
+      
+      const unitCost = isAnnual ? tierInfo.annuel : tierInfo.mensuel;
+      const totalRevenue = students * fee;
+      const heroCost = students * unitCost;
+      const profit = totalRevenue - heroCost;
+      const freqLabel = isAnnual ? "/ an" : "/ mois";
+      const totalLabel = isAnnual ? "Annuel" : "Mensuel";
+
+      const quoteHtml = `
+      <!DOCTYPE html>
+      <html lang="fr">
+      <head>
+        <meta charset="UTF-8">
+        <title>Devis Personnalisé HERO System</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #0f172a; margin: 0; padding: 20px; font-size: 11pt; }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f43f5e; padding-bottom: 12px; margin-bottom: 24px; }
+          .logo { width: 50px; height: 50px; border-radius: 10px; object-fit: cover; }
+          h1 { margin: 0; font-size: 20pt; color: #0f172a; }
+          h1 span { color: #f43f5e; }
+          .meta { text-align: right; font-size: 9pt; color: #64748b; }
+          .highlight-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 10pt; }
+          th { background: #0f172a; color: #fff; padding: 10px; text-align: left; }
+          td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+          .price { font-weight: bold; color: #e11d48; }
+          .profit-box { background: #ecfdf5; border: 2px solid #10b981; border-radius: 10px; padding: 16px; text-align: center; margin: 20px 0; }
+          .profit-val { font-size: 20pt; font-weight: bold; color: #059669; }
+          .footer { margin-top: 40px; border-top: 1px solid #cbd5e1; padding-top: 10px; font-size: 8pt; color: #64748b; text-align: center; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1>HERO <span>SYSTEM</span></h1>
+            <div style="font-size: 9pt; color: #64748b; font-weight: 600;">HERO SERVICES · Technologies Académiques de Gouvernance</div>
+          </div>
+          <div class="meta">
+            <strong>DEVIS & ÉTUDE DE RENTABILITÉ PERSONNALISÉE</strong><br>
+            Date : ${new Date().toLocaleDateString('fr-FR')}<br>
+            Email : heroservices12@gmail.com · Tél/WhatsApp : +242 06 734 93 69
+          </div>
+        </div>
+
+        <div class="highlight-box">
+          <h3 style="margin-top: 0; color: #0f172a;">Paramètres de l'Établissement</h3>
+          <p style="margin: 4px 0;">• <strong>Effectif étudiant configuré :</strong> ${students.toLocaleString('fr-FR')} étudiants</p>
+          <p style="margin: 4px 0;">• <strong>Palier appliqué :</strong> ${tierInfo.label}</p>
+          <p style="margin: 4px 0;">• <strong>Modalité de paiement :</strong> ${isAnnual ? 'Paiement Annuel Unique à l\'inscription' : 'Paiement Mensuel Souple (sur l\'année académique)'}</p>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Désignation</th>
+              <th>Base Unitaire</th>
+              <th>Total ${totalLabel}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Recettes prévisionnelles collectées par l'École</strong><br><small style="color: #64748b;">Frais techniques répercutés à chaque étudiant</small></td>
+              <td>${fee.toLocaleString('fr-FR')} FCFA ${freqLabel}</td>
+              <td class="price">${totalRevenue.toLocaleString('fr-FR')} FCFA</td>
+            </tr>
+            <tr>
+              <td><strong>Licence HERO SERVICES (Suite 7-en-1 Complète)</strong><br><small style="color: #64748b;">Applications DG, DAC, Secrétariat, Comptable, Surveillance, Studio Badges PVC et Portail Web</small></td>
+              <td>${unitCost.toLocaleString('fr-FR')} FCFA ${freqLabel}</td>
+              <td class="price">${heroCost.toLocaleString('fr-FR')} FCFA</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="profit-box">
+          <div style="font-size: 11pt; font-weight: 600; color: #065f46;">BÉNÉFICE NET CONSERVÉ PAR VOTRE INSTITUT (${totalLabel.toUpperCase()})</div>
+          <div class="profit-val">+ ${profit.toLocaleString('fr-FR')} FCFA ${freqLabel}</div>
+          <div style="font-size: 9pt; color: #047857; margin-top: 4px;">
+            ✨ Votre établissement est 100% digitalisé, sécurisé contre toute fuite de caisse, et génère un gain net direct sans débourser de trésorerie propre !
+          </div>
+        </div>
+
+        <div style="font-size: 9pt; color: #475569; margin-top: 20px;">
+          <strong>Prestations incluses dans ce devis :</strong><br>
+          1. Déploiement complet des 7 applications (Architecture Offline-First insensible aux coupures Internet)<br>
+          2. Cartes d'étudiants PVC haute sécurité avec QR Code infalsifiable fournies pour tout l'effectif<br>
+          3. Pointage automatique des présences par QR Code : aux portails (surveillants) et par matière en classe (professeurs)<br>
+          4. Accès au portail web mobile 24/7 pour les étudiants et tuteurs légaux (suivi assiduité et notes)<br>
+          5. Formation sur site du personnel (DAC, Secrétariat, Caisse, Surveillance)<br>
+          6. Mises à jour logicielles et support technique permanent
+        </div>
+
+        <div class="footer">
+          HERO SERVICES · Département Ingénierie & Systèmes Académiques · Email : heroservices12@gmail.com · WhatsApp / Tél : +242 06 734 93 69
+        </div>
+
+        <script>
+          window.onload = function() { window.print(); };
+        <\/script>
+      </body>
+      </html>
+      `;
+
+      const quoteWindow = window.open('', '_blank');
+      quoteWindow.document.write(quoteHtml);
+      quoteWindow.document.close();
+    }
+
+    updateSim();
+  </script>
+</body>
+</html>
