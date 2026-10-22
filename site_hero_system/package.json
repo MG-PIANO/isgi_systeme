@@ -1,0 +1,11 @@
+{
+  "name": "hero-system-landing",
+  "version": "1.0.0",
+  "description": "HERO System — L'Écosystème Universitaire Intelligent Propulsé par l'IA",
+  "scripts": {
+    "start": "serve ."
+  },
+  "keywords": ["hero-system", "lms", "university", "academic-management"],
+  "author": "HERO SERVICES",
+  "license": "MIT"
+}
